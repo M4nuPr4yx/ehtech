@@ -1,0 +1,28 @@
+import { Poppins } from "next/font/google";
+import "./globals.css";
+
+const poppins = Poppins({ 
+  subsets: ["latin"],
+  variable: "--font-poppins",
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+export const metadata = {
+  title: "EHtech",
+  description: "Plataforma de compra, venda e troca de produtos de tecnologia",
+};
+
+import Header from "./complements/Header";
+import Footer from "./complements/Footer";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="pt-BR">
+      <body className={`${poppins.variable} antialiased bg-black text-white`}>
+        <Header />
+        <main>{children}</main>
+        <Footer />
+      </body>
+    </html>
+  );
+}

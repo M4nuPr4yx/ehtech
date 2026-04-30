@@ -41,87 +41,41 @@ export default function Header() {
       <header className="bg-black/95 backdrop-blur-md shadow-lg sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-[#ABDB25]">
-              EHtech
-            </Link>
+            <Link href="/" className="text-2xl font-bold text-[#ABDB25]">EHtech</Link>
             <div className="flex items-center space-x-4">
               <nav className="hidden md:flex space-x-6">
-                <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">
-                  Início
-                </Link>
-                <Link href="/sobre" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">
-                  Sobre nós
-                </Link>
+                <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Início</Link>
+                <Link href="/sobre" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Sobre nós</Link>
               </nav>
-              {/* Buttons */}
-              <button 
-                onClick={() => { setActiveTab('cadastro'); setModalOpen(true); }}
-                className="px-6 py-2 bg-[#ABDB25] text-black font-bold rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-sm"
-              >
-                Cadastro
-              </button>
-              <button 
-                onClick={() => { setActiveTab('login'); setModalOpen(true); }}
-                className="px-6 py-2 border-2 border-[#ABDB25]/50 text-[#ABDB25] font-bold rounded-full hover:bg-[#ABDB25] hover:text-black transition-all duration-300 text-sm"
-              >
-                Login
-              </button>
+              <button onClick={() => { setActiveTab('cadastro'); setModalOpen(true); }} className="px-6 py-2 bg-[#ABDB25] text-black font-bold rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-sm">Cadastro</button>
+              <button onClick={() => { setActiveTab('login'); setModalOpen(true); }} className="px-6 py-2 border-2 border-[#ABDB25]/50 text-[#ABDB25] font-bold rounded-full hover:bg-[#ABDB25] hover:text-black transition-all duration-300 text-sm">Login</button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Modal */}
       {modalOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-            <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex mb-6">
-                <button 
-                  onClick={() => { setActiveTab('login'); setMessage(''); }}
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${activeTab === 'login' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}
-                >
-                  Login
-                </button>
-                <button 
-                  onClick={() => { setActiveTab('cadastro'); setMessage(''); }}
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ml-2 ${activeTab === 'cadastro' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}
-                >
-                  Cadastro
-                </button>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Senha"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
-                  required
-                />
-                <button 
-                  type="submit"
-                  className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black font-bold text-lg rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-                >
-                  {activeTab === 'login' ? 'Entrar' : 'Cadastrar'}
-                </button>
-              </form>
-              {message && (
-                <p className={`mt-4 p-3 rounded-xl text-center font-bold ${message.includes('sucesso') || message.includes('liberado') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
-                  {message}
-                </p>
-              )}
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
+          <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex mb-6">
+              <button onClick={() => { setActiveTab('login'); setMessage(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${activeTab === 'login' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}>Login</button>
+              <button onClick={() => { setActiveTab('cadastro'); setMessage(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ml-2 ${activeTab === 'cadastro' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}>Cadastro</button>
             </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
+              <input type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
+              <button type="submit" className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black font-bold text-lg rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">{activeTab === 'login' ? 'Entrar' : 'Cadastrar'}</button>
+              {activeTab === 'login' && (
+                <div className="text-center mt-2">
+                  <Link href="/esqueci-senha" onClick={() => setModalOpen(false)} className="text-sm text-[#ABDB25] hover:underline">Esqueci minha senha?</Link>
+                </div>
+              )}
+            </form>
+            {message && (
+              <p className={`mt-4 p-3 rounded-xl text-center font-bold ${message.includes('sucesso') || message.includes('liberado') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>{message}</p>
+            )}
           </div>
-        </>
+        </div>
       )}
     </>
   );

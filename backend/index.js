@@ -22,6 +22,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 const pool = require('./db')
 
 function autenticarToken(req, res, next) {
+<<<<<<< HEAD
   console.log('[auth] Headers:', req.headers);
   const authHeader = req.headers["authorization"];
   console.log('[auth] Auth header:', authHeader ? 'present' : 'missing');
@@ -70,6 +71,17 @@ function autenticarToken(req, res, next) {
       return res.status(403).json({ error: "Token inválido: " + err.message });
     }
     console.log('[auth] Token valid, user:', user);
+=======
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) {
+    return res.status(401).json({ error: "Token não fornecido" });
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, api_chave, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Token inválido" });
+    }
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
     req.user = user;
     next();
   });
@@ -132,6 +144,7 @@ app.post("/login", async (req, res) => {
     const validou = await bcrypt.compare(senha, rows[0].senha)
     if (!validou) return res.json({ mensagem: "Senha inválida" })
 
+<<<<<<< HEAD
 const token = jwt.sign({ 
       id: rows[0].id_usuario, 
       username: rows[0].username, 
@@ -146,6 +159,10 @@ res.json({
       userId: rows[0].id_usuario,
       foto: rows[0].foto || null
     })
+=======
+    const token = jwt.sign({ email, role: rows[0].role }, api_chave, { expiresIn: "1h" })
+    res.json({ mensagem: "Login OK", token })
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
   } catch (error) {
     console.log(error)
     res.json({ mensagem: "Erro login" })
@@ -229,6 +246,7 @@ app.get("/produtos/meus", autenticarToken, async (req, res) => {
 })
 
 app.post("/produtos", autenticarToken, async (req, res) => {
+<<<<<<< HEAD
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
   
   // Validação mais robusta
@@ -291,12 +309,29 @@ try {
     console.error('[produtos] Error:', error.message)
     console.error('[produtos] Stack:', error.stack)
     res.status(500).json({ mensagem: "Erro cadastrar produto: " + error.message })
+=======
+  const { nome, descricao, preco, estoque, categoria } = req.body
+  if (!nome || preco === undefined) return res.status(400).json({ mensagem: "Nome e preço são obrigatórios" })
+  try {
+    await pool.execute(
+      'INSERT INTO produtos (nome, descricao, preco, estoque, categoria, vendedor) VALUES (?, ?, ?, ?, ?, ?)',
+      [nome, descricao, preco, estoque || 0, categoria, req.user.email]
+    )
+    res.json({ mensagem: "Produto cadastrado!" })
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: "Erro cadastrar produto" })
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
   }
 })
 
 app.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
+<<<<<<< HEAD
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
+=======
+  const { nome, descricao, preco, estoque, categoria } = req.body
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
   try {
     const [rows] = await pool.execute('SELECT vendedor FROM produtos WHERE id_produto = ?', [id])
     if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
@@ -306,12 +341,18 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
       return res.status(403).json({ mensagem: "Acesso negado" })
     }
 
+<<<<<<< HEAD
     // Handle imagem - allow updating it
     const imagemValue = imagem !== undefined ? String(imagem) : null;
     
     await pool.execute(
       'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ? WHERE id_produto = ?',
       [nome, descricao, preco, estoque, categoria, imagemValue, id]
+=======
+    await pool.execute(
+      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ? WHERE id_produto = ?',
+      [nome, descricao, preco, estoque, categoria, id]
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
     )
     res.json({ mensagem: "Produto atualizado" })
   } catch (error) {
@@ -323,11 +364,19 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
 app.delete("/produtos/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
   try {
+<<<<<<< HEAD
     const [rows] = await pool.execute('SELECT vendedor_id FROM produtos WHERE id_produto = ?', [id])
     if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
 
     const isAdmin = req.user.role === 'admin'
     if (rows[0].vendedor_id !== req.user.id && !isAdmin) {
+=======
+    const [rows] = await pool.execute('SELECT vendedor FROM produtos WHERE id_produto = ?', [id])
+    if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
+
+    const isAdmin = req.user.role === 'admin'
+    if (rows[0].vendedor !== req.user.email && !isAdmin) {
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
       return res.status(403).json({ mensagem: "Acesso negado" })
     }
 
@@ -339,6 +388,7 @@ app.delete("/produtos/:id", autenticarToken, async (req, res) => {
   }
 })
 
+<<<<<<< HEAD
 // ============== AVALIAÇÕES ==============
 
 // Criar avaliação
@@ -423,6 +473,8 @@ app.get("/avaliacoes/usuario/:id", async (req, res) => {
   }
 })
 
+=======
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
 app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
   const { id } = req.params
   const { novaSenha } = req.body
@@ -437,6 +489,7 @@ app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
   }
 })
 
+<<<<<<< HEAD
 // ============== PERFIL DO USUÁRIO ==============
 
 app.get("/perfil", autenticarToken, async (req, res) => {
@@ -530,6 +583,8 @@ app.put("/perfil/email", autenticarToken, async (req, res) => {
   }
 })
 
+=======
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
 // ============== REDEFINIÇÃO DE SENHA ==============
 
 const emailEnabled = !!(process.env.SMTP_HOST && process.env.SMTP_USER)
@@ -663,6 +718,7 @@ app.listen(porta, () => {
   `)
     .then(() => console.log('Tabela password_resets OK'))
     .catch(err => console.error('Erro ao criar tabela password_resets:', err.message))
+<<<<<<< HEAD
 
   // Add columns to usuarios table if not exist
   pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nome VARCHAR(255)`)
@@ -707,6 +763,8 @@ pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS username VARCHAR(50)
   `)
     .then(() => console.log('Tabela avaliacoes OK'))
     .catch(err => console.error('Erro ao criar tabela avaliacoes:', err.message))
+=======
+>>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
 })
 
 console.log('Routes OK: /login /cadastro /produtos /admin/* /esqueci-senha /redefinir-senha')

@@ -5,65 +5,79 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
+const path = require('path')
+const fs = require('fs')
 const porta = 3000
 const app = express()
 require('dotenv').config()
 
-const api_chave = process.env.API_SEGREDO || 'defaultsecret'
-console.log('API Secret:', api_chave ? 'OK' : 'FALTA .env')
-
+// CORS deve vir ANTES das rotas
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
+
+// Criar diretório de uploads se não existir
+const uploadsDir = path.join(__dirname, 'uploads')
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
+  console.log('[init] Diretório uploads criado')
+}
+
+// Servir arquivos estáticos de uploads
+app.use('/uploads', express.static(uploadsDir))
+
+// Importar rotas de upload
+const uploadRoutes = require('./routes/upload')
+app.use('/upload', uploadRoutes)
+
+const api_chave = process.env.API_SEGREDO || 'defaultsecret'
+console.log('API Secret:', api_chave ? 'OK' : 'FALTA .env')
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 const pool = require('./db')
 
 function autenticarToken(req, res, next) {
-<<<<<<< HEAD
   console.log('[auth] Headers:', req.headers);
   const authHeader = req.headers["authorization"];
   console.log('[auth] Auth header:', authHeader ? 'present' : 'missing');
-  
+
   if (!authHeader) {
     console.log('[auth] No token provided');
     return res.status(401).json({ error: "Token não fornecido" });
   }
-  
+
   const parts = authHeader.split(" ");
   if (parts.length !== 2) {
     console.log('[auth] Invalid auth header format - expected "Bearer <token>"');
     return res.status(401).json({ error: "Formato de token inválido. Use: Bearer <token>" });
   }
-  
+
   const token = parts[1];
   console.log('[auth] Token prefix:', parts[0]);
   console.log('[auth] Verifying token...');
-  
-  // Debug: try to decode without verification first to see payload
+
   try {
     const decoded = jwt.decode(token);
     console.log('[auth] Token payload (decoded):', decoded);
   } catch (decodeErr) {
     console.log('[auth] Could not decode token:', decodeErr.message);
   }
-  
+
   jwt.verify(token, api_chave, (err, user) => {
     if (err) {
       console.log('[auth] Token verification error:', err.name, err.message);
-      // Check specific error types
       if (err.name === 'TokenExpiredError') {
         console.log('[auth] Token expired at:', err.expiredAt);
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Token expirado. Faça login novamente.",
           code: 'TOKEN_EXPIRED'
         });
       }
       if (err.name === 'JsonWebTokenError') {
         console.log('[auth] Invalid token signature or format');
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Token inválido. Faça login novamente.",
           code: 'INVALID_TOKEN'
         });
@@ -71,17 +85,6 @@ function autenticarToken(req, res, next) {
       return res.status(403).json({ error: "Token inválido: " + err.message });
     }
     console.log('[auth] Token valid, user:', user);
-=======
-  const authHeader = req.headers["authorization"];
-  if (!authHeader) {
-    return res.status(401).json({ error: "Token não fornecido" });
-  }
-  const token = authHeader.split(" ")[1];
-  jwt.verify(token, api_chave, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: "Token inválido" });
-    }
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
     req.user = user;
     next();
   });
@@ -91,7 +94,7 @@ const verifyAdmin = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '')
     if (!token) return res.status(401).json({ mensagem: 'Token requerido' })
-    
+
     const decoded = jwt.verify(token, api_chave)
     const [rows] = await pool.execute('SELECT role FROM usuarios WHERE email = ?', [decoded.email])
     if (rows.length === 0 || rows[0].role !== 'admin') {
@@ -111,18 +114,16 @@ app.post("/cadastro", async (req, res) => {
   if (!senha || senha.length < 4) return res.json({ mensagem: "Senha mínimo 4 dígitos!" })
 
   try {
-    // Check if username already exists
-const [existingUser] = await pool.execute('SELECT id_usuario FROM usuarios WHERE username = ?', [username])
+    const [existingUser] = await pool.execute('SELECT id_usuario FROM usuarios WHERE username = ?', [username])
     if (existingUser.length > 0) {
       return res.json({ mensagem: "Nome de usuário já está em uso!" })
     }
-    
-    // Check if email already exists
-const [existingEmail] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', [email])
+
+    const [existingEmail] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', [email])
     if (existingEmail.length > 0) {
       return res.json({ mensagem: "E-mail já está em uso!" })
     }
-    
+
     const hash = await bcrypt.hash(senha, 10)
     await pool.execute(
       "INSERT INTO usuarios (username, email, senha, role) VALUES (?, ?, ?, 'user')",
@@ -144,25 +145,20 @@ app.post("/login", async (req, res) => {
     const validou = await bcrypt.compare(senha, rows[0].senha)
     if (!validou) return res.json({ mensagem: "Senha inválida" })
 
-<<<<<<< HEAD
-const token = jwt.sign({ 
-      id: rows[0].id_usuario, 
-      username: rows[0].username, 
+    const token = jwt.sign({
+      id: rows[0].id_usuario,
+      username: rows[0].username,
       email: rows[0].email,
-      role: rows[0].role 
+      role: rows[0].role
     }, api_chave, { expiresIn: "1h" })
-res.json({ 
-      mensagem: "Login OK", 
+    res.json({
+      mensagem: "Login OK",
       token,
       username: rows[0].username,
       email: rows[0].email,
       userId: rows[0].id_usuario,
       foto: rows[0].foto || null
     })
-=======
-    const token = jwt.sign({ email, role: rows[0].role }, api_chave, { expiresIn: "1h" })
-    res.json({ mensagem: "Login OK", token })
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
   } catch (error) {
     console.log(error)
     res.json({ mensagem: "Erro login" })
@@ -174,7 +170,7 @@ app.post("/admin/login", async (req, res) => {
   if (email !== 'admin@ehtech.com' || senha !== 'admin123') {
     return res.json({ mensagem: "Credenciais admin inválidas" })
   }
-  
+
   try {
     const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [email])
     if (rows.length === 0) {
@@ -183,7 +179,7 @@ app.post("/admin/login", async (req, res) => {
     } else if (rows[0].role !== 'admin') {
       await pool.execute('UPDATE usuarios SET role="admin" WHERE email = ?', [email])
     }
-    
+
     const token = jwt.sign({ email, role: 'admin' }, api_chave, { expiresIn: "24h" })
     res.json({ mensagem: "Admin login OK", token })
   } catch (error) {
@@ -225,6 +221,20 @@ app.delete("/admin/users/:id", verifyAdmin, async (req, res) => {
   }
 })
 
+app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
+  const { id } = req.params
+  const { novaSenha } = req.body
+  if (!novaSenha || novaSenha.length < 7) return res.status(400).json({ mensagem: "Senha mínimo 7 dígitos" })
+  try {
+    const hash = await bcrypt.hash(novaSenha, 10)
+    await pool.execute('UPDATE usuarios SET senha = ? WHERE id_usuario = ?', [hash, id])
+    res.json({ mensagem: "Senha alterada com sucesso" })
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: "Erro alterar senha" })
+  }
+})
+
 app.get("/produtos", autenticarToken, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM produtos')
@@ -246,10 +256,8 @@ app.get("/produtos/meus", autenticarToken, async (req, res) => {
 })
 
 app.post("/produtos", autenticarToken, async (req, res) => {
-<<<<<<< HEAD
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
-  
-  // Validação mais robusta
+
   if (!nome || nome.trim() === '') {
     return res.status(400).json({ mensagem: "Nome é obrigatório" })
   }
@@ -262,12 +270,11 @@ app.post("/produtos", autenticarToken, async (req, res) => {
   if (!categoria || categoria.trim() === '') {
     return res.status(400).json({ mensagem: "Categoria é obrigatória" })
   }
-  
-try {
+
+  try {
     console.log('[produtos] Received:', { nome, descricao, preco, estoque, categoria, imagem: imagem ? 'sim' : 'não' })
     console.log('[produtos] User:', req.user.id, req.user.username)
-    
-// Ensure all values are properly converted - handle empty/undefined values
+
     const imagemValue = (!imagem || imagem === '' || imagem === undefined) ? '' : String(imagem);
     const nomeValue = nome ? String(nome).trim() : '';
     const descricaoValue = descricao ? String(descricao).trim() : '';
@@ -275,17 +282,18 @@ try {
     const precoValue = parseFloat(preco) || 0;
     const estoqueValue = (!estoque || estoque === undefined) ? 0 : parseInt(estoque);
     const vendedorValue = (req.user && (req.user.username || req.user.email)) ? String(req.user.username || req.user.email) : '';
-    // Use 0 instead of null for undefined/vendedor_id to avoid bind parameter errors
     let vendedorIdValue = 0;
     if (req.user && req.user.id) {
       const parsed = parseInt(req.user.id);
       vendedorIdValue = isNaN(parsed) ? 0 : parsed;
     }
-    
+
     console.log('[produtos] Debug - user:', req.user);
-    console.log('[produtos] Debug - values:', { nomeValue, descricaoValue, precoValue, estoqueValue, categoriaValue, imagemValue: imagemValue ? 'present' : 'null', vendedorValue, vendedorIdValue });
-    
-    // Validate converted values before inserting
+    console.log('[produtos] Debug - values:', {
+      nomeValue, descricaoValue, precoValue, estoqueValue, categoriaValue,
+      imagemValue: imagemValue ? 'present' : 'null', vendedorValue, vendedorIdValue
+    });
+
     if (!nomeValue || nomeValue.trim() === '') {
       return res.status(400).json({ mensagem: "Nome é obrigatório" });
     }
@@ -298,7 +306,7 @@ try {
     if (!categoriaValue || categoriaValue.trim() === '') {
       return res.status(400).json({ mensagem: "Categoria é obrigatória" });
     }
-    
+
     const result = await pool.execute(
       'INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       [nomeValue, descricaoValue, precoValue, estoqueValue, categoriaValue, imagemValue, vendedorValue, vendedorIdValue]
@@ -309,54 +317,42 @@ try {
     console.error('[produtos] Error:', error.message)
     console.error('[produtos] Stack:', error.stack)
     res.status(500).json({ mensagem: "Erro cadastrar produto: " + error.message })
-=======
-  const { nome, descricao, preco, estoque, categoria } = req.body
-  if (!nome || preco === undefined) return res.status(400).json({ mensagem: "Nome e preço são obrigatórios" })
-  try {
-    await pool.execute(
-      'INSERT INTO produtos (nome, descricao, preco, estoque, categoria, vendedor) VALUES (?, ?, ?, ?, ?, ?)',
-      [nome, descricao, preco, estoque || 0, categoria, req.user.email]
-    )
-    res.json({ mensagem: "Produto cadastrado!" })
-  } catch (error) {
-    console.log(error)
-    res.status(500).json({ mensagem: "Erro cadastrar produto" })
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
   }
 })
 
 app.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
-<<<<<<< HEAD
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
-=======
-  const { nome, descricao, preco, estoque, categoria } = req.body
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
   try {
-    const [rows] = await pool.execute('SELECT vendedor FROM produtos WHERE id_produto = ?', [id])
+    // Verificar se produto existe
+    const [rows] = await pool.execute('SELECT vendedor, vendedor_id FROM produtos WHERE id_produto = ?', [id])
     if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
 
     const isAdmin = req.user.role === 'admin'
-    if (rows[0].vendedor !== req.user.email && !isAdmin) {
+    const isOwner = rows[0].vendedor === req.user.email || rows[0].vendedor_id === req.user.id
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ mensagem: "Acesso negado" })
     }
 
-<<<<<<< HEAD
-    // Handle imagem - allow updating it
-    const imagemValue = imagem !== undefined ? String(imagem) : null;
-    
+    // Processar imagem - permitir string vazia para remover
+    let imagemValue = null;
+    if (imagem !== undefined && imagem !== null && imagem !== '') {
+      // Validar que é base64 ou URL válida
+      const trimmed = String(imagem).trim();
+      if (trimmed.startsWith('data:image/') || trimmed.startsWith('http') || trimmed.startsWith('/')) {
+        imagemValue = trimmed;
+      }
+    }
+
+    console.log('[produtos/update] imagem value:', imagemValue ? 'presente' : 'null/vazia');
+
     await pool.execute(
       'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ? WHERE id_produto = ?',
       [nome, descricao, preco, estoque, categoria, imagemValue, id]
-=======
-    await pool.execute(
-      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ? WHERE id_produto = ?',
-      [nome, descricao, preco, estoque, categoria, id]
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
     )
     res.json({ mensagem: "Produto atualizado" })
   } catch (error) {
-    console.log(error)
+    console.error('[produtos/update] Error:', error.message)
     res.status(500).json({ mensagem: "Erro atualizar produto" })
   }
 })
@@ -364,19 +360,11 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
 app.delete("/produtos/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
   try {
-<<<<<<< HEAD
     const [rows] = await pool.execute('SELECT vendedor_id FROM produtos WHERE id_produto = ?', [id])
     if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
 
     const isAdmin = req.user.role === 'admin'
     if (rows[0].vendedor_id !== req.user.id && !isAdmin) {
-=======
-    const [rows] = await pool.execute('SELECT vendedor FROM produtos WHERE id_produto = ?', [id])
-    if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
-
-    const isAdmin = req.user.role === 'admin'
-    if (rows[0].vendedor !== req.user.email && !isAdmin) {
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
       return res.status(403).json({ mensagem: "Acesso negado" })
     }
 
@@ -388,32 +376,27 @@ app.delete("/produtos/:id", autenticarToken, async (req, res) => {
   }
 })
 
-<<<<<<< HEAD
 // ============== AVALIAÇÕES ==============
 
-// Criar avaliação
 app.post("/avaliacoes", autenticarToken, async (req, res) => {
   const { produtoId, nota, comentario } = req.body
-  
+
   if (!produtoId || !nota) return res.status(400).json({ mensagem: "Produto e nota são obrigatórios" })
   if (nota < 1 || nota > 5) return res.status(400).json({ mensagem: "Nota deve ser entre 1 e 5" })
-  
+
   try {
-    // Check if product exists
     const [produto] = await pool.execute('SELECT vendedor_id FROM produtos WHERE id_produto = ?', [produtoId])
     if (produto.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
-    
-    // Check if user is trying to rate their own product
+
     if (produto[0].vendedor_id === req.user.id) {
       return res.status(400).json({ mensagem: "Você não pode avaliar seu próprio produto" })
     }
-    
-    // Insert or update evaluation
+
     await pool.execute(
       'INSERT INTO avaliacoes (produto_id, avaliador_id, nota, comentario) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nota = ?, comentario = ?',
       [produtoId, req.user.id, nota, comentario || null, nota, comentario || null]
     )
-    
+
     res.json({ mensagem: "Avaliação enviada com sucesso!" })
   } catch (error) {
     console.log(error)
@@ -421,26 +404,24 @@ app.post("/avaliacoes", autenticarToken, async (req, res) => {
   }
 })
 
-// Get ratings for a product
 app.get("/avaliacoes/produto/:id", async (req, res) => {
   const { id } = req.params
   try {
-const [rows] = await pool.execute(`
-      SELECT a.*, u.username as avaliador_username 
-      FROM avaliacoes a 
-      JOIN usuarios u ON a.avaliador_id = u.id_usuario 
+    const [rows] = await pool.execute(`
+      SELECT a.*, u.username as avaliador_username
+      FROM avaliacoes a
+      JOIN usuarios u ON a.avaliador_id = u.id_usuario
       WHERE a.produto_id = ?
       ORDER BY a.data_avaliacao DESC
     `, [id])
-    
-    // Calculate average
+
     let media = 0
     let total = 0
     if (rows.length > 0) {
       rows.forEach(r => total += r.nota)
       media = total / rows.length
     }
-    
+
     res.json({
       avaliacoes: rows,
       media: media.toFixed(1),
@@ -452,7 +433,6 @@ const [rows] = await pool.execute(`
   }
 })
 
-// Get user's average rating (all their products)
 app.get("/avaliacoes/usuario/:id", async (req, res) => {
   const { id } = req.params
   try {
@@ -462,7 +442,7 @@ app.get("/avaliacoes/usuario/:id", async (req, res) => {
       JOIN produtos p ON a.produto_id = p.id_produto
       WHERE p.vendedor_id = ?
     `, [id])
-    
+
     res.json({
       media: rows[0].media ? parseFloat(rows[0].media).toFixed(1) : 0,
       total: rows[0].total || 0
@@ -473,23 +453,6 @@ app.get("/avaliacoes/usuario/:id", async (req, res) => {
   }
 })
 
-=======
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
-app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
-  const { id } = req.params
-  const { novaSenha } = req.body
-  if (!novaSenha || novaSenha.length < 7) return res.status(400).json({ mensagem: "Senha mínimo 7 dígitos" })
-  try {
-    const hash = await bcrypt.hash(novaSenha, 10)
-    await pool.execute('UPDATE usuarios SET senha = ? WHERE id_usuario = ?', [hash, id])
-    res.json({ mensagem: "Senha alterada com sucesso" })
-  } catch (error) {
-    console.log(error)
-    res.status(500).json({ mensagem: "Erro alterar senha" })
-  }
-})
-
-<<<<<<< HEAD
 // ============== PERFIL DO USUÁRIO ==============
 
 app.get("/perfil", autenticarToken, async (req, res) => {
@@ -519,7 +482,34 @@ app.put("/perfil", autenticarToken, async (req, res) => {
   }
 })
 
-app.put("/perfil/foto", autenticarToken, async (req, res) => {
+// Multer para upload de foto de perfil
+const multer = require('multer')
+const perfilStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, `perfil-${req.user.id}-${Date.now()}${ext}`)
+  }
+})
+const uploadPerfil = multer({
+  storage: perfilStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true)
+    else cb(new Error('Apenas imagens'), false)
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+})
+
+app.put("/perfil/foto", uploadPerfil.single('foto'), autenticarToken, async (req, res) => {
+  // Se enviou arquivo (multipart/form-data)
+  if (req.file) {
+    const file = req.file
+    const fotoUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`
+    await pool.execute('UPDATE usuarios SET foto = ? WHERE email = ?', [fotoUrl, req.user.email])
+    return res.json({ mensagem: "Foto atualizada com sucesso", foto: fotoUrl })
+  }
+
+  // Se enviou JSON com base64 (retrocompatível)
   const { foto } = req.body
   try {
     await pool.execute('UPDATE usuarios SET foto = ? WHERE email = ?', [foto || null, req.user.email])
@@ -583,8 +573,6 @@ app.put("/perfil/email", autenticarToken, async (req, res) => {
   }
 })
 
-=======
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
 // ============== REDEFINIÇÃO DE SENHA ==============
 
 const emailEnabled = !!(process.env.SMTP_HOST && process.env.SMTP_USER)
@@ -704,7 +692,7 @@ app.post('/redefinir-senha', async (req, res) => {
 
 app.listen(porta, () => {
   console.log(`Backend: localhost:${porta}`)
-  
+
   pool.execute(`
     CREATE TABLE IF NOT EXISTS password_resets (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -718,36 +706,35 @@ app.listen(porta, () => {
   `)
     .then(() => console.log('Tabela password_resets OK'))
     .catch(err => console.error('Erro ao criar tabela password_resets:', err.message))
-<<<<<<< HEAD
 
   // Add columns to usuarios table if not exist
   pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nome VARCHAR(255)`)
     .then(() => console.log('Coluna nome OK'))
-    .catch(() => {}) // Ignore error if column exists
+    .catch(() => {})
 
-pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP`)
+  pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP`)
     .then(() => console.log('Coluna data_criacao OK'))
-    .catch(() => {}) // Ignore error if column exists
+    .catch(() => {})
 
-pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS foto TEXT`)
+  pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS foto TEXT`)
     .then(() => console.log('Coluna foto OK'))
-    .catch(() => {}) // Ignore error if column exists
+    .catch(() => {})
 
-pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS username VARCHAR(50) UNIQUE`)
+  pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS username VARCHAR(50) UNIQUE`)
     .then(() => console.log('Coluna username OK'))
-    .catch(() => {}) // Ignore error if column exists
+    .catch(() => {})
 
   // Add imagem column to produtos table if not exists
   pool.execute(`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem TEXT`)
     .then(() => console.log('Coluna imagem OK'))
-    .catch(() => {}) // Ignore error if column exists
+    .catch(() => {})
 
-  // Add vendedor_id column to produtos table if not exists  
+  // Add vendedor_id column to produtos table if not exists
   pool.execute(`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS vendedor_id INT`)
     .then(() => console.log('Coluna vendedor_id OK'))
-    .catch(() => {}) // Ignore error if column exists
+    .catch(() => {})
 
-// Create ratings table (without foreign keys to avoid constraint errors)
+  // Create ratings table (without foreign keys to avoid constraint errors)
   pool.execute(`
     CREATE TABLE IF NOT EXISTS avaliacoes (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -763,8 +750,6 @@ pool.execute(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS username VARCHAR(50)
   `)
     .then(() => console.log('Tabela avaliacoes OK'))
     .catch(err => console.error('Erro ao criar tabela avaliacoes:', err.message))
-=======
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
 })
 
-console.log('Routes OK: /login /cadastro /produtos /admin/* /esqueci-senha /redefinir-senha')
+console.log('Routes OK: /login /cadastro /produtos /admin/* /esqueci-senha /redefinir-senha /upload/*')

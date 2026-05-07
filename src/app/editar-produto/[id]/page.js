@@ -1,39 +1,93 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 
-/**
- * NOVO SISTEMA DE IMAGENS:
- * - Ao selecionar imagem, faz upload direto para o servidor
- * - Recebe URL da imagem e armazena apenas a referência
- * - Muito mais eficiente que base64
- */
-export default function Anunciar() {
+const isValidImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  return (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/uploads/') ||
+    trimmed.startsWith('data:image/')
+  );
+};
+
+export default function EditarProduto() {
   const router = useRouter();
+  const params = useParams();
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   // Form states
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
   const [preco, setPreco] = useState('');
   const [categoria, setCategoria] = useState('');
-  const [imagemUrl, setImagemUrl] = useState(''); // URL da imagem no servidor
+  const [estoque, setEstoque] = useState('');
+  const [imagemUrl, setImagemUrl] = useState('');
   const [imagemPreview, setImagemPreview] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Check login status on mount
+  // Fetch product data
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/');
-      return;
-    }
-    setLoading(false);
-  }, [router]);
+    const fetchProduto = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          router.push('/');
+          return;
+        }
+
+        const res = await fetch(`http://localhost:3000/produtos/${params.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.status === 404) {
+          setMessage('Produto não encontrado');
+          setMessageType('error');
+          setLoading(false);
+          return;
+        }
+
+        if (res.status === 403) {
+          setMessage('Você não tem permissão para editar este produto');
+          setMessageType('error');
+          setLoading(false);
+          return;
+        }
+
+        if (!res.ok) {
+          setMessage('Erro ao carregar produto');
+          setMessageType('error');
+          setLoading(false);
+          return;
+        }
+
+        const data = await res.json();
+        setNome(data.nome || '');
+        setDescricao(data.descricao || '');
+        setPreco(data.preco || '');
+        setCategoria(data.categoria || '');
+        setEstoque(data.estoque || 0);
+        setImagemUrl(data.imagem || '');
+        setImagemPreview(data.imagem || '');
+        setLoadingData(false);
+      } catch (err) {
+        setMessage('Erro: Verifique se backend está rodando');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduto();
+  }, [params.id, router]);
 
   // Handle price input with mask (BRL format)
   const handlePrecoChange = (e) => {
@@ -44,14 +98,6 @@ export default function Anunciar() {
     }
     value = (parseInt(value) / 100).toFixed(2);
     setPreco(value);
-  };
-
-  const formatPrecoDisplay = (value) => {
-    if (!value) return '';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
   };
 
   // Upload imagem para o servidor e retorna URL
@@ -77,7 +123,6 @@ export default function Anunciar() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validação client-side
     if (!file.type.startsWith('image/')) {
       setMessage('Por favor, selecione uma imagem');
       setMessageType('error');
@@ -93,12 +138,10 @@ export default function Anunciar() {
     setMessage('');
 
     try {
-      // Upload da imagem
       const url = await uploadImagem(file);
       setImagemUrl(url);
-      setImagemPreview(url); // Preview funciona porque é URL
+      setImagemPreview(url);
 
-      // Se imagem vier como base64 no preview, ainda mostra
       const reader = new FileReader();
       reader.onload = () => {
         if (!imagemUrl) setImagemPreview(reader.result);
@@ -153,8 +196,8 @@ export default function Anunciar() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/produtos', {
-        method: 'POST',
+      const res = await fetch(`http://localhost:3000/produtos/${params.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -163,8 +206,9 @@ export default function Anunciar() {
           nome: nome.trim(),
           descricao: descricao.trim(),
           preco: parseFloat(preco),
+          estoque: parseInt(estoque) || 0,
           categoria,
-          imagem: imagemUrl || null // Envia URL, não base64
+          imagem: imagemUrl || null
         })
       });
       const data = await res.json();
@@ -179,19 +223,19 @@ export default function Anunciar() {
         }
       }
 
+      if (res.status === 403) {
+        setMessage('Você não tem permissão para editar este produto');
+        setMessageType('error');
+        setIsSubmitting(false);
+        return;
+      }
+
       if (res.ok) {
-        setMessage('Produto publicado com sucesso!');
+        setMessage('Produto atualizado com sucesso!');
         setMessageType('success');
-        // Reset form
-        setNome('');
-        setDescricao('');
-        setPreco('');
-        setCategoria('');
-        setImagemUrl('');
-        setImagemPreview('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        setTimeout(() => { router.push('/perfil'); }, 1500);
       } else {
-        setMessage(data.mensagem || 'Erro ao publicar produto');
+        setMessage(data.mensagem || 'Erro ao atualizar produto');
         setMessageType('error');
       }
     } catch (err) {
@@ -202,7 +246,7 @@ export default function Anunciar() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingData) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl">Carregando...</div>
@@ -218,72 +262,82 @@ export default function Anunciar() {
     { value: 'acessorios', label: 'Acessórios' },
     { value: 'gadgets', label: 'Gadgets' },
     { value: 'games', label: 'Games' },
-    { value: 'redes', label: 'Redes e Internet' },
     { value: 'audio', label: 'Áudio' },
-    { value: 'outros', label: 'Outros' }
+    { value: 'cameras', label: 'Câmeras' },
+    { value: 'smartwatches', label: 'Smartwatches' },
+    { value: 'tv', label: 'TV e Vídeo' },
+    { value: 'outros', label: 'Outros' },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
       <div className="max-w-2xl mx-auto px-6">
         <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-3xl font-bold text-[#ABDB25] mb-2">Anunciar Produto</h1>
-          <p className="text-gray-400 mb-6">Preencha os dados do seu produto para publicá-lo</p>
+          <div className="flex items-center gap-3 mb-6">
+            <button
+              onClick={() => router.back()}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-3xl font-bold text-[#ABDB25]">Editar Produto</h1>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Nome do Produto */}
+            {/* Nome */}
             <div>
-              <label className="block text-white font-medium mb-2">
-                Nome do Produto <span className="text-red-400">*</span>
-              </label>
+              <label className="block text-white font-medium mb-2">Nome do Produto</label>
               <input
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex: iPhone 14 Pro 128GB"
+                placeholder="Ex: iPhone 15 Pro Max"
                 className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
-                maxLength={100}
               />
             </div>
 
             {/* Descrição */}
             <div>
-              <label className="block text-white font-medium mb-2">
-                Descrição <span className="text-red-400">*</span>
-              </label>
+              <label className="block text-white font-medium mb-2">Descrição</label>
               <textarea
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Descreva as características, estado de conservação, etc."
+                placeholder="Descreva seu produto..."
                 rows={4}
                 className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors resize-none"
-                maxLength={500}
               />
-              <p className="text-gray-500 text-sm mt-1 text-right">{descricao.length}/500</p>
             </div>
 
-            {/* Preço */}
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Preço <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">R$</span>
+            {/* Preço e Estoque */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white font-medium mb-2">Preço (R$)</label>
                 <input
                   type="text"
-                  value={preco ? formatPrecoDisplay(preco) : ''}
+                  value={preco}
                   onChange={handlePrecoChange}
                   placeholder="0,00"
-                  className="w-full p-4 pl-12 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                  className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-white font-medium mb-2">Estoque</label>
+                <input
+                  type="number"
+                  value={estoque}
+                  onChange={(e) => setEstoque(e.target.value)}
+                  min="0"
+                  placeholder="0"
+                  className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
                 />
               </div>
             </div>
 
             {/* Categoria */}
             <div>
-              <label className="block text-white font-medium mb-2">
-                Categoria <span className="text-red-400">*</span>
-              </label>
+              <label className="block text-white font-medium mb-2">Categoria</label>
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
@@ -298,7 +352,7 @@ export default function Anunciar() {
               </select>
             </div>
 
-            {/* Imagem - Upload Direto */}
+            {/* Imagem */}
             <div>
               <label className="block text-white font-medium mb-2">
                 Imagem do Produto
@@ -311,16 +365,12 @@ export default function Anunciar() {
                 className="hidden"
               />
 
-              {imagemPreview ? (
+              {(imagemPreview && isValidImageUrl(imagemPreview)) ? (
                 <div className="relative inline-block">
                   <img
                     src={imagemPreview}
                     alt="Preview"
                     className="max-w-full h-48 object-contain rounded-xl border border-gray-600 bg-gray-800/50"
-                    onError={(e) => {
-                      // Se preview falhar mas temos URL, mostra placeholder
-                      if (imagemUrl) e.target.style.display = 'none';
-                    }}
                   />
                   <button
                     type="button"
@@ -360,23 +410,13 @@ export default function Anunciar() {
               </p>
             )}
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black disabled:bg-gray-600 disabled:text-gray-400 text-black font-bold rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center"
+              className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Publicando...
-                </>
-              ) : (
-                'Publicar Anúncio'
-              )}
+              {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </form>
         </div>

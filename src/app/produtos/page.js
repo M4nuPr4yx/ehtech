@@ -8,17 +8,13 @@ const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
   if (!trimmed) return false;
-  // Check for valid URL patterns: http://, https://, or data:image/
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
-    return true;
-  }
-  // Also check if it looks like a Base64 image (contains common Base64 image patterns)
-  if (trimmed.includes('base64,')) {
-    return true;
-  }
-  // Check if it's a valid looking URL (contains common image extensions)
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  return imageExtensions.some(ext => trimmed.toLowerCase().includes(ext));
+  // Support both URL and base64
+  return (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/uploads/') ||
+    trimmed.startsWith('data:image/')
+  );
 };
 
 export default function Produtos() {

@@ -8,17 +8,12 @@ const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
   if (!trimmed) return false;
-  // Check for valid URL patterns: http://, https://, or data:image/
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
-    return true;
-  }
-  // Also check if it looks like a Base64 image (contains common Base64 image patterns)
-  if (trimmed.includes('base64,')) {
-    return true;
-  }
-  // Check if it's a valid looking URL (contains common image extensions)
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  return imageExtensions.some(ext => trimmed.toLowerCase().includes(ext));
+  return (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/uploads/') ||
+    trimmed.startsWith('data:image/')
+  );
 };
 
 export default function Perfil() {
@@ -190,6 +185,22 @@ const handleChangeEmail = async (e) => {
     }
   };
 
+  const uploadFoto = async (file) => {
+    const formData = new FormData();
+    formData.append('imagem', file);
+
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:3000/upload/imagem', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.erro || 'Erro no upload');
+    return data.url;
+  };
+
   const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -208,45 +219,40 @@ const handleChangeEmail = async (e) => {
       return;
     }
 
-    // Convert to base64
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result;
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:3000/perfil/foto', {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ foto: base64 })
-        });
-const data = await res.json();
-        if (res.ok) {
-          setPerfil({ ...perfil, foto: data.foto });
-          // Update localStorage for Header to display
-          if (data.foto) {
-            localStorage.setItem('userFoto', data.foto);
-          } else {
-            localStorage.removeItem('userFoto');
-          }
-          setMessage('Foto atualizada com sucesso!');
-          setMessageType('success');
-        } else {
-          setMessage(data.mensagem || 'Erro ao atualizar foto');
-          setMessageType('error');
-        }
-      } catch (err) {
-        setMessage('Erro: Verifique se backend está rodando');
-        setMessageType('error');
+    setUploadingkkk(true);
+    setMessage('');
+
+    try {
+      // Upload via FormData - salva arquivo no servidor e retorna URL
+      const fotoUrl = await uploadFoto(file);
+
+      // Enviar URL para o backend salvar no banco
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:3000/perfil/foto', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ foto: fotoUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.mensagem || 'Erro ao salvar foto');
+
+      setPerfil({ ...perfil, foto: fotoUrl });
+      if (fotoUrl) {
+        localStorage.setItem('userFoto', fotoUrl);
+      } else {
+        localStorage.removeItem('userFoto');
       }
-    };
-    reader.onerror = () => {
-      setMessage('Erro ao ler a imagem');
+      setMessage('Foto atualizada com sucesso!');
+      setMessageType('success');
+    } catch (err) {
+      setMessage('Erro: ' + err.message);
       setMessageType('error');
-    };
-    reader.readAsDataURL(file);
+    } finally {
+      setUploadingkkk(false);
+    }
   };
 
   const handleRemovePhoto = async () => {
@@ -254,13 +260,13 @@ const data = await res.json();
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:3000/perfil/foto', {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ foto: null })
       });
-const data = await res.json();
+      const data = await res.json();
       if (res.ok) {
         setPerfil({ ...perfil, foto: null });
         localStorage.removeItem('userFoto');
@@ -499,7 +505,10 @@ const data = await res.json();
                         <p className="text-gray-400 text-sm truncate">{produto.descricao}</p>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded text-sm text-center">
+                        <Link href={`/editar-produto/${produto.id_produto}`} className="px-3 py-1 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded text-sm text-center">
+                          Editar
+                        </Link>
+                        <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded text-sm text-center">
                           Ver
                         </Link>
                         <button 

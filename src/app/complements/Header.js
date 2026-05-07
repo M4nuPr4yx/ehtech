@@ -8,17 +8,13 @@ const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
   if (!trimmed) return false;
-  // Check for valid URL patterns: http://, https://, or data:image/
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
-    return true;
-  }
-  // Also check if it looks like a Base64 image (contains common Base64 image patterns)
-  if (trimmed.includes('base64,')) {
-    return true;
-  }
-  // Check if it's a valid looking URL (contains common image extensions)
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  return imageExtensions.some(ext => trimmed.toLowerCase().includes(ext));
+  // Support URL and base64
+  return (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/uploads/') ||
+    trimmed.startsWith('data:image/')
+  );
 };
 
 export default function Header() {
@@ -38,13 +34,24 @@ const [message, setMessage] = useState('');
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
-    
+
     // Load profile photo from localStorage (cached on login)
     const savedPhoto = localStorage.getItem('userFoto');
-    if (savedPhoto && savedPhoto !== 'null') {
-      setUserPhoto(savedPhoto);
-    } else if (token) {
-      // Only fetch if no cached photo and logged in
+    console.log('[Header] Init - token:', !!token, 'savedPhoto:', savedPhoto ? 'exists' : 'null');
+    if (savedPhoto && savedPhoto !== 'null' && savedPhoto !== '') {
+      // Validar se é base64 válido ou URL válida
+      const isValidBase64 = savedPhoto.startsWith('data:image/') && savedPhoto.includes(',');
+      const isValidUrl = savedPhoto.startsWith('http://') || savedPhoto.startsWith('https://') || savedPhoto.startsWith('/uploads/');
+      if (isValidBase64 || isValidUrl) {
+        console.log('[Header] Setting photo from localStorage:', savedPhoto.substring(0, 50));
+        setUserPhoto(savedPhoto);
+      } else {
+        console.log('[Header] Invalid photo in localStorage, clearing:', savedPhoto.substring(0, 30));
+        localStorage.removeItem('userFoto');
+      }
+    }
+    if (token) {
+      console.log('[Header] Fetching fresh profile photo');
       fetchProfilePhoto(token);
     }
   }, []);
@@ -62,16 +69,35 @@ const [message, setMessage] = useState('');
 
 const fetchProfilePhoto = async (token) => {
     try {
+      console.log('[Header] Fetching /perfil');
       const res = await fetch('http://localhost:3000/perfil', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (res.ok && data.foto) {
+      console.log('[Header] /perfil response:', res.ok, 'foto:', data.foto ? 'exists' : 'null');
+      if (res.ok && data.foto && data.foto.startsWith('data:image/')) {
+        // Validar se o base64 está completo (contém vírgula)
+        const hasComma = data.foto.includes(',');
+        console.log('[Header] Base64 validation:', hasComma ? 'valid' : 'CORRUPTED (no comma)');
+        if (hasComma) {
+          setUserPhoto(data.foto);
+          localStorage.setItem('userFoto', data.foto);
+        } else {
+          console.log('[Header] Ignoring corrupted base64 photo');
+          localStorage.removeItem('userFoto');
+        }
+      } else if (res.ok && data.foto && (
+        data.foto.startsWith('http://') ||
+        data.foto.startsWith('https://') ||
+        data.foto.startsWith('/uploads/')
+      )) {
+        // URL válida
+        console.log('[Header] URL photo:', data.foto.substring(0, 50));
         setUserPhoto(data.foto);
         localStorage.setItem('userFoto', data.foto);
       }
     } catch (err) {
-      // Silent fail - keep existing photo
+      console.log('[Header] Error fetching photo:', err);
     }
   };
 
@@ -110,14 +136,10 @@ setMessage(data.mensagem);
         localStorage.setItem('token', data.token);
         // Store username for display
         localStorage.setItem('userUsername', data.username || username);
-        // Store photo if available
-        if (data.foto) {
-          localStorage.setItem('userFoto', data.foto);
-          setUserPhoto(data.foto);
-        } else {
-          localStorage.removeItem('userFoto');
-          setUserPhoto('');
-        }
+        // Store photo if available - the backend /login doesn't return foto
+        // So we need to fetch it after login
+        console.log('[Header] Login success, fetching profile photo');
+        fetchProfilePhoto(data.token);
         setIsLoggedIn(true);
         alert('Login bem-sucedido!');
         setModalOpen(false);
@@ -164,7 +186,6 @@ const goToAnunciar = () => {
           <div className="flex justify-between items-center">
             <Link href="/" className="text-2xl font-bold text-[#ABDB25]">EHtech</Link>
             <div className="flex items-center space-x-4">
-<<<<<<< HEAD
 <nav className="hidden md:flex space-x-6">
                 <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Início</Link>
                 <Link href="/produtos" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Produtos</Link>
@@ -235,14 +256,6 @@ const goToAnunciar = () => {
                   <button onClick={() => { setActiveTab('login'); setModalOpen(true); }} className="px-6 py-2 border-2 border-[#ABDB25]/50 text-[#ABDB25] font-bold rounded-full hover:bg-[#ABDB25] hover:text-black transition-all duration-300 text-sm">Login</button>
                 </>
               )}
-=======
-              <nav className="hidden md:flex space-x-6">
-                <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Início</Link>
-                <Link href="/sobre" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Sobre nós</Link>
-              </nav>
-              <button onClick={() => { setActiveTab('cadastro'); setModalOpen(true); }} className="px-6 py-2 bg-[#ABDB25] text-black font-bold rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-sm">Cadastro</button>
-              <button onClick={() => { setActiveTab('login'); setModalOpen(true); }} className="px-6 py-2 border-2 border-[#ABDB25]/50 text-[#ABDB25] font-bold rounded-full hover:bg-[#ABDB25] hover:text-black transition-all duration-300 text-sm">Login</button>
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
             </div>
           </div>
         </div>
@@ -255,16 +268,11 @@ const goToAnunciar = () => {
               <button onClick={() => { setActiveTab('login'); setMessage(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${activeTab === 'login' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}>Login</button>
               <button onClick={() => { setActiveTab('cadastro'); setMessage(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ml-2 ${activeTab === 'cadastro' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}>Cadastro</button>
             </div>
-<<<<<<< HEAD
 <form onSubmit={handleSubmit} className="space-y-4">
               {activeTab === 'cadastro' && (
                 <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
               )}
               <input type="text" placeholder="Nome de usuário" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
-=======
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
->>>>>>> c38d38da68a04b8a5b664ed101384452dd3db440
               <input type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
               <button type="submit" className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black font-bold text-lg rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">{activeTab === 'login' ? 'Entrar' : 'Cadastrar'}</button>
               {activeTab === 'login' && (

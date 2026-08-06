@@ -40,22 +40,21 @@ function SimpleBarChart({ categories }) {
 
 export default function Admin() {
   const [adminToken, setAdminToken] = useState(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [users, setUsers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const [loginEmail, setLoginEmail] = useState('admin@ehtech.com');
-  const [loginSenha, setLoginSenha] = useState('admin123');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginSenha, setLoginSenha] = useState('');
 
   const [editing, setEditing] = useState(null);
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-      setAdminToken(token);
-      fetchUsers(token);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    localStorage.removeItem('adminToken');
+    setIsCheckingSession(false);
   }, []);
 
   const loginAdmin = async () => {
@@ -66,10 +65,10 @@ export default function Admin() {
         body: JSON.stringify({ email: loginEmail, senha: loginSenha }),
       });
       const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('adminToken', data.token);
+      if (res.ok && data.token) {
         setAdminToken(data.token);
         fetchUsers(data.token);
+        fetchProducts(data.token);
       } else {
         alert(data.mensagem);
       }
@@ -87,6 +86,37 @@ export default function Admin() {
       setUsers(data);
     } catch {
       alert('Erro listar');
+    }
+  };
+
+  const fetchProducts = async (token) => {
+    try {
+      const res = await fetch('http://localhost:3000/admin/produtos', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setProducts(Array.isArray(data) ? data : []);
+    } catch {
+      alert('Erro ao listar produtos');
+    }
+  };
+
+  const updateProductApproval = async (id, status) => {
+    try {
+      const res = await fetch(`http://localhost:3000/admin/produtos/${id}/aprovacao`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.mensagem);
+      fetchProducts(adminToken);
+      setSelectedProduct((currentProduct) => currentProduct?.id_produto === id ? null : currentProduct);
+    } catch (error) {
+      alert(error.message || 'Erro ao atualizar aprovação');
     }
   };
 
@@ -127,7 +157,6 @@ export default function Admin() {
   };
 
   const logout = () => {
-    localStorage.removeItem('adminToken');
     setAdminToken(null);
   };
 
@@ -135,14 +164,16 @@ export default function Admin() {
     const total = users.length;
     const admins = users.filter((u) => (u.role || '').toLowerCase() === 'admin').length;
     const regularUsers = total - admins;
+    const pendingProducts = products.filter((product) => product.status_aprovacao === 'pendente').length;
 
     return {
       total,
       admins,
       regularUsers,
+      pendingProducts,
       adminShareLabel: total ? formatPercent(admins, total) : '0%',
     };
-  }, [users]);
+  }, [users, products]);
 
   const roleCategories = useMemo(() => {
     const admins = users.filter((u) => (u.role || '').toLowerCase() === 'admin').length;
@@ -152,6 +183,10 @@ export default function Admin() {
       { label: 'User', value: regularUsers, colorClass: 'bg-blue-600' },
     ];
   }, [users]);
+
+  if (isCheckingSession) {
+    return <div className="min-h-screen bg-black" />;
+  }
 
   if (!adminToken) {
     return (
@@ -165,7 +200,7 @@ export default function Admin() {
             type="email"
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
-            placeholder="admin@ehtech.com"
+            placeholder="E-mail de administrador"
             className="w-full p-4 bg-gray-800 border border-gray-600 rounded-xl mb-4 text-white focus:border-[#ABDB25]"
           />
 
@@ -173,7 +208,7 @@ export default function Admin() {
             type="password"
             value={loginSenha}
             onChange={(e) => setLoginSenha(e.target.value)}
-            placeholder="admin123"
+            placeholder="Senha"
             className="w-full p-4 bg-gray-800 border border-gray-600 rounded-xl mb-6 text-white focus:border-[#ABDB25]"
           />
 
@@ -229,9 +264,9 @@ export default function Admin() {
 
           <div className="bg-gray-900/50 backdrop-blur-md border border-[#ABDB25]/20 rounded-2xl p-5">
             <div className="text-white/70 text-sm">Alertas</div>
-            <div className="mt-2 text-3xl font-extrabold">{stats.admins === 0 ? '!' : 'OK'}</div>
+            <div className="mt-2 text-3xl font-extrabold">{stats.pendingProducts}</div>
             <div className="mt-3 text-xs text-white/60">
-              {stats.admins === 0 ? 'Sem admins cadastrados' : 'Sem alertas críticos'}
+              Produto{stats.pendingProducts !== 1 ? 's' : ''} aguardando aprovação
             </div>
           </div>
         </div>
@@ -262,7 +297,7 @@ export default function Admin() {
               </button>
 
               <button
-                onClick={() => fetchUsers(adminToken)}
+                onClick={() => { fetchUsers(adminToken); fetchProducts(adminToken); }}
                 className="py-3 px-4 bg-gray-800/50 hover:bg-gray-800 text-white font-bold rounded-xl border border-gray-700 hover:border-gray-600 transition-all"
               >
                 Atualizar Dados
@@ -274,6 +309,99 @@ export default function Admin() {
             </div>
           </div>
         </div>
+
+        <div className="bg-gray-900/50 backdrop-blur-md rounded-2xl border border-[#ABDB25]/20 overflow-hidden mb-6">
+          <div className="p-5 border-b border-white/5 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-[#ABDB25]">Aprovação de Produtos</h2>
+              <p className="text-sm text-white/60 mt-1">Aprove ou não aprove os anúncios enviados pelos vendedores.</p>
+            </div>
+            <span className="text-xs text-yellow-300">Pendentes: {stats.pendingProducts}</span>
+          </div>
+
+          {products.filter((product) => product.status_aprovacao === 'pendente').length > 0 ? (
+            <div className="divide-y divide-gray-700">
+              {products.filter((product) => product.status_aprovacao === 'pendente').map((product) => (
+                <div key={product.id_produto} className="p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProduct(product)}
+                    className="text-left rounded-lg -m-2 p-2 hover:bg-gray-800/70 transition-colors md:flex-1"
+                  >
+                    <h3 className="font-bold text-white">{product.nome}</h3>
+                    <p className="text-sm text-white/70 mt-1">Vendedor: {product.vendedor} · R$ {Number(product.preco).toFixed(2)}</p>
+                    <p className="text-sm text-gray-400 mt-1 truncate">{product.descricao}</p>
+                    <span className="inline-block mt-2 text-sm font-bold text-[#ABDB25]">Ver anúncio completo</span>
+                  </button>
+                  <div className="flex gap-3 shrink-0">
+                    <button onClick={() => updateProductApproval(product.id_produto, 'aprovado')} className="px-4 py-2 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-lg transition-all">
+                      Aprovar
+                    </button>
+                    <button onClick={() => updateProductApproval(product.id_produto, 'reprovado')} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all">
+                      Não aprovar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="p-5 text-gray-400">Nenhum produto aguardando aprovação.</p>
+          )}
+        </div>
+
+        {selectedProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setSelectedProduct(null)}>
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[#ABDB25]/30 bg-gray-900 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-start justify-between gap-4 border-b border-gray-700 p-6">
+                <div>
+                  <p className="text-sm font-bold text-yellow-300">Aguardando aprovação</p>
+                  <h2 className="mt-1 text-2xl font-bold text-white">{selectedProduct.nome}</h2>
+                </div>
+                <button type="button" onClick={() => setSelectedProduct(null)} className="rounded-lg px-3 py-1 text-xl text-gray-400 hover:bg-gray-800 hover:text-white" aria-label="Fechar detalhes">
+                  ×
+                </button>
+              </div>
+
+              <div className="p-6">
+                {selectedProduct.imagem ? (
+                  <img src={selectedProduct.imagem} alt={selectedProduct.nome} className="mb-6 h-72 w-full rounded-xl bg-gray-800 object-contain" />
+                ) : (
+                  <div className="mb-6 flex h-72 items-center justify-center rounded-xl bg-gray-800 text-gray-400">Produto sem imagem</div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl bg-gray-800/70 p-4">
+                    <p className="text-xs text-gray-400">Preço</p>
+                    <p className="mt-1 text-xl font-bold text-[#ABDB25]">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(selectedProduct.preco))}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-800/70 p-4">
+                    <p className="text-xs text-gray-400">Vendedor</p>
+                    <p className="mt-1 text-xl font-bold text-white">{selectedProduct.vendedor}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl bg-gray-800/70 p-4">
+                  <p className="text-xs text-gray-400">Categoria</p>
+                  <p className="mt-1 text-white">{selectedProduct.categoria}</p>
+                </div>
+
+                <div className="mt-4 rounded-xl bg-gray-800/70 p-4">
+                  <p className="text-xs text-gray-400">Descrição</p>
+                  <p className="mt-2 whitespace-pre-wrap text-white">{selectedProduct.descricao}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 border-t border-gray-700 p-6 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => updateProductApproval(selectedProduct.id_produto, 'reprovado')} className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all">
+                  Não aprovar
+                </button>
+                <button type="button" onClick={() => updateProductApproval(selectedProduct.id_produto, 'aprovado')} className="px-5 py-3 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-lg transition-all">
+                  Aprovar produto
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabela de Usuários */}
         <div

@@ -503,14 +503,19 @@ const handleChangeEmail = async (e) => {
                         <h3 className="font-bold text-white truncate">{produto.nome}</h3>
                         <p className="text-[#ABDB25] font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produto.preco)}</p>
                         <p className="text-gray-400 text-sm truncate">{produto.descricao}</p>
+                        <p className={`mt-1 text-xs font-bold ${produto.status_aprovacao === 'aprovado' ? 'text-green-400' : produto.status_aprovacao === 'reprovado' ? 'text-red-400' : 'text-yellow-400'}`}>
+                          {produto.status_aprovacao === 'aprovado' ? 'Aprovado' : produto.status_aprovacao === 'reprovado' ? 'Não aprovado' : 'Aguardando aprovação'}
+                        </p>
                       </div>
                       <div className="flex flex-col gap-2">
                         <Link href={`/editar-produto/${produto.id_produto}`} className="px-3 py-1 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded text-sm text-center">
                           Editar
                         </Link>
-                        <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded text-sm text-center">
-                          Ver
-                        </Link>
+                        {produto.status_aprovacao === 'aprovado' && (
+                          <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded text-sm text-center">
+                            Ver
+                          </Link>
+                        )}
                         <button 
                           onClick={async () => {
                             if (confirm('Tem certeza que deseja excluir este produto?')) {

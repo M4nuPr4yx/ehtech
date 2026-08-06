@@ -73,6 +73,24 @@ CREATE TABLE IF NOT EXISTS `password_resets` (
 -- Copiando dados para a tabela ehtech.password_resets: ~0 rows (aproximadamente)
 DELETE FROM `password_resets`;
 
+-- Copiando estrutura para tabela ehtech.notificacoes
+DROP TABLE IF EXISTS `notificacoes`;
+CREATE TABLE IF NOT EXISTS `notificacoes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `usuario_id` int(11) NOT NULL,
+  `produto_id` int(11) DEFAULT NULL,
+  `tipo` varchar(50) NOT NULL,
+  `mensagem` text NOT NULL,
+  `lida` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_notificacoes_usuario` (`usuario_id`),
+  KEY `idx_notificacoes_lida` (`usuario_id`,`lida`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- Copiando dados para a tabela ehtech.notificacoes: ~0 rows (aproximadamente)
+DELETE FROM `notificacoes`;
+
 -- Copiando estrutura para tabela ehtech.pedidos
 DROP TABLE IF EXISTS `pedidos`;
 CREATE TABLE IF NOT EXISTS `pedidos` (
@@ -99,14 +117,15 @@ CREATE TABLE IF NOT EXISTS `produtos` (
   `vendedor` varchar(60) NOT NULL,
   `imagem` text DEFAULT NULL,
   `vendedor_id` int(11) DEFAULT NULL,
+  `status_aprovacao` varchar(20) NOT NULL DEFAULT 'pendente',
   PRIMARY KEY (`id_produto`)
 ) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 -- Copiando dados para a tabela ehtech.produtos: ~2 rows (aproximadamente)
 DELETE FROM `produtos`;
-INSERT INTO `produtos` (`id_produto`, `nome`, `descricao`, `preco`, `estoque`, `categoria`, `vendedor`, `imagem`, `vendedor_id`) VALUES
-	(8, 'wadasdwad', 'sawdsawdd', 12121.21, 0, 'acessorios', 'Hugo', 'http://localhost:3000/uploads/img-1778174987698-473fc9a242ad.png', 20),
-	(9, 'wadsawd', 'wadsawdsa', 1212121.21, 0, 'computadores', 'Hugo', 'http://localhost:3000/uploads/img-1778178129569-196468bb5bc8.png', 20);
+INSERT INTO `produtos` (`id_produto`, `nome`, `descricao`, `preco`, `estoque`, `categoria`, `vendedor`, `imagem`, `vendedor_id`, `status_aprovacao`) VALUES
+	(8, 'wadasdwad', 'sawdsawdd', 12121.21, 0, 'acessorios', 'Hugo', 'http://localhost:3000/uploads/img-1778174987698-473fc9a242ad.png', 20, 'aprovado'),
+	(9, 'wadsawd', 'wadsawdsa', 1212121.21, 0, 'computadores', 'Hugo', 'http://localhost:3000/uploads/img-1778178129569-196468bb5bc8.png', 20, 'aprovado');
 
 -- Copiando estrutura para tabela ehtech.usuarios
 DROP TABLE IF EXISTS `usuarios`;

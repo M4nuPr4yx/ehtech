@@ -282,7 +282,7 @@ const goToAnunciar = () => {
               )}
             </form>
             {message && (
-              <p className={`mt-4 p-3 rounded-xl text-center font-bold ${message.includes('sucesso') || message.includes('liberado') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>{message}</p>
+              <p className={`mt-4 p-3 rounded-xl text-center font-bold ${message.includes('sucesso') || message.includes('liberado') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-green-500/20 text-green-300 border border-red-500/30'}`}>{message}</p>
             )}
           </div>
         </div>

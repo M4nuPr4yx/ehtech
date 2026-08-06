@@ -182,10 +182,12 @@ const goToAnunciar = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#090b0d]/90 shadow-2xl shadow-black/20 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-5 py-3">
+      <header className="sticky top-0 z-50 border-b border-[#abdb25]/15 bg-[#070909]/95 shadow-2xl shadow-black/30 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-5 py-2">
           <div className="flex justify-between items-center">
-            <Link href="/" className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-white"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#ABDB25] text-lg text-black">E</span>EH<span className="text-[#ABDB25]">tech</span></Link>
+            <Link href="/" className="group flex items-center rounded-2xl transition duration-300 hover:scale-[1.02]" aria-label="EHtech - página inicial">
+              <img src="/ehtech-logo.png" alt="EHtech" className="h-14 w-auto object-contain drop-shadow-[0_0_18px_rgba(171,219,37,0.22)] md:h-16" />
+            </Link>
             <div className="flex items-center space-x-4">
 <nav className="hidden md:flex space-x-6">
                 <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Início</Link>

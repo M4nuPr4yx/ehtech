@@ -10,6 +10,9 @@ const poppins = Poppins({
 export const metadata = {
   title: "EHtech",
   description: "Plataforma de compra, venda e troca de produtos de tecnologia",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 import Header from "./complements/Header";

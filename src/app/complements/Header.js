@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/immutability */
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -181,10 +182,10 @@ const goToAnunciar = () => {
 
   return (
     <>
-      <header className="bg-black/95 backdrop-blur-md shadow-lg sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#090b0d]/90 shadow-2xl shadow-black/20 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-5 py-3">
           <div className="flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-[#ABDB25]">EHtech</Link>
+            <Link href="/" className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-white"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#ABDB25] text-lg text-black">E</span>EH<span className="text-[#ABDB25]">tech</span></Link>
             <div className="flex items-center space-x-4">
 <nav className="hidden md:flex space-x-6">
                 <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Início</Link>

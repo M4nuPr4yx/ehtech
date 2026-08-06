@@ -133,7 +133,7 @@ export default function SellerProfile() {
                   {renderStars(parseFloat(avaliacoes.media))}
                 </div>
                 <span className="text-xl font-bold text-[#ABDB25]">{avaliacoes.media}</span>
-                <span className="text-gray-400">({avaliacoes.total} avaliação{avaliacoes.total !== 1 ? 'ções' : ''})</span>
+                <span className="text-gray-400">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
               </div>
             </div>
 

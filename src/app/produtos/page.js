@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import ImageWithFallback from '../complements/ImageWithFallback';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -29,7 +30,6 @@ export default function Produtos() {
   const [precoMin, setPrecoMin] = useState('');
   const [precoMax, setPrecoMax] = useState('');
   const [ordenacao, setOrdenacao] = useState('recentes');
-  const [filtrando, setFiltrando] = useState(false);
 
   // Categories
   const categorias = [
@@ -50,10 +50,7 @@ export default function Produtos() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/produtos', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
+      const res = await fetch('http://localhost:3000/produtos');
       
       if (res.ok) {
         const data = await res.json();
@@ -66,7 +63,6 @@ export default function Produtos() {
       setProdutos([]);
     } finally {
       setLoading(false);
-      setFiltrando(false);
     }
   };
 
@@ -96,6 +92,10 @@ export default function Produtos() {
 
   // Sort products
   const produtosOrdenados = [...produtosFiltrados].sort((a, b) => {
+    const aEsgotado = Number(a.estoque) <= 0;
+    const bEsgotado = Number(b.estoque) <= 0;
+    if (aEsgotado !== bEsgotado) return aEsgotado ? 1 : -1;
+
     switch (ordenacao) {
       case 'menor-preco':
         return parseFloat(a.preco) - parseFloat(b.preco);
@@ -131,7 +131,7 @@ export default function Produtos() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(171,219,37,0.14),_transparent_32%),linear-gradient(to_bottom,_#111,_#000_50%,_rgba(171,219,37,0.18))] text-white pt-16 pb-20">
       <div className="max-w-6xl mx-auto px-6">
         {/* Header */}
         <div className="mb-8">
@@ -139,9 +139,11 @@ export default function Produtos() {
           <p className="text-gray-400">Explore nossa coleção completa</p>
         </div>
 
+        <div className="flex flex-col gap-8 lg:flex-row">
         {/* Filters Panel */}
-        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <aside className="h-fit w-full shrink-0 rounded-2xl border border-white/10 bg-[#15181b]/95 p-6 shadow-xl shadow-black/20 lg:sticky lg:top-24 lg:w-72">
+          <h2 className="mb-5 text-lg font-bold text-white">Filtros</h2>
+          <div className="space-y-4">
             {/* Search */}
             <div className="relative">
               <label className="block text-sm text-gray-400 mb-1">Buscar</label>
@@ -223,7 +225,9 @@ export default function Produtos() {
           <div className="mt-4 text-gray-400 text-sm">
             {produtosOrdenados.length} produto{produtosOrdenados.length !== 1 ? 's' : ''} encontrado{produtosOrdenados.length !== 1 ? 's' : ''}
           </div>
-        </div>
+        </aside>
+
+        <section className="min-w-0 flex-1">
 
         {/* Error message */}
         {error && (
@@ -234,21 +238,20 @@ export default function Produtos() {
 
         {/* Products Grid */}
         {produtosOrdenados.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             {produtosOrdenados.map((produto, index) => (
               <div 
                 key={produto.id_produto || index}
-                className="bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden hover:border-[#ABDB25] hover:shadow-lg hover:shadow-[#ABDB25]/20 transition-all duration-300 group"
+                className="bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
 {/* Product Image */}
                 <div className="aspect-square bg-gray-800 relative overflow-hidden">
                   {isValidImageUrl(produto.imagem) ? (
-                    <img 
+                    <ImageWithFallback
                       src={produto.imagem} 
                       alt={produto.nome}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -296,6 +299,8 @@ export default function Produtos() {
             </button>
           </div>
         )}
+        </section>
+        </div>
       </div>
     </div>
   );

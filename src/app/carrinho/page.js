@@ -35,16 +35,14 @@ export default function Carrinho() {
       router.push('/');
       return;
     }
-    loadCart();
-  }, []);
-
-  const loadCart = () => {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
+      // O carrinho é restaurado uma única vez ao carregar a página.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCart(JSON.parse(savedCart));
     }
     setLoading(false);
-  };
+  }, [router]);
 
   // Save cart to localStorage
   const saveCart = (newCart) => {

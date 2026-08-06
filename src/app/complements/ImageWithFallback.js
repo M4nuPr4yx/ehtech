@@ -10,7 +10,6 @@ import { useState } from 'react';
  */
 export default function ImageWithFallback({ src, alt, className, style }) {
   const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   // Placeholder SVG (ícone de imagem)
   const placeholder = (
@@ -27,6 +26,7 @@ export default function ImageWithFallback({ src, alt, className, style }) {
     return (
       trimmed.startsWith('http://') ||
       trimmed.startsWith('https://') ||
+      trimmed.startsWith('/uploads/') ||
       trimmed.startsWith('data:image/')
     );
   };
@@ -45,7 +45,6 @@ export default function ImageWithFallback({ src, alt, className, style }) {
       alt={alt || 'Imagem'}
       className={className}
       style={style}
-      onLoad={() => setLoading(false)}
       onError={() => setError(true)}
     />
   );

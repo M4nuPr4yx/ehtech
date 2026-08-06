@@ -48,9 +48,8 @@ router.post('/imagem', upload.single('imagem'), async (req, res) => {
       return res.status(400).json({ erro: 'Nenhuma imagem enviada' });
     }
 
-    // Monta a URL do arquivo
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const imagemUrl = `${baseUrl}/uploads/${req.file.filename}`;
+    // Persiste apenas o caminho relativo para não prender a imagem a uma porta ou domínio.
+    const imagemUrl = `/uploads/${req.file.filename}`;
 
     console.log('[upload] Arquivo salvo:', req.file.filename);
 
@@ -97,8 +96,7 @@ router.post('/imagem-base64', async (req, res) => {
     const filepath = path.join(__dirname, '../uploads', filename);
     require('fs').writeFileSync(filepath, buffer);
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const imagemUrl = `${baseUrl}/uploads/${filename}`;
+    const imagemUrl = `/uploads/${filename}`;
 
     console.log('[upload-base64] Arquivo salvo:', filename, 'Tamanho:', buffer.length);
 

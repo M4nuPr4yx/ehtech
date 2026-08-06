@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import ImageWithFallback from './complements/ImageWithFallback';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -28,15 +28,18 @@ export default function Home() {
   useEffect(() => {
     const fetchProdutos = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:3000/produtos', {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
+        const res = await fetch('http://localhost:3000/produtos');
         
         if (res.ok) {
           const data = await res.json();
-          // Get only the 8 most recent products
-          setProdutos(data.slice(0, 8));
+          // Produtos disponíveis aparecem primeiro; esgotados ficam no fim.
+          const ordenados = [...data].sort((a, b) => {
+            const aEsgotado = Number(a.estoque) <= 0;
+            const bEsgotado = Number(b.estoque) <= 0;
+            if (aEsgotado !== bEsgotado) return aEsgotado ? 1 : -1;
+            return Number(b.id_produto) - Number(a.id_produto);
+          });
+          setProdutos(ordenados.slice(0, 8));
         }
       } catch (err) {
         console.error('Error fetching products:', err);
@@ -55,12 +58,13 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(171,219,37,0.2),_transparent_34%),linear-gradient(to_bottom,_#111,_#000_48%,_rgba(171,219,37,0.2))] text-white pt-16 pb-20">
       {/* Hero Section */}
-      <div className="max-w-4xl mx-auto px-6 py-16 text-center">
+      <div className="max-w-5xl mx-auto px-6 py-20 text-center">
         <div className="mb-8">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight bg-gradient-to-r from-[#ABDB25]/90 to-[#ABDB25] bg-clip-text text-transparent drop-shadow-2xl">
-            EHtech
+          <span className="mb-5 inline-flex rounded-full border border-[#ABDB25]/30 bg-[#ABDB25]/10 px-4 py-1.5 text-sm font-semibold text-[#d7f58d]">Seu marketplace de tecnologia</span>
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight bg-gradient-to-r from-white via-[#d8f88e] to-[#ABDB25] bg-clip-text text-transparent drop-shadow-2xl">
+            Tecnologia que encontra você.
           </h1>
           <p className="text-xl md:text-2xl max-w-2xl mx-auto opacity-90 leading-relaxed">
             A plataforma para compra, venda e troca de produtos de tecnologia.
@@ -79,6 +83,11 @@ export default function Home() {
           >
             Ver produtos
           </Link>
+        </div>
+        <div className="mx-auto mt-12 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"><p className="font-bold">Compra descomplicada</p><p className="mt-1 text-sm text-gray-400">Encontre o que procura.</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"><p className="font-bold">Venda sem enrolação</p><p className="mt-1 text-sm text-gray-400">Anuncie em poucos passos.</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"><p className="font-bold">Estoque visível</p><p className="mt-1 text-sm text-gray-400">Saiba o que está disponível.</p></div>
         </div>
       </div>
 
@@ -102,16 +111,15 @@ export default function Home() {
             {produtos.map((produto, index) => (
               <div 
                 key={produto.id_produto || index}
-                className="bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden hover:border-[#ABDB25] hover:shadow-lg hover:shadow-[#ABDB25]/20 transition-all duration-300 group cursor-pointer"
+                className="bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
               >
 {/* Product Image */}
                 <div className="aspect-square bg-gray-800 relative overflow-hidden">
                   {isValidImageUrl(produto.imagem) ? (
-                    <img 
+                    <ImageWithFallback
                       src={produto.imagem} 
                       alt={produto.nome}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

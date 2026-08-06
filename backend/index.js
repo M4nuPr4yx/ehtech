@@ -1,5 +1,4 @@
 const express = require('express')
-const mysql = require('mysql2/promise')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
@@ -235,7 +234,8 @@ app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
   }
 })
 
-app.get("/produtos", autenticarToken, async (req, res) => {
+// A vitrine é pública: visitantes não precisam de login para consultar anúncios.
+app.get("/produtos", async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM produtos')
     res.json(rows)
@@ -504,7 +504,7 @@ app.put("/perfil/foto", uploadPerfil.single('foto'), autenticarToken, async (req
   // Se enviou arquivo (multipart/form-data)
   if (req.file) {
     const file = req.file
-    const fotoUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`
+    const fotoUrl = `/uploads/${file.filename}`
     await pool.execute('UPDATE usuarios SET foto = ? WHERE email = ?', [fotoUrl, req.user.email])
     return res.json({ mensagem: "Foto atualizada com sucesso", foto: fotoUrl })
   }

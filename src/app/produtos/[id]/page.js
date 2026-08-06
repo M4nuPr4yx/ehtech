@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import ImageWithFallback from '../../complements/ImageWithFallback';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -228,7 +229,7 @@ export default function ProdutoDetalhes() {
           {/* Product Image */}
           <div className="bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden">
             {isValidImageUrl(produto.imagem) ? (
-              <img 
+              <ImageWithFallback
                 src={produto.imagem} 
                 alt={produto.nome}
                 className="w-full h-full object-contain"
@@ -352,7 +353,7 @@ export default function ProdutoDetalhes() {
               {renderStars(Math.round(parseFloat(avaliacoes.media)))}
             </div>
             <span className="text-xl font-bold text-[#ABDB25]">{avaliacoes.media}</span>
-            <span className="text-gray-400">({avaliacoes.total} avaliação{avaliacoes.total !== 1 ? 'ções' : ''})</span>
+            <span className="text-gray-400">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
           </div>
 
           {/* Submit rating (if logged in) */}

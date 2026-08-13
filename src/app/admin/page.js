@@ -42,21 +42,12 @@ export default function Admin() {
   const [adminToken, setAdminToken] = useState(null);
   const [users, setUsers] = useState([]);
 
-  const [loginEmail, setLoginEmail] = useState('admin@ehtech.com');
-  const [loginSenha, setLoginSenha] = useState('admin123');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginSenha, setLoginSenha] = useState('');
 
   const [editing, setEditing] = useState(null);
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState('');
-
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-      setAdminToken(token);
-      fetchUsers(token);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const loginAdmin = async () => {
     try {
@@ -78,7 +69,7 @@ export default function Admin() {
     }
   };
 
-  const fetchUsers = async (token) => {
+  async function fetchUsers(token) {
     try {
       const res = await fetch('http://localhost:3000/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
@@ -88,7 +79,17 @@ export default function Admin() {
     } catch {
       alert('Erro listar');
     }
-  };
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      // Restaura a sessão persistida uma única vez na abertura da página.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAdminToken(token);
+      fetchUsers(token);
+    }
+  }, []);
 
   const saveEdit = async () => {
     if (!editing) return;
@@ -165,7 +166,7 @@ export default function Admin() {
             type="email"
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
-            placeholder="admin@ehtech.com"
+            placeholder="E-mail de administrador"
             className="w-full p-4 bg-gray-800 border border-gray-600 rounded-xl mb-4 text-white focus:border-[#ABDB25]"
           />
 
@@ -173,7 +174,7 @@ export default function Admin() {
             type="password"
             value={loginSenha}
             onChange={(e) => setLoginSenha(e.target.value)}
-            placeholder="admin123"
+            placeholder="Senha de administrador"
             className="w-full p-4 bg-gray-800 border border-gray-600 rounded-xl mb-6 text-white focus:border-[#ABDB25]"
           />
 

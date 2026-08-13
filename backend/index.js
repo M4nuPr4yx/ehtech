@@ -10,9 +10,10 @@ const porta = 3000
 const app = express()
 require('dotenv').config()
 
-// CORS deve vir ANTES das rotas
+// CORS deve vir ANTES das rotas. Não permita chamadas de qualquer origem em produção.
+const corsOrigin = process.env.FRONTEND_URL || 'http://localhost:3001'
 app.use(cors({
-  origin: '*',
+  origin: corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
@@ -31,59 +32,43 @@ app.use('/uploads', express.static(uploadsDir))
 const uploadRoutes = require('./routes/upload')
 app.use('/upload', uploadRoutes)
 
-const api_chave = process.env.API_SEGREDO || 'defaultsecret'
-console.log('API Secret:', api_chave ? 'OK' : 'FALTA .env')
+const api_chave = process.env.API_SEGREDO
+if (!api_chave || api_chave.length < 32) {
+  throw new Error('API_SEGREDO deve ser definido com pelo menos 32 caracteres no arquivo backend/.env')
+}
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 const pool = require('./db')
 
 function autenticarToken(req, res, next) {
-  console.log('[auth] Headers:', req.headers);
   const authHeader = req.headers["authorization"];
-  console.log('[auth] Auth header:', authHeader ? 'present' : 'missing');
 
   if (!authHeader) {
-    console.log('[auth] No token provided');
     return res.status(401).json({ error: "Token não fornecido" });
   }
 
   const parts = authHeader.split(" ");
-  if (parts.length !== 2) {
-    console.log('[auth] Invalid auth header format - expected "Bearer <token>"');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return res.status(401).json({ error: "Formato de token inválido. Use: Bearer <token>" });
   }
 
   const token = parts[1];
-  console.log('[auth] Token prefix:', parts[0]);
-  console.log('[auth] Verifying token...');
-
-  try {
-    const decoded = jwt.decode(token);
-    console.log('[auth] Token payload (decoded):', decoded);
-  } catch (decodeErr) {
-    console.log('[auth] Could not decode token:', decodeErr.message);
-  }
-
   jwt.verify(token, api_chave, (err, user) => {
     if (err) {
-      console.log('[auth] Token verification error:', err.name, err.message);
       if (err.name === 'TokenExpiredError') {
-        console.log('[auth] Token expired at:', err.expiredAt);
         return res.status(403).json({
           error: "Token expirado. Faça login novamente.",
           code: 'TOKEN_EXPIRED'
         });
       }
       if (err.name === 'JsonWebTokenError') {
-        console.log('[auth] Invalid token signature or format');
         return res.status(403).json({
           error: "Token inválido. Faça login novamente.",
           code: 'INVALID_TOKEN'
         });
       }
-      return res.status(403).json({ error: "Token inválido: " + err.message });
+      return res.status(403).json({ error: "Token inválido" });
     }
-    console.log('[auth] Token valid, user:', user);
     req.user = user;
     next();
   });
@@ -166,20 +151,15 @@ app.post("/login", async (req, res) => {
 
 app.post("/admin/login", async (req, res) => {
   const { email, senha } = req.body
-  if (email !== 'admin@ehtech.com' || senha !== 'admin123') {
-    return res.json({ mensagem: "Credenciais admin inválidas" })
-  }
+  if (!email || !senha) return res.status(400).json({ mensagem: "E-mail e senha são obrigatórios" })
 
   try {
-    const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [email])
-    if (rows.length === 0) {
-      const hash = await bcrypt.hash(senha, 10)
-      await pool.execute('INSERT INTO usuarios (email, senha, role) VALUES (?, ?, "admin")', [email, hash])
-    } else if (rows[0].role !== 'admin') {
-      await pool.execute('UPDATE usuarios SET role="admin" WHERE email = ?', [email])
-    }
+    const [rows] = await pool.execute('SELECT id_usuario, email, senha, role FROM usuarios WHERE email = ?', [email])
+    if (rows.length === 0 || rows[0].role !== 'admin') return res.status(401).json({ mensagem: "Credenciais admin inválidas" })
+    const validou = await bcrypt.compare(senha, rows[0].senha)
+    if (!validou) return res.status(401).json({ mensagem: "Credenciais admin inválidas" })
 
-    const token = jwt.sign({ email, role: 'admin' }, api_chave, { expiresIn: "24h" })
+    const token = jwt.sign({ id: rows[0].id_usuario, email: rows[0].email, role: 'admin' }, api_chave, { expiresIn: "2h" })
     res.json({ mensagem: "Admin login OK", token })
   } catch (error) {
     console.log(error)

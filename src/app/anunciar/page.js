@@ -180,7 +180,7 @@ export default function Anunciar() {
       }
 
       if (res.ok) {
-        setMessage('Produto publicado com sucesso!');
+        setMessage('Produto enviado para aprovação do administrador.');
         setMessageType('success');
         // Reset form
         setNome('');
@@ -228,7 +228,7 @@ export default function Anunciar() {
       <div className="max-w-2xl mx-auto px-6">
         <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
           <h1 className="text-3xl font-bold text-[#ABDB25] mb-2">Anunciar Produto</h1>
-          <p className="text-gray-400 mb-6">Preencha os dados do seu produto para publicá-lo</p>
+          <p className="text-gray-400 mb-6">Após o envio, seu anúncio passará pela aprovação do administrador.</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Nome do Produto */}

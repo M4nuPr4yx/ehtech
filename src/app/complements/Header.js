@@ -23,11 +23,14 @@ export default function Header() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const dropdownRef = useRef(null);
   const [activeTab, setActiveTab] = useState('login');
 const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
 const [message, setMessage] = useState('');
   const [userPhoto, setUserPhoto] = useState('');
 
@@ -54,7 +57,16 @@ const [message, setMessage] = useState('');
     if (token) {
       console.log('[Header] Fetching fresh profile photo');
       fetchProfilePhoto(token);
+      fetchNotifications(token);
     }
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
+
+    const intervalId = window.setInterval(() => fetchNotifications(token), 30000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   // Listen for storage changes (update photo when changed in other tab)
@@ -107,11 +119,57 @@ const fetchProfilePhoto = async (token) => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+const fetchNotifications = async (token) => {
+  try {
+    const res = await fetch('http://localhost:3000/notificacoes', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setNotifications(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.log('[Header] Error fetching notifications:', err);
+  }
+};
+
+const markNotificationAsRead = async (notificationId) => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    await fetch(`http://localhost:3000/notificacoes/${notificationId}/lida`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    setNotifications((currentNotifications) => currentNotifications.map((notification) => (
+      notification.id === notificationId ? { ...notification, lida: 1 } : notification
+    )));
+  } catch (err) {
+    console.log('[Header] Error updating notification:', err);
+  }
+};
+
+const markAllNotificationsAsRead = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    await fetch('http://localhost:3000/notificacoes/lidas', {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    setNotifications((currentNotifications) => currentNotifications.map((notification) => ({ ...notification, lida: 1 })));
+  } catch (err) {
+    console.log('[Header] Error updating notifications:', err);
+  }
+};
 
 const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,11 +178,13 @@ const handleSubmit = async (e) => {
       const endpoint = activeTab === 'login' ? 'login' : 'cadastro';
       let bodyData;
       if (activeTab === 'login') {
-        // Login uses username + senha
-        bodyData = { username, senha };
+        bodyData = { email, senha };
       } else {
-        // Cadastro uses username + email + senha
-        bodyData = { username, email, senha };
+        if (senha !== confirmarSenha) {
+          setMessage('As senhas não coincidem');
+          return;
+        }
+        bodyData = { username, email, senha, confirmarSenha };
       }
       const res = await fetch(`http://localhost:3000/${endpoint}`, {
         method: 'POST',
@@ -141,6 +201,7 @@ setMessage(data.mensagem);
         // So we need to fetch it after login
         console.log('[Header] Login success, fetching profile photo');
         fetchProfilePhoto(data.token);
+        fetchNotifications(data.token);
         setIsLoggedIn(true);
         alert('Login bem-sucedido!');
         setModalOpen(false);
@@ -151,6 +212,7 @@ setMessage(data.mensagem);
       setUsername(''); 
       setEmail(''); 
       setSenha('');
+      setConfirmarSenha('');
     } catch (err) {
       setMessage('Erro: Verifique se backend está rodando em localhost:3000');
     }
@@ -162,6 +224,8 @@ const handleLogout = () => {
     localStorage.removeItem('userFoto');
     setIsLoggedIn(false);
     setDropdownOpen(false);
+    setNotificationsOpen(false);
+    setNotifications([]);
     router.push('/');
   };
 
@@ -179,6 +243,8 @@ const goToAnunciar = () => {
     setDropdownOpen(false);
     window.location.href = '/carrinho';
   };
+
+  const unreadNotifications = notifications.filter((notification) => !notification.lida).length;
 
   return (
     <>
@@ -198,6 +264,22 @@ const goToAnunciar = () => {
 {isLoggedIn ? (
                 // Logged in - show avatar dropdown
                 <div className="relative" ref={dropdownRef}>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setNotificationsOpen(!notificationsOpen); setDropdownOpen(false); }}
+                      className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 bg-gray-900 text-white hover:border-[#ABDB25] hover:text-[#ABDB25] transition-all"
+                      aria-label="Notificações"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      {unreadNotifications > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                          {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                        </span>
+                      )}
+                    </button>
                   <button 
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     className="w-10 h-10 rounded-full bg-[#ABDB25] flex items-center justify-center text-black font-bold hover:shadow-lg hover:shadow-[#ABDB25]/30 transition-all overflow-hidden"
@@ -210,6 +292,33 @@ const goToAnunciar = () => {
                       </svg>
                     )}
                   </button>
+                  </div>
+
+{notificationsOpen && (
+                    <div className="absolute right-12 mt-2 w-80 overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-2xl">
+                      <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3">
+                        <span className="font-bold text-white">Notificações</span>
+                        {unreadNotifications > 0 && (
+                          <button type="button" onClick={markAllNotificationsAsRead} className="text-xs font-bold text-[#ABDB25] hover:underline">Marcar todas como lidas</button>
+                        )}
+                      </div>
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length > 0 ? notifications.map((notification) => (
+                          <button
+                            type="button"
+                            key={notification.id}
+                            onClick={() => markNotificationAsRead(notification.id)}
+                            className={`w-full border-b border-gray-800 px-4 py-3 text-left transition-colors hover:bg-gray-800 ${notification.lida ? 'bg-gray-900' : 'bg-[#ABDB25]/10'}`}
+                          >
+                            <p className="text-sm text-white">{notification.mensagem}</p>
+                            <p className="mt-1 text-xs text-gray-400">{new Date(notification.created_at).toLocaleString('pt-BR')}</p>
+                          </button>
+                        )) : (
+                          <p className="px-4 py-6 text-center text-sm text-gray-400">Você não possui notificações.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
 {dropdownOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
@@ -272,11 +381,14 @@ const goToAnunciar = () => {
               <button onClick={() => { setActiveTab('cadastro'); setMessage(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ml-2 ${activeTab === 'cadastro' ? 'bg-[#ABDB25] text-black shadow-lg' : 'text-white hover:text-[#ABDB25]'}`}>Cadastro</button>
             </div>
 <form onSubmit={handleSubmit} className="space-y-4">
+              <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
               {activeTab === 'cadastro' && (
-                <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
+                <input type="text" placeholder="Nome de usuário" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
               )}
-              <input type="text" placeholder="Nome de usuário" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
               <input type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
+              {activeTab === 'cadastro' && (
+                <input type="password" placeholder="Confirme sua senha" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors" required />
+              )}
               <button type="submit" className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black font-bold text-lg rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">{activeTab === 'login' ? 'Entrar' : 'Cadastrar'}</button>
               {activeTab === 'login' && (
                 <div className="text-center mt-2">
@@ -285,7 +397,7 @@ const goToAnunciar = () => {
               )}
             </form>
             {message && (
-              <p className={`mt-4 p-3 rounded-xl text-center font-bold ${message.includes('sucesso') || message.includes('liberado') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-green-500/20 text-green-300 border border-red-500/30'}`}>{message}</p>
+              <p className={`mt-4 p-3 rounded-xl text-center font-bold ${message.includes('sucesso') || message.includes('liberado') ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>{message}</p>
             )}
           </div>
         </div>

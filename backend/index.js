@@ -40,6 +40,17 @@ app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 const pool = require('./db')
 
+const isAllowedUserEmail = (email) => /^[^\s@]+@(hotmail\.com|gmail\.com|outlook\.com)$/i.test(String(email || '').trim())
+
+const criarNotificacao = async ({ usuarioId, produtoId = null, tipo, mensagem }) => {
+  if (!usuarioId) return
+
+  await pool.execute(
+    'INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, ?, ?, ?)',
+    [usuarioId, produtoId, tipo, mensagem]
+  )
+}
+
 function autenticarToken(req, res, next) {
   const authHeader = req.headers["authorization"];
 
@@ -92,10 +103,12 @@ const verifyAdmin = async (req, res, next) => {
 }
 
 app.post("/cadastro", async (req, res) => {
-  const { username, email, senha } = req.body
+  const { username, email, senha, confirmarSenha } = req.body
   if (!username || username.length < 3) return res.json({ mensagem: "Nome de usuário mínimo 3 caracteres!" })
   if (!email || email.trim() === '') return res.json({ mensagem: "E-mail é obrigatório!" })
+  if (!isAllowedUserEmail(email)) return res.status(400).json({ mensagem: "Use um e-mail @hotmail.com, @gmail.com ou @outlook.com" })
   if (!senha || senha.length < 4) return res.json({ mensagem: "Senha mínimo 4 dígitos!" })
+  if (senha !== confirmarSenha) return res.status(400).json({ mensagem: "As senhas não coincidem" })
 
   try {
     const [existingUser] = await pool.execute('SELECT id_usuario FROM usuarios WHERE username = ?', [username])
@@ -103,7 +116,8 @@ app.post("/cadastro", async (req, res) => {
       return res.json({ mensagem: "Nome de usuário já está em uso!" })
     }
 
-    const [existingEmail] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', [email])
+    const normalizedEmail = email.trim().toLowerCase()
+    const [existingEmail] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', [normalizedEmail])
     if (existingEmail.length > 0) {
       return res.json({ mensagem: "E-mail já está em uso!" })
     }
@@ -111,7 +125,7 @@ app.post("/cadastro", async (req, res) => {
     const hash = await bcrypt.hash(senha, 10)
     await pool.execute(
       "INSERT INTO usuarios (username, email, senha, role) VALUES (?, ?, ?, 'user')",
-      [username, email, hash]
+      [username, normalizedEmail, hash]
     )
     res.json({ mensagem: "Usuário criado!" })
   } catch (error) {
@@ -121,10 +135,15 @@ app.post("/cadastro", async (req, res) => {
 })
 
 app.post("/login", async (req, res) => {
-  const { username, senha } = req.body
+  const { email, senha } = req.body
+  if (!isAllowedUserEmail(email)) {
+    return res.status(400).json({ mensagem: "Use seu e-mail @hotmail.com, @gmail.com ou @outlook.com" })
+  }
+
   try {
-    const [rows] = await pool.execute('SELECT * FROM usuarios WHERE username = ?', [username])
-    if (rows.length === 0) return res.json({ mensagem: "Usuário não encontrado" })
+    const normalizedEmail = email.trim().toLowerCase()
+    const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [normalizedEmail])
+    if (rows.length === 0) return res.json({ mensagem: "E-mail não encontrado" })
 
     const validou = await bcrypt.compare(senha, rows[0].senha)
     if (!validou) return res.json({ mensagem: "Senha inválida" })
@@ -151,15 +170,18 @@ app.post("/login", async (req, res) => {
 
 app.post("/admin/login", async (req, res) => {
   const { email, senha } = req.body
-  if (!email || !senha) return res.status(400).json({ mensagem: "E-mail e senha são obrigatórios" })
+  const normalizedEmail = String(email || '').trim().toLowerCase()
 
   try {
-    const [rows] = await pool.execute('SELECT id_usuario, email, senha, role FROM usuarios WHERE email = ?', [email])
-    if (rows.length === 0 || rows[0].role !== 'admin') return res.status(401).json({ mensagem: "Credenciais admin inválidas" })
-    const validou = await bcrypt.compare(senha, rows[0].senha)
+    const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [normalizedEmail])
+    if (rows.length === 0 || rows[0].role !== 'admin') {
+      return res.status(403).json({ mensagem: "Acesso admin requerido" })
+    }
+
+    const validou = await bcrypt.compare(senha || '', rows[0].senha)
     if (!validou) return res.status(401).json({ mensagem: "Credenciais admin inválidas" })
 
-    const token = jwt.sign({ id: rows[0].id_usuario, email: rows[0].email, role: 'admin' }, api_chave, { expiresIn: "2h" })
+    const token = jwt.sign({ id: rows[0].id_usuario, email: rows[0].email, role: 'admin' }, api_chave, { expiresIn: "1h" })
     res.json({ mensagem: "Admin login OK", token })
   } catch (error) {
     console.log(error)
@@ -215,9 +237,98 @@ app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
 })
 
 // A vitrine é pública: visitantes não precisam de login para consultar anúncios.
+app.get("/notificacoes", autenticarToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT id, produto_id, tipo, mensagem, lida, created_at FROM notificacoes WHERE usuario_id = ? ORDER BY created_at DESC, id DESC LIMIT 50',
+      [req.user.id]
+    )
+    res.json(rows)
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: 'Erro ao listar notificações' })
+  }
+})
+
+app.put("/notificacoes/:id/lida", autenticarToken, async (req, res) => {
+  try {
+    await pool.execute(
+      'UPDATE notificacoes SET lida = TRUE WHERE id = ? AND usuario_id = ?',
+      [req.params.id, req.user.id]
+    )
+    res.json({ mensagem: 'Notificação atualizada' })
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: 'Erro ao atualizar notificação' })
+  }
+})
+
+app.put("/notificacoes/lidas", autenticarToken, async (req, res) => {
+  try {
+    await pool.execute('UPDATE notificacoes SET lida = TRUE WHERE usuario_id = ?', [req.user.id])
+    res.json({ mensagem: 'Notificações atualizadas' })
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: 'Erro ao atualizar notificações' })
+  }
+})
+
+app.get("/admin/produtos", verifyAdmin, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM produtos ORDER BY id_produto DESC')
+    res.json(rows)
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: "Erro listar produtos" })
+  }
+})
+
+app.get("/admin/sessao", verifyAdmin, (req, res) => {
+  res.json({ email: req.user.email, role: 'admin' })
+})
+
+app.put("/admin/produtos/:id/aprovacao", verifyAdmin, async (req, res) => {
+  const { id } = req.params
+  const { status } = req.body
+  const statusesPermitidos = ['aprovado', 'reprovado']
+
+  if (!statusesPermitidos.includes(status)) {
+    return res.status(400).json({ mensagem: "Status de aprovação inválido" })
+  }
+
+  try {
+    const [products] = await pool.execute(
+      'SELECT id_produto, nome, vendedor_id FROM produtos WHERE id_produto = ?',
+      [id]
+    )
+    if (products.length === 0) {
+      return res.status(404).json({ mensagem: "Produto não encontrado" })
+    }
+
+    await pool.execute(
+      'UPDATE produtos SET status_aprovacao = ? WHERE id_produto = ?',
+      [status, id]
+    )
+    const produto = products[0]
+    const mensagem = status === 'aprovado'
+      ? `Seu anúncio "${produto.nome}" foi aprovado e já está visível na vitrine.`
+      : `Seu anúncio "${produto.nome}" não foi aprovado. Revise os dados e envie um novo anúncio.`
+    await criarNotificacao({
+      usuarioId: produto.vendedor_id,
+      produtoId: produto.id_produto,
+      tipo: `produto_${status}`,
+      mensagem
+    })
+    res.json({ mensagem: `Produto ${status} com sucesso` })
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ mensagem: "Erro ao atualizar aprovação" })
+  }
+})
+
 app.get("/produtos", async (req, res) => {
   try {
-    const [rows] = await pool.execute('SELECT * FROM produtos')
+    const [rows] = await pool.execute("SELECT * FROM produtos WHERE status_aprovacao = 'aprovado'")
     res.json(rows)
   } catch (error) {
     console.log(error)
@@ -288,9 +399,15 @@ app.post("/produtos", autenticarToken, async (req, res) => {
     }
 
     const result = await pool.execute(
-      'INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente')",
       [nomeValue, descricaoValue, precoValue, estoqueValue, categoriaValue, imagemValue, vendedorValue, vendedorIdValue]
     )
+    await criarNotificacao({
+      usuarioId: vendedorIdValue,
+      produtoId: result[0].insertId,
+      tipo: 'produto_enviado',
+      mensagem: `Seu anúncio "${nomeValue}" foi enviado e aguarda a aprovação da administração.`
+    })
     console.log('[produtos] Inserted successfully, result:', result)
     res.json({ mensagem: "Produto cadastrado!" })
   } catch (error) {
@@ -305,7 +422,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
   try {
     // Verificar se produto existe
-    const [rows] = await pool.execute('SELECT vendedor, vendedor_id FROM produtos WHERE id_produto = ?', [id])
+    const [rows] = await pool.execute('SELECT nome, vendedor, vendedor_id FROM produtos WHERE id_produto = ?', [id])
     if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
 
     const isAdmin = req.user.role === 'admin'
@@ -330,6 +447,14 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
       'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ? WHERE id_produto = ?',
       [nome, descricao, preco, estoque, categoria, imagemValue, id]
     )
+    if (isAdmin && !isOwner) {
+      await criarNotificacao({
+        usuarioId: rows[0].vendedor_id,
+        produtoId: Number(id),
+        tipo: 'produto_atualizado',
+        mensagem: `Seu anúncio "${nome}" foi atualizado pela administração.`
+      })
+    }
     res.json({ mensagem: "Produto atualizado" })
   } catch (error) {
     console.error('[produtos/update] Error:', error.message)
@@ -340,15 +465,25 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
 app.delete("/produtos/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
   try {
-    const [rows] = await pool.execute('SELECT vendedor_id FROM produtos WHERE id_produto = ?', [id])
+    const [rows] = await pool.execute('SELECT nome, vendedor, vendedor_id FROM produtos WHERE id_produto = ?', [id])
     if (rows.length === 0) return res.status(404).json({ mensagem: "Produto não encontrado" })
 
     const isAdmin = req.user.role === 'admin'
-    if (rows[0].vendedor_id !== req.user.id && !isAdmin) {
+    const isOwner = Number(rows[0].vendedor_id) === Number(req.user.id)
+      || rows[0].vendedor === req.user.email
+      || rows[0].vendedor === req.user.username
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ mensagem: "Acesso negado" })
     }
 
     await pool.execute('DELETE FROM produtos WHERE id_produto = ?', [id])
+    if (isAdmin && !isOwner) {
+      await criarNotificacao({
+        usuarioId: rows[0].vendedor_id,
+        tipo: 'produto_removido',
+        mensagem: `Seu anúncio "${rows[0].nome}" foi removido pela administração.`
+      })
+    }
     res.json({ mensagem: "Produto deletado" })
   } catch (error) {
     console.log(error)
@@ -528,6 +663,11 @@ app.put("/perfil/senha", autenticarToken, async (req, res) => {
 app.put("/perfil/email", autenticarToken, async (req, res) => {
   const { novoEmail, senha } = req.body
   if (!novoEmail || !senha) return res.status(400).json({ mensagem: "Novo e-mail e senha são obrigatório" })
+  if (!isAllowedUserEmail(novoEmail)) {
+    return res.status(400).json({ mensagem: "Use um e-mail @hotmail.com, @gmail.com ou @outlook.com" })
+  }
+
+  const normalizedEmail = novoEmail.trim().toLowerCase()
 
   try {
     const [rows] = await pool.execute('SELECT senha FROM usuarios WHERE email = ?', [req.user.email])
@@ -540,13 +680,13 @@ app.put("/perfil/email", autenticarToken, async (req, res) => {
       return res.status(400).json({ mensagem: "Senha incorreta" })
     }
 
-    const [existing] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', [novoEmail])
+    const [existing] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', [normalizedEmail])
     if (existing.length > 0) {
       return res.status(400).json({ mensagem: "E-mail já está em uso" })
     }
 
-    await pool.execute('UPDATE usuarios SET email = ? WHERE email = ?', [novoEmail, req.user.email])
-    res.json({ mensagem: "E-mail alterado com sucesso! Faça login novamente.", novoEmail })
+    await pool.execute('UPDATE usuarios SET email = ? WHERE email = ?', [normalizedEmail, req.user.email])
+    res.json({ mensagem: "E-mail alterado com sucesso! Faça login novamente.", novoEmail: normalizedEmail })
   } catch (error) {
     console.log(error)
     res.status(500).json({ mensagem: "Erro ao alterar e-mail" })
@@ -713,6 +853,26 @@ app.listen(porta, () => {
   pool.execute(`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS vendedor_id INT`)
     .then(() => console.log('Coluna vendedor_id OK'))
     .catch(() => {})
+
+  pool.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS status_aprovacao VARCHAR(20) NOT NULL DEFAULT 'aprovado'")
+    .then(() => console.log('Coluna status_aprovacao OK'))
+    .catch(err => console.error('Erro ao criar coluna status_aprovacao:', err.message))
+
+  pool.execute(`
+    CREATE TABLE IF NOT EXISTS notificacoes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      produto_id INT NULL,
+      tipo VARCHAR(50) NOT NULL,
+      mensagem TEXT NOT NULL,
+      lida BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_notificacoes_usuario (usuario_id),
+      INDEX idx_notificacoes_lida (usuario_id, lida)
+    )
+  `)
+    .then(() => console.log('Tabela notificacoes OK'))
+    .catch(err => console.error('Erro ao criar tabela notificacoes:', err.message))
 
   // Create ratings table (without foreign keys to avoid constraint errors)
   pool.execute(`

@@ -12,37 +12,10 @@ const validator = require('validator')
 const multer = require('multer')
 require('dotenv').config()
 
-const pool = require('./db')
-const { getApiSecret, autenticarToken, verifyAdmin } = require('./middleware/auth')
-const uploadRoutes = require('./routes/upload')
-
-const porta = process.env.PORT || 3000
-const app = express()
-
-// ==========================================
-// 1. CABEÇALHOS DE SEGURANÇA (HELMET)
-// ==========================================
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}))
-app.disable('x-powered-by')
-
-// ==========================================
-// 2. CONFIGURAÇÃO DE CORS
-// ==========================================
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001']
-
+// CORS deve vir ANTES das rotas. Não permita chamadas de qualquer origem em produção.
+const corsOrigin = process.env.FRONTEND_URL || 'http://localhost:3001'
 app.use(cors({
-  origin: (origin, callback) => {
-    // Permite chamadas sem origin (como mobile apps, Postman ou scripts locais) ou origens permitidas
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-      callback(null, true)
-    } else {
-      callback(new Error('Origem não permitida pelo CORS'))
-    }
-  },
+  origin: corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
@@ -107,14 +80,13 @@ app.use('/uploads', express.static(uploadsDir, {
 // Roteador de Uploads
 app.use('/upload', uploadLimiter, uploadRoutes)
 
-// ==========================================
-// 6. HELPERS DE VALIDAÇÃO E NOTIFICAÇÃO
-// ==========================================
-const isAllowedUserEmail = (email) => {
-  if (!email || typeof email !== 'string') return false
-  const trimmed = email.trim().toLowerCase()
-  return validator.isEmail(trimmed) && /^[^\s@]+@(hotmail\.com|gmail\.com|outlook\.com|ehtech\.com)$/i.test(trimmed)
+const api_chave = process.env.API_SEGREDO
+if (!api_chave || api_chave.length < 32) {
+  throw new Error('API_SEGREDO deve ser definido com pelo menos 32 caracteres no arquivo backend/.env')
 }
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+const pool = require('./db')
 
 const isValidPassword = (senha) => {
   return typeof senha === 'string' && senha.length >= 8
@@ -122,13 +94,61 @@ const isValidPassword = (senha) => {
 
 const criarNotificacao = async ({ usuarioId, produtoId = null, tipo, mensagem }) => {
   if (!usuarioId) return
+
+  await pool.execute(
+    'INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, ?, ?, ?)',
+    [usuarioId, produtoId, tipo, mensagem]
+  )
+}
+
+function autenticarToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+
+  if (!authHeader) {
+    return res.status(401).json({ error: "Token não fornecido" });
+  }
+
+  const parts = authHeader.split(" ");
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return res.status(401).json({ error: "Formato de token inválido. Use: Bearer <token>" });
+  }
+
+  const token = parts[1];
+  jwt.verify(token, api_chave, (err, user) => {
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(403).json({
+          error: "Token expirado. Faça login novamente.",
+          code: 'TOKEN_EXPIRED'
+        });
+      }
+      if (err.name === 'JsonWebTokenError') {
+        return res.status(403).json({
+          error: "Token inválido. Faça login novamente.",
+          code: 'INVALID_TOKEN'
+        });
+      }
+      return res.status(403).json({ error: "Token inválido" });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+const verifyAdmin = async (req, res, next) => {
   try {
-    await pool.execute(
-      'INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, ?, ?, ?)',
-      [usuarioId, produtoId, String(tipo).slice(0, 50), String(mensagem)]
-    )
-  } catch (err) {
-    console.error('[notificacoes] Erro ao criar notificação:', err.message)
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) return res.status(401).json({ mensagem: 'Token requerido' })
+
+    const decoded = jwt.verify(token, api_chave)
+    const [rows] = await pool.execute('SELECT role FROM usuarios WHERE email = ?', [decoded.email])
+    if (rows.length === 0 || rows[0].role !== 'admin') {
+      return res.status(403).json({ mensagem: 'Acesso admin requerido' })
+    }
+    req.user = decoded
+    next()
+  } catch (error) {
+    res.status(401).json({ mensagem: 'Token inválido' })
   }
 }
 

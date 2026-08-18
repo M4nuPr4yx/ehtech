@@ -115,7 +115,7 @@ export default function Admin() {
     }
   };
 
-  const fetchUsers = async (token) => {
+  async function fetchUsers(token) {
     try {
       const res = await fetch('http://localhost:3000/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
@@ -125,7 +125,17 @@ export default function Admin() {
     } catch {
       console.error('Erro ao listar usuários');
     }
-  };
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      // Restaura a sessão persistida uma única vez na abertura da página.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAdminToken(token);
+      fetchUsers(token);
+    }
+  }, []);
 
   const fetchProducts = async (token) => {
     try {

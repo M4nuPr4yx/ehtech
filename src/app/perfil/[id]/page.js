@@ -29,6 +29,18 @@ export default function SellerProfile() {
   const [avaliacoes, setAvaliacoes] = useState({ media: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setCurrentUserId(payload.id);
+      } catch (e) {}
+    }
+  }, []);
 
   useEffect(() => {
     if (params.id) {
@@ -49,18 +61,23 @@ export default function SellerProfile() {
       const produtosData = await produtosRes.json();
       
       // Filter products by this seller
-      const sellerProducts = produtosData.filter(p => p.vendedor_id === parseInt(params.id));
+      const sellerProducts = Array.isArray(produtosData) ? produtosData.filter(p => p.vendedor_id === parseInt(params.id)) : [];
       setProdutos(sellerProducts);
 
-      // Get seller info (from first product or try to get profile)
-      if (sellerProducts.length > 0) {
+      // Obter dados públicos do vendedor
+      const userRes = await fetch(`http://localhost:3000/usuarios/${params.id}/publico`);
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setSeller(userData);
+      } else if (sellerProducts.length > 0) {
         setSeller({
           username: sellerProducts[0].vendedor,
-          id: sellerProducts[0].vendedor_id
+          id_usuario: sellerProducts[0].vendedor_id,
+          foto: null
         });
       }
 
-      // Fetch seller ratings
+      // Buscar avaliações do vendedor
       const avaliacoesRes = await fetch(`http://localhost:3000/avaliacoes/usuario/${params.id}`);
       if (avaliacoesRes.ok) {
         const avaliacoesData = await avaliacoesRes.json();
@@ -91,7 +108,7 @@ export default function SellerProfile() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl">Carregando...</div>
+        <div className="text-[#ABDB25] text-xl animate-pulse">Carregando perfil...</div>
       </div>
     );
   }
@@ -107,6 +124,8 @@ export default function SellerProfile() {
     );
   }
 
+  const isSelf = currentUserId && (Number(currentUserId) === Number(seller.id_usuario || params.id));
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
       <div className="max-w-4xl mx-auto px-6">
@@ -116,16 +135,28 @@ export default function SellerProfile() {
         </Link>
 
         {/* Seller Info Card */}
-        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 mb-8">
+        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 mb-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Seller Avatar */}
-            <div className="w-24 h-24 rounded-full bg-[#ABDB25] flex items-center justify-center text-black text-4xl font-bold">
-              {seller.username?.charAt(0).toUpperCase()}
+            <div className="relative shrink-0">
+              {seller.foto && !imgError && isValidImageUrl(seller.foto) ? (
+                <img
+                  src={seller.foto}
+                  alt={seller.username || 'Vendedor'}
+                  onError={() => setImgError(true)}
+                  className="w-24 h-24 rounded-full object-cover border-2 border-[#ABDB25] shadow-lg shadow-[#ABDB25]/20 bg-gray-800"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-[#ABDB25] flex items-center justify-center text-black text-4xl font-bold shadow-lg shadow-[#ABDB25]/20">
+                  {seller.username?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
             </div>
             
             {/* Seller Details */}
             <div className="text-center md:text-left flex-1">
-              <h1 className="text-3xl font-bold text-white mb-2">{seller.username}</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">{seller.nome || seller.username}</h1>
+              {seller.nome && <p className="text-gray-400 text-sm mb-2">@{seller.username}</p>}
               
               {/* Rating */}
               <div className="flex items-center justify-center md:justify-start gap-2">
@@ -137,10 +168,24 @@ export default function SellerProfile() {
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="text-center bg-gray-800/50 rounded-xl p-4">
-              <p className="text-gray-400 text-sm">Produtos Anunciados</p>
-              <p className="text-2xl font-bold text-white">{produtos.length}</p>
+            {/* Stats & Actions */}
+            <div className="flex flex-col sm:flex-row md:flex-col items-center gap-3">
+              <div className="text-center bg-gray-800/60 border border-gray-700 rounded-xl px-5 py-3 w-full">
+                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Anúncios</p>
+                <p className="text-2xl font-bold text-white">{produtos.length}</p>
+              </div>
+
+              {!isSelf && (
+                <Link
+                  href={`/mensagens?vendedor=${seller.id_usuario || params.id}`}
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl shadow-lg hover:shadow-[#ABDB25]/30 transition-all text-center text-sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  Conversar
+                </Link>
+              )}
             </div>
           </div>
         </div>

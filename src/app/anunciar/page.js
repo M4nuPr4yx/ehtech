@@ -1,13 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { isValidImageUrl } from '../complements/imageHelper';
 
-/**
- * NOVO SISTEMA DE IMAGENS:
- * - Ao selecionar imagem, faz upload direto para o servidor
- * - Recebe URL da imagem e armazena apenas a referência
- * - Muito mais eficiente que base64
- */
 export default function Anunciar() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -19,9 +14,9 @@ export default function Anunciar() {
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
   const [preco, setPreco] = useState('');
+  const [estoque, setEstoque] = useState('1');
   const [categoria, setCategoria] = useState('');
-  const [imagemUrl, setImagemUrl] = useState(''); // URL da imagem no servidor
-  const [imagemPreview, setImagemPreview] = useState('');
+  const [imagens, setImagens] = useState([]); // Array de URLs das fotos
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -42,7 +37,7 @@ export default function Anunciar() {
       setPreco('');
       return;
     }
-    value = (parseInt(value) / 100).toFixed(2);
+    value = (parseInt(value, 10) / 100).toFixed(2);
     setPreco(value);
   };
 
@@ -54,73 +49,72 @@ export default function Anunciar() {
     }).format(value);
   };
 
-  // Upload imagem para o servidor e retorna URL
-  const uploadImagem = async (file) => {
-    const formData = new FormData();
-    formData.append('imagem', file);
+  // Upload de múltiplas imagens para o servidor
+  const handleFilesChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const res = await fetch('http://localhost:3000/upload/imagem', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: formData
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Erro no upload');
-    return data.url;
-  };
-
-  // Handle image selection - upload direto
-  const handleImageChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validação client-side
-    if (!file.type.startsWith('image/')) {
-      setMessage('Por favor, selecione uma imagem');
+    if (imagens.length + files.length > 8) {
+      setMessage('Você pode adicionar no máximo 8 fotos por anúncio.');
       setMessageType('error');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage('A imagem deve ter no máximo 5MB');
-      setMessageType('error');
-      return;
+
+    // Validações
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        setMessage(`O arquivo "${file.name}" não é uma imagem válida.`);
+        setMessageType('error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage(`A imagem "${file.name}" ultrapassa o limite de 5MB.`);
+        setMessageType('error');
+        return;
+      }
     }
 
     setUploadingImage(true);
     setMessage('');
 
     try {
-      // Upload da imagem
-      const url = await uploadImagem(file);
-      setImagemUrl(url);
-      setImagemPreview(url); // Preview funciona porque é URL
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('imagens', file);
+      });
 
-      // Se imagem vier como base64 no preview, ainda mostra
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (!imagemUrl) setImagemPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      const res = await fetch('http://localhost:3000/upload/imagens', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.erro || 'Erro no upload das imagens');
+
+      if (data.urls && Array.isArray(data.urls)) {
+        setImagens((prev) => [...prev, ...data.urls]);
+      }
     } catch (err) {
       setMessage('Erro ao subir imagem: ' + err.message);
       setMessageType('error');
     } finally {
       setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const openFilePicker = () => {
-    fileInputRef.current?.click();
+  const removeImage = (indexToRemove) => {
+    setImagens((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const removeImage = () => {
-    setImagemUrl('');
-    setImagemPreview('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const makeCover = (indexToCover) => {
+    setImagens((prev) => {
+      const selected = prev[indexToCover];
+      const rest = prev.filter((_, idx) => idx !== indexToCover);
+      return [selected, ...rest];
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -157,14 +151,15 @@ export default function Anunciar() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           nome: nome.trim(),
           descricao: descricao.trim(),
           preco: parseFloat(preco),
+          estoque: parseInt(estoque, 10) || 0,
           categoria,
-          imagem: imagemUrl || null // Envia URL, não base64
+          imagem: imagens.length > 0 ? imagens : null
         })
       });
       const data = await res.json();
@@ -180,22 +175,22 @@ export default function Anunciar() {
       }
 
       if (res.ok) {
-        setMessage('Produto enviado para aprovação do administrador.');
+        setMessage('Produto enviado com sucesso! O anúncio aguarda aprovação da moderação.');
         setMessageType('success');
         // Reset form
         setNome('');
         setDescricao('');
         setPreco('');
+        setEstoque('1');
         setCategoria('');
-        setImagemUrl('');
-        setImagemPreview('');
+        setImagens([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
         setMessage(data.mensagem || 'Erro ao publicar produto');
         setMessageType('error');
       }
     } catch (err) {
-      setMessage('Erro: Verifique se backend está rodando');
+      setMessage('Erro: Verifique se o backend está rodando');
       setMessageType('error');
     } finally {
       setIsSubmitting(false);
@@ -205,89 +200,98 @@ export default function Anunciar() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl">Carregando...</div>
+        <div className="text-[#ABDB25] text-xl animate-pulse">Carregando...</div>
       </div>
     );
   }
 
   const categorias = [
-    { value: 'smartphones', label: 'Smartphones' },
+    { value: 'smartphones', label: 'Smartphones & Celulares' },
     { value: 'notebooks', label: 'Notebooks' },
-    { value: 'computadores', label: 'Computadores' },
+    { value: 'computadores', label: 'Computadores & Desktops' },
     { value: 'tablets', label: 'Tablets' },
-    { value: 'acessorios', label: 'Acessórios' },
-    { value: 'gadgets', label: 'Gadgets' },
-    { value: 'games', label: 'Games' },
-    { value: 'redes', label: 'Redes e Internet' },
-    { value: 'audio', label: 'Áudio' },
+    { value: 'acessorios', label: 'Acessórios & Periféricos' },
+    { value: 'gadgets', label: 'Gadgets & Smartwatches' },
+    { value: 'games', label: 'Games & Consoles' },
+    { value: 'redes', label: 'Redes e Roteadores' },
+    { value: 'audio', label: 'Áudio & Fones' },
     { value: 'outros', label: 'Outros' }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
-      <div className="max-w-2xl mx-auto px-6">
-        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-3xl font-bold text-[#ABDB25] mb-2">Anunciar Produto</h1>
-          <p className="text-gray-400 mb-6">Após o envio, seu anúncio passará pela aprovação do administrador.</p>
+    <div className="min-h-screen bg-gradient-to-b from-[#070909] via-black to-[#ABDB25]/15 text-white pt-12 pb-20 px-4">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-gray-900/90 backdrop-blur-xl border border-gray-800 rounded-3xl p-6 md:p-10 shadow-2xl">
+          <div className="mb-8 border-b border-gray-800 pb-6">
+            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#ABDB25] to-white bg-clip-text text-transparent">
+              Anunciar Novo Produto
+            </h1>
+            <p className="text-gray-400 text-sm mt-1">
+              Adicione fotos de alta qualidade e detalhes do seu produto para vender mais rápido.
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Nome do Produto */}
             <div>
-              <label className="block text-white font-medium mb-2">
-                Nome do Produto <span className="text-red-400">*</span>
+              <label className="block text-white font-semibold text-sm mb-2">
+                Nome do Produto <span className="text-[#ABDB25]">*</span>
               </label>
               <input
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex: iPhone 14 Pro 128GB"
-                className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                placeholder="Ex: Teclado Mecânico RGB Switch Blue"
+                className="w-full p-4 bg-gray-800/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-[#ABDB25] focus:outline-none transition-colors text-sm"
                 maxLength={100}
+                required
               />
             </div>
 
-            {/* Descrição */}
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Descrição <span className="text-red-400">*</span>
-              </label>
-              <textarea
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Descreva as características, estado de conservação, etc."
-                rows={4}
-                className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors resize-none"
-                maxLength={500}
-              />
-              <p className="text-gray-500 text-sm mt-1 text-right">{descricao.length}/500</p>
-            </div>
+            {/* Preço e Estoque */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white font-semibold text-sm mb-2">
+                  Preço de Venda <span className="text-[#ABDB25]">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formatPrecoDisplay(preco)}
+                    onChange={handlePrecoChange}
+                    placeholder="R$ 0,00"
+                    className="w-full p-4 bg-gray-800/60 border border-gray-700 rounded-2xl text-white font-bold placeholder-gray-500 focus:border-[#ABDB25] focus:outline-none transition-colors text-sm"
+                    required
+                  />
+                </div>
+              </div>
 
-            {/* Preço */}
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Preço <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">R$</span>
+              <div>
+                <label className="block text-white font-semibold text-sm mb-2">
+                  Estoque Disponível <span className="text-[#ABDB25]">*</span>
+                </label>
                 <input
-                  type="text"
-                  value={preco ? formatPrecoDisplay(preco) : ''}
-                  onChange={handlePrecoChange}
-                  placeholder="0,00"
-                  className="w-full p-4 pl-12 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                  type="number"
+                  min="1"
+                  max="9999"
+                  value={estoque}
+                  onChange={(e) => setEstoque(e.target.value)}
+                  className="w-full p-4 bg-gray-800/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-[#ABDB25] focus:outline-none transition-colors text-sm"
+                  required
                 />
               </div>
             </div>
 
             {/* Categoria */}
             <div>
-              <label className="block text-white font-medium mb-2">
-                Categoria <span className="text-red-400">*</span>
+              <label className="block text-white font-semibold text-sm mb-2">
+                Categoria <span className="text-[#ABDB25]">*</span>
               </label>
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
-                className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white focus:border-[#ABDB25] focus:outline-none transition-colors"
+                className="w-full p-4 bg-gray-800/60 border border-gray-700 rounded-2xl text-white focus:border-[#ABDB25] focus:outline-none transition-colors text-sm"
+                required
               >
                 <option value="" className="bg-gray-800">Selecione uma categoria</option>
                 {categorias.map((cat) => (
@@ -298,73 +302,131 @@ export default function Anunciar() {
               </select>
             </div>
 
-            {/* Imagem - Upload Direto */}
+            {/* Descrição */}
             <div>
-              <label className="block text-white font-medium mb-2">
-                Imagem do Produto
+              <label className="block text-white font-semibold text-sm mb-2">
+                Descrição Completa <span className="text-[#ABDB25]">*</span>
               </label>
+              <textarea
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                rows={5}
+                placeholder="Descreva o estado do item, especificações técnicas, tempo de uso, garantias..."
+                className="w-full p-4 bg-gray-800/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-[#ABDB25] focus:outline-none transition-colors text-sm leading-relaxed"
+                required
+              />
+            </div>
+
+            {/* Seção de Fotos Múltiplas */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-white font-semibold text-sm">
+                  Fotos do Produto ({imagens.length}/8)
+                </label>
+                <span className="text-xs text-gray-400">
+                  A primeira foto será a capa principal
+                </span>
+              </div>
+
               <input
                 type="file"
                 ref={fileInputRef}
-                onChange={handleImageChange}
+                onChange={handleFilesChange}
                 accept="image/*"
+                multiple
                 className="hidden"
               />
 
-              {imagemPreview ? (
-                <div className="relative inline-block">
-                  <img
-                    src={imagemPreview}
-                    alt="Preview"
-                    className="max-w-full h-48 object-contain rounded-xl border border-gray-600 bg-gray-800/50"
-                    onError={(e) => {
-                      // Se preview falhar mas temos URL, mostra placeholder
-                      if (imagemUrl) e.target.style.display = 'none';
-                    }}
-                  />
+              {/* Grid de Fotos */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {imagens.map((url, idx) => (
+                  <div
+                    key={idx}
+                    className={`relative rounded-2xl overflow-hidden border-2 bg-gray-800/80 aspect-square group shadow-lg transition-all ${
+                      idx === 0 ? 'border-[#ABDB25]' : 'border-gray-700 hover:border-gray-500'
+                    }`}
+                  >
+                    <img
+                      src={url}
+                      alt={`Foto ${idx + 1}`}
+                      className="w-full h-full object-contain p-2"
+                    />
+
+                    {/* Badge de Capa */}
+                    {idx === 0 && (
+                      <span className="absolute top-2 left-2 bg-[#ABDB25] text-black text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow">
+                        ⭐ Capa
+                      </span>
+                    )}
+
+                    {/* Ações na foto */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                      {idx !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => makeCover(idx)}
+                          className="px-2.5 py-1 bg-[#ABDB25] text-black font-bold text-xs rounded-lg hover:bg-white transition-colors"
+                        >
+                          Definir Capa
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Card de Adicionar Mais Fotos */}
+                {imagens.length < 8 && (
                   <button
                     type="button"
-                    onClick={removeImage}
-                    className="absolute top-2 right-2 w-8 h-8 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="aspect-square border-2 border-dashed border-gray-700 hover:border-[#ABDB25] rounded-2xl flex flex-col items-center justify-center p-4 text-gray-400 hover:text-[#ABDB25] transition-all bg-gray-800/30 hover:bg-gray-800/50 disabled:opacity-50"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    {uploadingImage ? (
+                      <div className="flex flex-col items-center">
+                        <svg className="animate-spin h-6 w-6 text-[#ABDB25] mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-xs">Enviando...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-xs font-semibold">Adicionar Fotos</span>
+                        <span className="text-[10px] text-gray-500 mt-0.5">JPG, PNG, WEBP</span>
+                      </>
+                    )}
                   </button>
-                  {uploadingImage && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
-                      <span className="text-[#ABDB25]">Enviando...</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={openFilePicker}
-                  disabled={uploadingImage}
-                  className="w-full p-8 border-2 border-dashed border-gray-600 rounded-xl text-gray-400 hover:border-[#ABDB25] hover:text-[#ABDB25] transition-colors flex flex-col items-center justify-center disabled:opacity-50"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm">{uploadingImage ? 'Enviando...' : 'Clique para enviar uma imagem'}</span>
-                  <span className="text-xs text-gray-500 mt-1">PNG, JPG ou WEBP (máx. 5MB)</span>
-                </button>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Message */}
+            {/* Mensagem de Feedback */}
             {message && (
-              <p className={`p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+              <p className={`p-4 rounded-2xl text-center font-bold text-sm ${
+                messageType === 'success'
+                  ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                  : 'bg-red-500/20 text-red-300 border border-red-500/30'
+              }`}>
                 {message}
               </p>
             )}
 
-            {/* Submit Button */}
+            {/* Botão de Enviar Anúncio */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black disabled:bg-gray-600 disabled:text-gray-400 text-black font-bold rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center"
+              disabled={isSubmitting || uploadingImage}
+              className="w-full py-4 bg-[#ABDB25] hover:bg-white text-black font-extrabold rounded-2xl shadow-xl hover:shadow-[#ABDB25]/30 transition-all duration-300 flex items-center justify-center text-base disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -372,7 +434,7 @@ export default function Anunciar() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Publicando...
+                  Publicando Anúncio...
                 </>
               ) : (
                 'Publicar Anúncio'

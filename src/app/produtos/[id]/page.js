@@ -67,16 +67,14 @@ export default function ProdutoDetalhes() {
     }
   }, [produto, user]);
 
+  const [sellerInfo, setSellerInfo] = useState(null);
+
   const fetchProduto = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:3000/produtos`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
-      const data = await res.json();
-      const found = data.find(p => p.id_produto === parseInt(params.id));
-      if (found) {
+      const res = await fetch(`http://localhost:3000/produtos/${params.id}`);
+      if (res.ok) {
+        const found = await res.json();
         setProduto(found);
         setEditData({
           nome: found.nome,
@@ -84,6 +82,17 @@ export default function ProdutoDetalhes() {
           preco: found.preco,
           imagem: found.imagem || ''
         });
+
+        // Buscar foto e dados do vendedor
+        if (found.vendedor_id) {
+          try {
+            const sellerRes = await fetch(`http://localhost:3000/usuarios/${found.vendedor_id}/publico`);
+            if (sellerRes.ok) {
+              const sData = await sellerRes.json();
+              setSellerInfo(sData);
+            }
+          } catch {}
+        }
       } else {
         setError('Produto não encontrado');
       }
@@ -314,11 +323,40 @@ export default function ProdutoDetalhes() {
                 <p className="text-gray-300 mb-6">{produto.descricao}</p>
                 
                 {/* Seller info */}
-                <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 mb-6">
-                  <p className="text-gray-400 text-sm">Vendido por</p>
-                  <Link href={`/perfil/${produto.vendedor_id}`} className="text-[#ABDB25] hover:underline font-bold">
-                    {produto.vendedor}
-                  </Link>
+                <div className="bg-gray-900/60 border border-gray-700 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="shrink-0">
+                      {sellerInfo?.foto && isValidImageUrl(sellerInfo.foto) ? (
+                        <img
+                          src={sellerInfo.foto}
+                          alt={produto.vendedor}
+                          className="w-12 h-12 rounded-full object-cover border border-[#ABDB25] bg-gray-800"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#ABDB25] flex items-center justify-center text-black font-bold text-lg">
+                          {produto.vendedor?.charAt(0).toUpperCase() || 'V'}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs uppercase tracking-wider">Vendido por</p>
+                      <Link href={`/perfil/${produto.vendedor_id}`} className="text-[#ABDB25] hover:underline font-bold text-lg">
+                        {sellerInfo?.nome || produto.vendedor}
+                      </Link>
+                    </div>
+                  </div>
+
+                  {!isOwner && produto.vendedor_id && (
+                    <Link
+                      href={`/mensagens?vendedor=${produto.vendedor_id}&produto=${produto.id_produto}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-[#ABDB25] hover:text-black text-white text-sm font-semibold rounded-xl border border-gray-600 hover:border-[#ABDB25] transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      Conversar
+                    </Link>
+                  )}
                 </div>
 
                 {/* Actions */}

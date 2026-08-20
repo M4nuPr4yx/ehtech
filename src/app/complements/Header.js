@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/immutability */
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -19,8 +19,10 @@ const isValidImageUrl = (url) => {
 
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const [modalOpen, setModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -39,6 +41,7 @@ export default function Header() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
+    setAuthReady(true);
 
     // Load profile photo from localStorage (cached on login)
     const savedPhoto = localStorage.getItem('userFoto');
@@ -57,6 +60,18 @@ export default function Header() {
       fetchUnreadMessages(token);
     }
   }, []);
+
+  // Páginas protegidas voltam para a home com este parâmetro, abrindo o login
+  // e mantendo o destino para que a pessoa continue de onde parou.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (authReady && !localStorage.getItem('token') && params.get('login') === '1') {
+      setIsLoggedIn(false);
+      setActiveTab('login');
+      setMessage('');
+      setModalOpen(true);
+    }
+  }, [authReady, pathname]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -200,6 +215,11 @@ export default function Header() {
         setEmail(''); 
         setSenha('');
         setConfirmarSenha('');
+        const nextPath = new URLSearchParams(window.location.search).get('next');
+        // Só permite destinos internos para evitar redirecionamento externo.
+        if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) {
+          router.replace(nextPath);
+        }
       } else if (activeTab === 'cadastro' && res.ok) {
         setFeedback(data.mensagem || 'Cadastro realizado! Agora você pode fazer login.');
         setActiveTab('login');
@@ -238,6 +258,15 @@ export default function Header() {
     router.push('/anunciar');
   };
 
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      router.push(`/produtos?search=${encodeURIComponent(searchTerm.trim())}`);
+    }
+  };
+
   const goToCarrinho = () => {
     setDropdownOpen(false);
     router.push('/carrinho');
@@ -247,32 +276,112 @@ export default function Header() {
 
   return (
     <>
+      {/* Top E-commerce Trust Bar */}
+      <div className="bg-[#050705] border-b border-white/[0.06] text-[11px] text-gray-400 py-1.5 px-4 hidden sm:block">
+        <div className="mx-auto max-w-7xl flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-gray-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#ABDB25] animate-pulse"></span>
+              Marketplace de Tecnologia Direto & Seguro
+            </span>
+            <span className="text-gray-600">•</span>
+            <span className="inline-flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#ABDB25]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Garantia de Pagamento Seguro
+            </span>
+            <span className="text-gray-600">•</span>
+            <span className="inline-flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-[#ABDB25]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Vendedores Verificados
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/sobre" className="hover:text-[#ABDB25] transition-colors">Como Funciona</Link>
+            <span className="text-gray-600">|</span>
+            <Link href="/anunciar" className="text-[#ABDB25] font-semibold hover:underline">Quero Vender</Link>
+          </div>
+        </div>
+      </div>
+
       {feedback && (
-        <div className="fixed right-5 top-24 z-[60] rounded-xl border border-green-500/40 bg-green-500/20 px-4 py-3 text-sm font-medium text-green-200 shadow-xl" role="status">
+        <div className="fixed right-5 top-24 z-[60] rounded-xl border border-green-500/40 bg-green-500/20 px-4 py-3 text-sm font-medium text-green-200 shadow-xl backdrop-blur-md" role="status">
           {feedback}
           <button type="button" onClick={() => setFeedback('')} className="ml-3 text-green-100 hover:text-white" aria-label="Fechar mensagem">×</button>
         </div>
       )}
-      <header className="sticky top-0 z-50 border-b border-[#abdb25]/15 bg-[#070909]/95 shadow-2xl shadow-black/30 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-5 py-2">
-          <div className="flex justify-between items-center">
-            <Link href="/" className="group flex items-center rounded-2xl transition duration-300 hover:scale-[1.02]" aria-label="EHtech - página inicial">
-              <img src="/ehtech-logo.png" alt="EHtech" className="h-14 w-auto object-contain drop-shadow-[0_0_18px_rgba(171,219,37,0.22)] md:h-16" />
+
+      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#070907]/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-2.5">
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo - Sem animação */}
+            <Link href="/" className="group flex items-center shrink-0 transition-transform duration-200 hover:scale-[1.02]" aria-label="EHtech - página inicial">
+              <img src="/ehtech-logo.png" alt="EHtech" className="h-11 sm:h-13 w-auto object-contain drop-shadow-[0_0_15px_rgba(171,219,37,0.25)]" />
             </Link>
-            <div className="flex items-center space-x-4">
-              <nav className="hidden md:flex space-x-6">
-                <Link href="/" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Início</Link>
-                <Link href="/produtos" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Produtos</Link>
-                <Link href="/sobre" className="text-white hover:text-[#ABDB25] transition-colors hover:underline">Sobre nós</Link>
+
+            {/* Central Search Bar */}
+            <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-lg mx-2">
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar computadores, notebooks, celulares, games..."
+                  className="w-full bg-[#121612] border border-white/15 rounded-full py-2 pl-4 pr-10 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25] focus:ring-1 focus:ring-[#ABDB25]/40 transition-all"
+                />
+                <button
+                  type="submit"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-[#ABDB25] transition-colors rounded-full"
+                  aria-label="Buscar"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+
+            {/* Right Navigation & Actions */}
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <nav className="hidden lg:flex items-center space-x-5 mr-2 text-sm font-medium">
+                <Link href="/" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Início</Link>
+                <Link href="/produtos" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Produtos</Link>
+                <Link href="/sobre" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Sobre nós</Link>
               </nav>
+
+              {/* Botão de Anunciar */}
+              <Link
+                href="/anunciar"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-[#ABDB25]/40 bg-[#ABDB25]/10 px-3.5 py-1.5 text-xs font-bold text-[#d7f58d] hover:bg-[#ABDB25] hover:text-black transition-all duration-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Anunciar
+              </Link>
+
+              {/* Botão de Carrinho */}
+              <Link
+                href="/carrinho"
+                className="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/10 bg-[#121612] text-gray-300 hover:border-[#ABDB25]/60 hover:text-[#ABDB25] transition-all"
+                aria-label="Carrinho de Compras"
+                title="Meu Carrinho"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5m4 8v1a2 2 0 002 2h.01M9 20a2 2 0 104 0M15 20a2 2 0 104 0" />
+                </svg>
+              </Link>
               
               {isLoggedIn ? (
                 // Logged in - show chat, notifications, avatar dropdown
-                <div className="relative flex items-center gap-3" ref={dropdownRef}>
+                <div className="relative flex items-center gap-2 sm:gap-3" ref={dropdownRef}>
                   {/* Botão de Chat / Mensagens */}
                   <Link
                     href="/mensagens"
-                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 bg-gray-900 text-white hover:border-[#ABDB25] hover:text-[#ABDB25] transition-all"
+                    className="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/10 bg-[#121612] text-gray-300 hover:border-[#ABDB25]/60 hover:text-[#ABDB25] transition-all"
                     aria-label="Mensagens"
                     title="Mensagens do Marketplace"
                   >
@@ -280,7 +389,7 @@ export default function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                     </svg>
                     {unreadMessages > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ABDB25] text-black px-1 text-xs font-extrabold shadow-lg animate-pulse">
+                      <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#ABDB25] text-black px-1 text-[10px] font-extrabold shadow-lg animate-pulse">
                         {unreadMessages > 9 ? '9+' : unreadMessages}
                       </span>
                     )}
@@ -290,7 +399,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => { setNotificationsOpen(!notificationsOpen); setDropdownOpen(false); }}
-                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-700 bg-gray-900 text-white hover:border-[#ABDB25] hover:text-[#ABDB25] transition-all"
+                    className="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/10 bg-[#121612] text-gray-300 hover:border-[#ABDB25]/60 hover:text-[#ABDB25] transition-all"
                     aria-label="Notificações"
                     title="Notificações"
                   >
@@ -298,7 +407,7 @@ export default function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
                     {unreadNotifications > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                      <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}
@@ -307,12 +416,12 @@ export default function Header() {
                   {/* Avatar do Usuário */}
                   <button 
                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="w-10 h-10 rounded-full bg-[#ABDB25] flex items-center justify-center text-black font-bold hover:shadow-lg hover:shadow-[#ABDB25]/30 transition-all overflow-hidden"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#ABDB25] flex items-center justify-center text-black font-bold hover:shadow-lg hover:shadow-[#ABDB25]/30 transition-all overflow-hidden border border-[#ABDB25]/50"
                   >
                     {isValidImageUrl(userPhoto) ? (
                       <img src={userPhoto} alt="Foto de perfil" className="w-full h-full object-cover object-center" onError={(e) => { e.target.style.display = 'none'; }} />
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     )}

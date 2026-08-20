@@ -177,6 +177,10 @@ export default function ProdutoDetalhes() {
   };
 
   const addToCart = () => {
+    if (!isLoggedIn) {
+      router.push(`/?login=1&next=${encodeURIComponent(`/produtos/${produto.id_produto}`)}`);
+      return;
+    }
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     const existing = cart.findIndex(item => item.id_produto === produto.id_produto);
     if (existing >= 0) {
@@ -211,7 +215,7 @@ export default function ProdutoDetalhes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl animate-pulse">Carregando...</div>
       </div>
     );
@@ -219,7 +223,7 @@ export default function ProdutoDetalhes() {
 
   if (error || !produto) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-4">{error || 'Produto não encontrado'}</p>
           <Link href="/produtos" className="text-[#ABDB25] hover:underline">Voltar aos produtos</Link>
@@ -231,7 +235,7 @@ export default function ProdutoDetalhes() {
   const productImage = getMainImage(produto.imagem);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-white pt-20 pb-20">
       {cartMessage && (
         <div className="fixed right-5 top-24 z-50 rounded-xl border border-green-500/40 bg-green-500/20 px-4 py-3 text-sm font-medium text-green-200 shadow-xl" role="status">
           {cartMessage}

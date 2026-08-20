@@ -31,8 +31,7 @@ export default function Carrinho() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      // Not logged in - redirect or show message
-      router.push('/');
+      router.replace('/?login=1&next=%2Fcarrinho');
       return;
     }
     const savedCart = localStorage.getItem('cart');
@@ -95,7 +94,7 @@ export default function Carrinho() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl">Carregando...</div>
       </div>
     );
@@ -104,7 +103,7 @@ export default function Carrinho() {
   const total = calculateTotal();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-white pt-20 pb-20">
       <div className="max-w-4xl mx-auto px-6">
         {/* Header */}
         <div className="mb-8">

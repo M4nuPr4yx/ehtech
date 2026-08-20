@@ -46,7 +46,7 @@ export default function Perfil() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        router.push('/');
+        router.replace('/?login=1&next=%2Fperfil');
         return;
       }
       const res = await fetch('http://localhost:3000/perfil', {
@@ -57,7 +57,7 @@ export default function Perfil() {
         setPerfil(data);
       } else {
         localStorage.removeItem('token');
-        router.push('/');
+        router.replace('/?login=1&next=%2Fperfil');
       }
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
@@ -288,7 +288,7 @@ const handleChangeEmail = async (e) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl">Carregando...</div>
       </div>
     );
@@ -301,7 +301,7 @@ const handleChangeEmail = async (e) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-white pt-20 pb-20">
       <div className="max-w-2xl mx-auto px-6">
         <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
           <h1 className="text-3xl font-bold text-[#ABDB25] mb-6"> Meu Perfil</h1>

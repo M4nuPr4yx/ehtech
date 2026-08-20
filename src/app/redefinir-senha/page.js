@@ -75,7 +75,7 @@ export default function RedefinirSenhaPage() {
 
   if (verificando) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <p className="text-xl">Verificando token...</p>
       </div>
     );
@@ -83,7 +83,7 @@ export default function RedefinirSenhaPage() {
 
   if (!tokenValido) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white flex items-center justify-center p-4">
+      <div className="site-background min-h-screen text-white flex items-center justify-center p-4">
         <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
           <h1 className="text-2xl font-bold text-red-400 mb-4">Link inválido</h1>
           <p className="text-gray-300 mb-6">{message}</p>
@@ -96,7 +96,7 @@ export default function RedefinirSenhaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white flex items-center justify-center p-4">
+    <div className="site-background min-h-screen text-white flex items-center justify-center p-4">
       <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
         <h1 className="text-2xl font-bold text-[#ABDB25] mb-2 text-center">Nova senha</h1>
         <p className="text-gray-400 text-sm mb-6 text-center">

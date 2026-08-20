@@ -55,14 +55,17 @@ export default function MensagensPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/');
+      const nextPath = `${window.location.pathname}${window.location.search}`;
+      router.replace(`/?login=1&next=${encodeURIComponent(nextPath)}`);
       return;
     }
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       setCurrentUser(payload);
     } catch {
-      router.push('/');
+      localStorage.removeItem('token');
+      const nextPath = `${window.location.pathname}${window.location.search}`;
+      router.replace(`/?login=1&next=${encodeURIComponent(nextPath)}`);
     }
   }, [router]);
 
@@ -243,7 +246,7 @@ export default function MensagensPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#070909] via-black to-[#ABDB25]/15 text-white pt-10 pb-16 px-4 md:px-8">
+    <div className="site-background min-h-screen text-white pt-10 pb-16 px-4 md:px-8">
       {messageFeedback && (
         <div className="fixed right-5 top-24 z-50 rounded-xl border border-red-500/40 bg-red-500/20 px-4 py-3 text-sm font-medium text-red-100 shadow-xl" role="alert">
           {messageFeedback}

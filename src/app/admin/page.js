@@ -349,12 +349,12 @@ export default function Admin() {
   }, [users, userSearch]);
 
   if (isCheckingSession) {
-    return <div className="min-h-screen bg-black" />;
+    return <div className="site-background min-h-screen" />;
   }
 
   if (!adminToken) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/20 flex items-center justify-center p-6">
+      <div className="site-background min-h-screen flex items-center justify-center p-6">
         <div className="bg-gray-900/90 backdrop-blur-xl p-8 rounded-3xl border border-[#ABDB25]/30 max-w-md w-full shadow-2xl">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#ABDB25] to-white bg-clip-text text-transparent">
@@ -412,7 +412,7 @@ export default function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#070909] via-black to-[#0e1310] text-white p-4 md:p-8">
+    <div className="site-background min-h-screen text-white p-4 md:p-8">
       {feedback && (
         <div className="fixed right-5 top-5 z-[100] rounded-xl border border-[#ABDB25]/40 bg-[#17210d] px-4 py-3 text-sm text-white shadow-xl" role="status">
           {feedback}

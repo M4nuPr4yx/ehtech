@@ -23,7 +23,7 @@ export default function Anunciar() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/');
+      router.replace('/?login=1&next=%2Fanunciar');
       return;
     }
     setLoading(false);
@@ -168,7 +168,7 @@ export default function Anunciar() {
           localStorage.removeItem('token');
           setMessage('Sessão expirada. Faça login novamente.');
           setMessageType('error');
-          setTimeout(() => { router.push('/'); }, 2000);
+          setTimeout(() => { router.replace('/?login=1&next=%2Fanunciar'); }, 2000);
           return;
         }
       }
@@ -198,7 +198,7 @@ export default function Anunciar() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl animate-pulse">Carregando...</div>
       </div>
     );
@@ -218,7 +218,7 @@ export default function Anunciar() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#070909] via-black to-[#ABDB25]/15 text-white pt-12 pb-20 px-4">
+    <div className="site-background min-h-screen text-white pt-12 pb-20 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="bg-gray-900/90 backdrop-blur-xl border border-gray-800 rounded-3xl p-6 md:p-10 shadow-2xl">
           <div className="mb-8 border-b border-gray-800 pb-6">

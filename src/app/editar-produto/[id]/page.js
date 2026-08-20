@@ -40,7 +40,7 @@ export default function EditarProduto() {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          router.push('/');
+          router.replace(`/?login=1&next=${encodeURIComponent(`/editar-produto/${params.id}`)}`);
           return;
         }
 
@@ -218,7 +218,7 @@ export default function EditarProduto() {
           localStorage.removeItem('token');
           setMessage('Sessão expirada. Faça login novamente.');
           setMessageType('error');
-          setTimeout(() => { router.push('/'); }, 2000);
+          setTimeout(() => { router.replace(`/?login=1&next=${encodeURIComponent(`/editar-produto/${params.id}`)}`); }, 2000);
           return;
         }
       }
@@ -248,7 +248,7 @@ export default function EditarProduto() {
 
   if (loading || loadingData) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl">Carregando...</div>
       </div>
     );
@@ -270,7 +270,7 @@ export default function EditarProduto() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-white pt-20 pb-20">
       <div className="max-w-2xl mx-auto px-6">
         <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
           <div className="flex items-center gap-3 mb-6">

@@ -14,7 +14,7 @@ import Footer from "./complements/Footer";
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body className="antialiased bg-black text-white">
+      <body className="antialiased text-white">
         <Header />
         <main>{children}</main>
         <Footer />

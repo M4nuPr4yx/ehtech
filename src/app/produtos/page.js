@@ -1,12 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
 
-export default function Produtos() {
+function ProdutosContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,6 +33,14 @@ export default function Produtos() {
     { value: 'audio', label: 'Áudio' },
     { value: 'outros', label: 'Outros' }
   ];
+
+  // Sync with URL query parameters
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q) setSearch(q);
+    const cat = searchParams.get('categoria');
+    if (cat) setCategoria(cat);
+  }, [searchParams]);
 
   const fetchProdutos = async () => {
     setLoading(true);
@@ -111,25 +120,53 @@ export default function Produtos() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl animate-pulse">Carregando produtos...</div>
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#ABDB25] border-t-transparent"></div>
+          <div className="text-[#d7f58d] text-sm font-semibold">Carregando catálogo de produtos...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(171,219,37,0.14),_transparent_32%),linear-gradient(to_bottom,_#111,_#000_50%,_rgba(171,219,37,0.18))] text-white pt-16 pb-20">
-      <div className="max-w-6xl mx-auto px-6">
+    <div className="site-background min-h-screen text-white pt-10 pb-20 relative overflow-hidden">
+      {/* Background Gradients */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-0 right-1/4 h-96 w-96 rounded-full bg-[radial-gradient(circle,_rgba(171,219,37,0.08)_0%,_transparent_70%)] blur-3xl" />
+        <div className="absolute bottom-1/3 left-10 h-96 w-96 rounded-full bg-[radial-gradient(circle,_rgba(171,219,37,0.05)_0%,_transparent_70%)] blur-3xl" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#ABDB25] mb-2">Todos os Produtos</h1>
-          <p className="text-gray-400">Explore nossa coleção completa</p>
+        <div className="mb-8 border-b border-white/[0.08] pb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="h-2 w-2 rounded-full bg-[#ABDB25]"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#ABDB25]">Catálogo Completo</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white">Todos os Produtos</h1>
+          <p className="text-sm text-gray-400 mt-1">Explore, filtre e compre equipamentos com segurança e transparência</p>
         </div>
 
         <div className="flex flex-col gap-8 lg:flex-row">
         {/* Filters Panel */}
-        <aside className="h-fit w-full shrink-0 rounded-2xl border border-white/10 bg-[#15181b]/95 p-6 shadow-xl shadow-black/20 lg:sticky lg:top-24 lg:w-72">
-          <h2 className="mb-5 text-lg font-bold text-white">Filtros</h2>
+        <aside className="h-fit w-full shrink-0 rounded-2xl border border-white/10 bg-[#121612]/95 p-6 shadow-xl shadow-black/30 lg:sticky lg:top-24 lg:w-72 backdrop-blur-md">
+          <div className="flex items-center justify-between mb-5 border-b border-white/[0.08] pb-3">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#ABDB25]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filtros
+            </h2>
+            {(search || categoria || precoMin || precoMax || ordenacao !== 'recentes') && (
+              <button
+                onClick={limparFiltros}
+                className="text-xs font-semibold text-[#ABDB25] hover:underline"
+              >
+                Limpar tudo
+              </button>
+            )}
+          </div>
           <div className="space-y-4">
             {/* Search */}
             <div className="relative">
@@ -231,7 +268,7 @@ export default function Produtos() {
               return (
               <div
                 key={produto.id_produto || index}
-                className="bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group"
+                className="scale-up-ver-bottom bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
 {/* Product Image */}
@@ -292,5 +329,20 @@ export default function Produtos() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Produtos() {
+  return (
+    <Suspense fallback={
+      <div className="site-background min-h-screen text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#ABDB25] border-t-transparent"></div>
+          <div className="text-[#d7f58d] text-sm font-semibold">Carregando catálogo de produtos...</div>
+        </div>
+      </div>
+    }>
+      <ProdutosContent />
+    </Suspense>
   );
 }

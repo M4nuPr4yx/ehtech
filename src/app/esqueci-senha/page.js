@@ -29,7 +29,7 @@ export default function EsqueciSenhaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white flex items-center justify-center p-4">
+    <div className="site-background min-h-screen text-white flex items-center justify-center p-4">
       <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
         <h1 className="text-2xl font-bold text-[#ABDB25] mb-2 text-center">Esqueci minha senha</h1>
         <p className="text-gray-400 text-sm mb-6 text-center">

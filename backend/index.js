@@ -12,10 +12,25 @@ const validator = require('validator')
 const multer = require('multer')
 require('dotenv').config()
 
+const pool = require('./db')
+const uploadRoutes = require('./routes/upload')
+const porta = process.env.PORT || 3000
+const app = express()
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}))
+app.disable('x-powered-by')
+
 // CORS deve vir ANTES das rotas. Não permita chamadas de qualquer origem em produção.
-const corsOrigin = process.env.FRONTEND_URL || 'http://localhost:3001'
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3001')
+  .split(',')
+  .map((origin) => origin.trim())
 app.use(cors({
-  origin: corsOrigin,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    return callback(new Error('Origem não permitida pelo CORS'))
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
@@ -59,8 +74,8 @@ const uploadLimiter = rateLimit({
 // ==========================================
 // 4. PARSER DE PAYLOAD COM LIMITES SEGUROS
 // ==========================================
-app.use(express.json({ limit: '2mb' }))
-app.use(express.urlencoded({ extended: true, limit: '2mb' }))
+app.use(express.json({ limit: '6mb' }))
+app.use(express.urlencoded({ extended: true, limit: '6mb' }))
 
 // ==========================================
 // 5. DIRETÓRIO DE UPLOADS E ARQUIVOS ESTÁTICOS
@@ -84,12 +99,19 @@ const api_chave = process.env.API_SEGREDO
 if (!api_chave || api_chave.length < 32) {
   throw new Error('API_SEGREDO deve ser definido com pelo menos 32 caracteres no arquivo backend/.env')
 }
-app.use(express.json({ limit: '50mb' }))
-app.use(express.urlencoded({ extended: true, limit: '50mb' }))
-const pool = require('./db')
 
 const isValidPassword = (senha) => {
   return typeof senha === 'string' && senha.length >= 8
+}
+
+const isAllowedUserEmail = (email) => {
+  if (typeof email !== 'string') return false
+
+  const normalizedEmail = email.trim().toLowerCase()
+  if (!validator.isEmail(normalizedEmail)) return false
+
+  const allowedDomains = new Set(['gmail.com', 'hotmail.com', 'outlook.com'])
+  return allowedDomains.has(normalizedEmail.split('@')[1])
 }
 
 const criarNotificacao = async ({ usuarioId, produtoId = null, tipo, mensagem }) => {
@@ -233,7 +255,7 @@ app.post("/login", authLimiter, async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role || 'user'
-    }, getApiSecret(), { expiresIn: "8h", algorithm: 'HS256' })
+    }, api_chave, { expiresIn: "8h", algorithm: 'HS256' })
 
     return res.json({
       mensagem: "Login OK",
@@ -275,7 +297,7 @@ app.post("/admin/login", authLimiter, async (req, res) => {
       username: adminUser.username,
       email: adminUser.email,
       role: 'admin'
-    }, getApiSecret(), { expiresIn: "4h", algorithm: 'HS256' })
+    }, api_chave, { expiresIn: "4h", algorithm: 'HS256' })
 
     return res.json({ mensagem: "Admin login OK", token })
   } catch (error) {

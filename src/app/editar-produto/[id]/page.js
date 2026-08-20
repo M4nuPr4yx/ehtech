@@ -218,7 +218,7 @@ export default function EditarProduto() {
           localStorage.removeItem('token');
           setMessage('Sessão expirada. Faça login novamente.');
           setMessageType('error');
-          setTimeout(() => { window.location.href = '/'; }, 2000);
+          setTimeout(() => { router.push('/'); }, 2000);
           return;
         }
       }

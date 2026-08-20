@@ -32,6 +32,7 @@ export default function Header() {
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [message, setMessage] = useState('');
+  const [feedback, setFeedback] = useState('');
   const [userPhoto, setUserPhoto] = useState('');
 
   // Check login status on mount
@@ -193,14 +194,14 @@ export default function Header() {
         fetchNotifications(data.token);
         fetchUnreadMessages(data.token);
         setIsLoggedIn(true);
-        alert('Login bem-sucedido!');
+        setFeedback('Login bem-sucedido!');
         setModalOpen(false);
         setUsername(''); 
         setEmail(''); 
         setSenha('');
         setConfirmarSenha('');
       } else if (activeTab === 'cadastro' && res.ok) {
-        alert(data.mensagem || 'Cadastro realizado! Agora você pode fazer login.');
+        setFeedback(data.mensagem || 'Cadastro realizado! Agora você pode fazer login.');
         setActiveTab('login');
         setSenha('');
         setConfirmarSenha('');
@@ -224,28 +225,34 @@ export default function Header() {
 
   const goToPerfil = () => {
     setDropdownOpen(false);
-    window.location.href = '/perfil';
+    router.push('/perfil');
   };
 
   const goToMensagens = () => {
     setDropdownOpen(false);
-    window.location.href = '/mensagens';
+    router.push('/mensagens');
   };
 
   const goToAnunciar = () => {
     setDropdownOpen(false);
-    window.location.href = '/anunciar';
+    router.push('/anunciar');
   };
 
   const goToCarrinho = () => {
     setDropdownOpen(false);
-    window.location.href = '/carrinho';
+    router.push('/carrinho');
   };
 
   const unreadNotifications = notifications.filter((notification) => !notification.lida).length;
 
   return (
     <>
+      {feedback && (
+        <div className="fixed right-5 top-24 z-[60] rounded-xl border border-green-500/40 bg-green-500/20 px-4 py-3 text-sm font-medium text-green-200 shadow-xl" role="status">
+          {feedback}
+          <button type="button" onClick={() => setFeedback('')} className="ml-3 text-green-100 hover:text-white" aria-label="Fechar mensagem">×</button>
+        </div>
+      )}
       <header className="sticky top-0 z-50 border-b border-[#abdb25]/15 bg-[#070909]/95 shadow-2xl shadow-black/30 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-5 py-2">
           <div className="flex justify-between items-center">

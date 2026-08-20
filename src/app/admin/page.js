@@ -81,6 +81,7 @@ export default function Admin() {
   const [editProdStatus, setEditProdStatus] = useState('');
   const [editProdImagem, setEditProdImagem] = useState('');
   const [savingProduct, setSavingProduct] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
   // Filtros de Produtos
   const [productSearch, setProductSearch] = useState('');
@@ -108,10 +109,10 @@ export default function Admin() {
         fetchUsers(data.token);
         fetchProducts(data.token);
       } else {
-        alert(data.mensagem || 'Credenciais inválidas');
+        setFeedback(data.mensagem || 'Credenciais inválidas');
       }
     } catch {
-      alert('Erro de conexão ao autenticar administrador');
+      setFeedback('Erro de conexão ao autenticar administrador');
     }
   };
 
@@ -164,7 +165,7 @@ export default function Admin() {
       fetchProducts(adminToken);
       setSelectedProduct(null);
     } catch (error) {
-      alert(error.message || 'Erro ao atualizar aprovação');
+      setFeedback(error.message || 'Erro ao atualizar aprovação');
     }
   };
 
@@ -204,15 +205,15 @@ export default function Admin() {
 
       const data = await res.json();
       if (res.ok) {
-        alert('Produto atualizado com sucesso!');
+        setFeedback('Produto atualizado com sucesso!');
         setEditingProduct(null);
         fetchProducts(adminToken);
       } else {
-        alert(data.mensagem || 'Erro ao salvar produto');
+        setFeedback(data.mensagem || 'Erro ao salvar produto');
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao atualizar produto');
+      setFeedback('Erro ao atualizar produto');
     } finally {
       setSavingProduct(false);
     }
@@ -228,13 +229,13 @@ export default function Admin() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.mensagem || 'Produto excluído!');
+        setFeedback(data.mensagem || 'Produto excluído!');
         fetchProducts(adminToken);
       } else {
-        alert(data.mensagem || 'Erro ao excluir');
+        setFeedback(data.mensagem || 'Erro ao excluir');
       }
     } catch {
-      alert('Erro de conexão ao excluir produto');
+      setFeedback('Erro de conexão ao excluir produto');
     }
   };
 
@@ -251,13 +252,13 @@ export default function Admin() {
         body: JSON.stringify({ email: editEmail, role: editRole }),
       });
       const data = await res.json();
-      alert(data.mensagem);
+      setFeedback(data.mensagem || 'Usuário atualizado.');
       if (res.ok) {
         fetchUsers(adminToken);
         setEditingUser(null);
       }
     } catch {
-      alert('Erro ao atualizar usuário');
+      setFeedback('Erro ao atualizar usuário');
     }
   };
 
@@ -269,12 +270,12 @@ export default function Admin() {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       const data = await res.json();
-      alert(data.mensagem);
+      setFeedback(data.mensagem || 'Usuário excluído.');
       if (res.ok) {
         fetchUsers(adminToken);
       }
     } catch {
-      alert('Erro ao deletar usuário');
+      setFeedback('Erro ao deletar usuário');
     }
   };
 
@@ -361,6 +362,11 @@ export default function Admin() {
             </h1>
             <p className="text-gray-400 text-sm mt-1">Acesso restrito a administradores EHtech</p>
           </div>
+          {feedback && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+              {feedback}
+            </div>
+          )}
 
           <form
             onSubmit={(e) => {
@@ -407,6 +413,12 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#070909] via-black to-[#0e1310] text-white p-4 md:p-8">
+      {feedback && (
+        <div className="fixed right-5 top-5 z-[100] rounded-xl border border-[#ABDB25]/40 bg-[#17210d] px-4 py-3 text-sm text-white shadow-xl" role="status">
+          {feedback}
+          <button type="button" onClick={() => setFeedback('')} className="ml-3 text-[#ABDB25] hover:text-white" aria-label="Fechar mensagem">×</button>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto">
         {/* Cabeçalho Admin */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-gray-800">

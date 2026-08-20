@@ -221,9 +221,14 @@ export default function Carrinho() {
 
               {/* Actions */}
               <div className="flex flex-col gap-3">
-                <button className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all">
+                <button
+                  disabled
+                  title="A finalização de compra ainda não está disponível."
+                  className="w-full py-4 bg-[#ABDB25] text-black font-bold rounded-xl shadow-xl opacity-60 cursor-not-allowed"
+                >
                   Finalizar Compra
                 </button>
+                <p className="text-center text-xs text-gray-400">A finalização de compra estará disponível em breve.</p>
                 <div className="flex gap-3">
                   <Link href="/produtos" className="flex-1 py-3 text-center border border-gray-600 text-white rounded-xl hover:bg-gray-800 transition-all">
                     Continuar Comprando

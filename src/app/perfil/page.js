@@ -24,7 +24,7 @@ export default function Perfil() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [userFoto, setUserFoto] = useState('');
-  const [uploadingkkk, setUploadingkkk] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
 
   // Form states for security tab
@@ -219,7 +219,7 @@ const handleChangeEmail = async (e) => {
       return;
     }
 
-    setUploadingkkk(true);
+    setUploadingPhoto(true);
     setMessage('');
 
     try {
@@ -251,7 +251,7 @@ const handleChangeEmail = async (e) => {
       setMessage('Erro: ' + err.message);
       setMessageType('error');
     } finally {
-      setUploadingkkk(false);
+      setUploadingPhoto(false);
     }
   };
 

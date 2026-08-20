@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import ImageWithFallback from '../../complements/ImageWithFallback';
+import { getMainImage } from '../../complements/imageHelper';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -24,6 +25,7 @@ export default function ProdutoDetalhes() {
   const [produto, setProduto] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cartMessage, setCartMessage] = useState('');
   
   // Rating state
   const [avaliacoes, setAvaliacoes] = useState({ avaliacoes: [], media: 0, total: 0 });
@@ -63,7 +65,7 @@ export default function ProdutoDetalhes() {
 
   useEffect(() => {
     if (produto && user) {
-      setIsOwner(produto.vendedor_id === user.id || produto.vendedor === user.email);
+      setIsOwner(Number(produto.vendedor_id) === Number(user.id) || produto.vendedor === user.email);
     }
   }, [produto, user]);
 
@@ -183,7 +185,7 @@ export default function ProdutoDetalhes() {
       cart.push({ ...produto, quantidade: 1 });
     }
     localStorage.setItem('cart', JSON.stringify(cart));
-    alert('Produto adicionado ao carrinho!');
+    setCartMessage('Produto adicionado ao carrinho!');
   };
 
   const formatPrice = (price) => {
@@ -226,8 +228,16 @@ export default function ProdutoDetalhes() {
     );
   }
 
+  const productImage = getMainImage(produto.imagem);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#111] via-black to-[#ABDB25]/30 text-white pt-20 pb-20">
+      {cartMessage && (
+        <div className="fixed right-5 top-24 z-50 rounded-xl border border-green-500/40 bg-green-500/20 px-4 py-3 text-sm font-medium text-green-200 shadow-xl" role="status">
+          {cartMessage}
+          <button type="button" onClick={() => setCartMessage('')} className="ml-3 text-green-100 hover:text-white" aria-label="Fechar mensagem">×</button>
+        </div>
+      )}
       <div className="max-w-4xl mx-auto px-6">
         {/* Back button */}
         <Link href="/produtos" className="inline-flex items-center text-gray-400 hover:text-[#ABDB25] mb-6 transition-colors">
@@ -237,9 +247,9 @@ export default function ProdutoDetalhes() {
         <div className="grid md:grid-cols-2 gap-8">
           {/* Product Image */}
           <div className="bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden">
-            {isValidImageUrl(produto.imagem) ? (
+            {isValidImageUrl(productImage) ? (
               <ImageWithFallback
-                src={produto.imagem} 
+                src={productImage}
                 alt={produto.nome}
                 className="w-full h-full object-contain"
               />

@@ -4,7 +4,7 @@ const nextConfig = {
   async rewrites() {
     return [{
       source: '/uploads/:path*',
-      destination: 'http://localhost:3000/uploads/:path*',
+      destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/:path*`,
     }];
   },
   async headers() {

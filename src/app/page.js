@@ -2,24 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ImageWithFallback from './complements/ImageWithFallback';
-
-// Helper function to validate if a string is a valid image URL or Base64
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  // Check for valid URL patterns: http://, https://, or data:image/
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
-    return true;
-  }
-  // Also check if it looks like a Base64 image (contains common Base64 image patterns)
-  if (trimmed.includes('base64,')) {
-    return true;
-  }
-  // Check if it's a valid looking URL (contains common image extensions)
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  return imageExtensions.some(ext => trimmed.toLowerCase().includes(ext));
-};
+import { getMainImage } from './complements/imageHelper';
 
 export default function Home() {
   const [produtos, setProdutos] = useState([]);
@@ -58,13 +41,14 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(171,219,37,0.2),_transparent_34%),linear-gradient(to_bottom,_#111,_#000_48%,_rgba(171,219,37,0.2))] text-white pt-16 pb-20">
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_72%_12%,_rgba(171,219,37,0.22),_transparent_24%),radial-gradient(circle_at_20%_28%,_rgba(69,107,19,0.18),_transparent_24%),linear-gradient(to_bottom,_#101311,_#050605_52%,_#0a0d08)] text-white pt-16 pb-20">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[38rem] bg-[linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       {/* Hero Section */}
-      <div className="max-w-5xl mx-auto px-6 py-20 text-center">
+      <div className="relative max-w-5xl mx-auto px-6 py-24 text-center md:py-32">
         <div className="mb-8">
           <span className="mb-5 inline-flex rounded-full border border-[#ABDB25]/30 bg-[#ABDB25]/10 px-4 py-1.5 text-sm font-semibold text-[#d7f58d]">Seu marketplace de tecnologia</span>
-          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight bg-gradient-to-r from-white via-[#d8f88e] to-[#ABDB25] bg-clip-text text-transparent drop-shadow-2xl">
-            Tecnologia que encontra você.
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 leading-[0.94] tracking-[-0.055em] bg-gradient-to-br from-white via-[#e7ffc0] to-[#ABDB25] bg-clip-text text-transparent drop-shadow-2xl">
+            Tecnologia<br />que encontra você.
           </h1>
           <p className="text-xl md:text-2xl max-w-2xl mx-auto opacity-90 leading-relaxed">
             A plataforma para compra, venda e troca de produtos de tecnologia.
@@ -84,10 +68,10 @@ export default function Home() {
             Ver produtos
           </Link>
         </div>
-        <div className="mx-auto mt-12 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"><p className="font-bold">Compra descomplicada</p><p className="mt-1 text-sm text-gray-400">Encontre o que procura.</p></div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"><p className="font-bold">Venda sem enrolação</p><p className="mt-1 text-sm text-gray-400">Anuncie em poucos passos.</p></div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"><p className="font-bold">Estoque visível</p><p className="mt-1 text-sm text-gray-400">Saiba o que está disponível.</p></div>
+        <div className="mx-auto mt-14 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-[#ABDB25]/40"><p className="font-bold">Compra descomplicada</p><p className="mt-1 text-sm text-gray-400">Encontre o que procura.</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-[#ABDB25]/40"><p className="font-bold">Venda sem enrolação</p><p className="mt-1 text-sm text-gray-400">Anuncie em poucos passos.</p></div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-[#ABDB25]/40"><p className="font-bold">Estoque visível</p><p className="mt-1 text-sm text-gray-400">Saiba o que está disponível.</p></div>
         </div>
       </div>
 
@@ -108,16 +92,19 @@ export default function Home() {
           </div>
         ) : produtos.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {produtos.map((produto, index) => (
-              <div 
+            {produtos.map((produto, index) => {
+              const imageUrl = getMainImage(produto.imagem);
+              return (
+              <Link
+                href={`/produtos/${produto.id_produto}`}
                 key={produto.id_produto || index}
-                className="bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
+                className="bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group"
               >
 {/* Product Image */}
                 <div className="aspect-square bg-gray-800 relative overflow-hidden">
-                  {isValidImageUrl(produto.imagem) ? (
+                  {imageUrl ? (
                     <ImageWithFallback
-                      src={produto.imagem} 
+                      src={imageUrl}
                       alt={produto.nome}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -139,8 +126,8 @@ export default function Home() {
                     {formatPrice(produto.preco)}
                   </p>
                 </div>
-              </div>
-            ))}
+              </Link>
+            )})}
           </div>
         ) : (
           <div className="text-center py-12 bg-gray-900/30 border border-gray-800 rounded-2xl">

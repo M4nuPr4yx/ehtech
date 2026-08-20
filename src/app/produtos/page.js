@@ -3,20 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
-
-// Helper function to validate if a string is a valid image URL or Base64
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  // Support both URL and base64
-  return (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('/uploads/') ||
-    trimmed.startsWith('data:image/')
-  );
-};
+import { getMainImage } from '../complements/imageHelper';
 
 export default function Produtos() {
   const router = useRouter();
@@ -103,7 +90,7 @@ export default function Produtos() {
         return parseFloat(b.preco) - parseFloat(a.preco);
       case 'recentes':
       default:
-        return new Date(b.id_produto || 0) - new Date(a.id_produto || 0);
+        return Number(b.id_produto) - Number(a.id_produto);
     }
   });
 
@@ -239,17 +226,19 @@ export default function Produtos() {
         {/* Products Grid */}
         {produtosOrdenados.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {produtosOrdenados.map((produto, index) => (
-              <div 
+            {produtosOrdenados.map((produto, index) => {
+              const imageUrl = getMainImage(produto.imagem);
+              return (
+              <div
                 key={produto.id_produto || index}
                 className="bg-[#15181b]/95 border border-white/10 rounded-2xl overflow-hidden hover:border-[#ABDB25]/70 hover:shadow-xl hover:shadow-[#ABDB25]/15 hover:-translate-y-1 transition-all duration-300 group"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
 {/* Product Image */}
                 <div className="aspect-square bg-gray-800 relative overflow-hidden">
-                  {isValidImageUrl(produto.imagem) ? (
+                  {imageUrl ? (
                     <ImageWithFallback
-                      src={produto.imagem} 
+                      src={imageUrl}
                       alt={produto.nome}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -283,7 +272,7 @@ export default function Produtos() {
                   </button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         ) : (
           <div className="text-center py-16">

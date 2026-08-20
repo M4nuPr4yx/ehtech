@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { isValidImageUrl } from '../complements/imageHelper';
 
 export default function Anunciar() {
   const router = useRouter();
@@ -169,7 +168,7 @@ export default function Anunciar() {
           localStorage.removeItem('token');
           setMessage('Sessão expirada. Faça login novamente.');
           setMessageType('error');
-          setTimeout(() => { window.location.href = '/'; }, 2000);
+          setTimeout(() => { router.push('/'); }, 2000);
           return;
         }
       }

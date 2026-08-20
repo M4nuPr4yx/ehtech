@@ -45,6 +45,7 @@ export default function MensagensPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [messageFeedback, setMessageFeedback] = useState('');
 
   const [referencedProduct, setReferencedProduct] = useState(null);
   const [mobileView, setMobileView] = useState('list'); // 'list' or 'chat'
@@ -226,11 +227,11 @@ export default function MensagensPage() {
         await fetchConversations(true);
       } else {
         const errData = await res.json();
-        alert(errData.mensagem || 'Erro ao enviar mensagem');
+        setMessageFeedback(errData.mensagem || 'Erro ao enviar mensagem');
       }
     } catch (err) {
       console.error('Erro no envio:', err);
-      alert('Erro de conexão ao enviar mensagem');
+      setMessageFeedback('Erro de conexão ao enviar mensagem');
     } finally {
       setSending(false);
     }
@@ -243,6 +244,12 @@ export default function MensagensPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#070909] via-black to-[#ABDB25]/15 text-white pt-10 pb-16 px-4 md:px-8">
+      {messageFeedback && (
+        <div className="fixed right-5 top-24 z-50 rounded-xl border border-red-500/40 bg-red-500/20 px-4 py-3 text-sm font-medium text-red-100 shadow-xl" role="alert">
+          {messageFeedback}
+          <button type="button" onClick={() => setMessageFeedback('')} className="ml-3 hover:text-white" aria-label="Fechar mensagem">×</button>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto">
         {/* Cabeçalho da página */}
         <div className="flex items-center justify-between mb-6">

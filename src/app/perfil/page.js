@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getApiUrl } from '../../lib/api';
@@ -43,7 +43,7 @@ export default function Perfil() {
   const [editLoading, setEditLoading] = useState(false);
   const fileInputRefEdit = useRef(null);
 
-  const fetchPerfil = async () => {
+  const fetchPerfil = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -65,10 +65,10 @@ export default function Perfil() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   // Fetch user's products
-  const fetchUserProducts = async () => {
+  const fetchUserProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
       const token = localStorage.getItem('token');
@@ -84,18 +84,18 @@ export default function Perfil() {
     } finally {
       setLoadingProducts(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPerfil();
-  }, []);
+  }, [fetchPerfil]);
 
   // Load products when tab changes to "produtos"
   useEffect(() => {
     if (activeTab === 'produtos') {
       fetchUserProducts();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchUserProducts]);
 
 const handleLogout = () => {
     localStorage.removeItem('token');

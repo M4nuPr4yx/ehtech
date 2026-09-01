@@ -3,23 +3,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-// Helper function to validate if a string is a valid image URL or Base64
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  // Check for valid URL patterns: http://, https://, or data:image/
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
-    return true;
-  }
-  // Also check if it looks like a Base64 image (contains common Base64 image patterns)
-  if (trimmed.includes('base64,')) {
-    return true;
-  }
-  // Check if it's a valid looking URL (contains common image extensions)
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  return imageExtensions.some(ext => trimmed.toLowerCase().includes(ext));
-};
+import ImageWithFallback from '../complements/ImageWithFallback';
+import { getMainImage, isValidImageUrl } from '../complements/imageHelper';
 
 export default function Carrinho() {
   const router = useRouter();
@@ -140,20 +125,22 @@ export default function Carrinho() {
                 >
                   {/* Product Image */}
                   <div className="w-full md:w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-gray-800">
-                    {isValidImageUrl(item.imagem) ? (
-                      <img 
-                        src={item.imagem} 
-                        alt={item.nome}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
+                    {(() => {
+                      const mainImg = getMainImage(item.imagem);
+                      return isValidImageUrl(mainImg) ? (
+                        <ImageWithFallback 
+                          src={mainImg} 
+                          alt={item.nome}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Product Info */}

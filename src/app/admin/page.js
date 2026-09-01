@@ -131,8 +131,6 @@ export default function Admin() {
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (token) {
-      // Restaura a sessão persistida uma única vez na abertura da página.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAdminToken(token);
       fetchUsers(token);
     }

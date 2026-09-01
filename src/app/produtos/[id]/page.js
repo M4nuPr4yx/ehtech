@@ -1,24 +1,96 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import ImageWithFallback from '../../complements/ImageWithFallback';
-import { getMainImage } from '../../complements/imageHelper';
+import { getMainImage, getProductImages, isValidImageUrl } from '../../complements/imageHelper';
 import { getApiUrl } from '../../../lib/api';
 
-// Helper function to validate if a string is a valid image URL or Base64
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  // Support both URL and base64
+// ImageGallery Component - galeria interativa com miniaturas
+function ImageGallery({ images }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const validImages = Array.isArray(images) ? images.filter(isValidImageUrl) : [];
+
+  if (validImages.length === 0) {
+    return (
+      <div className="aspect-square bg-gray-900 border border-gray-700 rounded-2xl flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+    );
+  }
+
+  const prev = () => setActiveIdx((i) => (i - 1 + validImages.length) % validImages.length);
+  const next = () => setActiveIdx((i) => (i + 1) % validImages.length);
+
   return (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('/uploads/') ||
-    trimmed.startsWith('data:image/')
+    <div className="flex flex-col gap-3">
+      {/* Imagem Principal */}
+      <div className="relative bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden aspect-square group">
+        <ImageWithFallback
+          src={validImages[activeIdx]}
+          alt={`Foto ${activeIdx + 1}`}
+          className="w-full h-full object-contain p-2 transition-opacity duration-300"
+        />
+
+        {/* Badge contagem */}
+        {validImages.length > 1 && (
+          <span className="absolute top-3 right-3 bg-black/60 backdrop-blur text-white text-xs font-bold px-2.5 py-1 rounded-full">
+            {activeIdx + 1}/{validImages.length}
+          </span>
+        )}
+
+        {/* Setas de Navegação */}
+        {validImages.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={prev}
+              aria-label="Imagem anterior"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-[#ABDB25] text-white hover:text-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={next}
+              aria-label="Próxima imagem"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-[#ABDB25] text-white hover:text-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Miniaturas */}
+      {validImages.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {validImages.map((url, idx) => (
+            <button
+              type="button"
+              key={idx}
+              onClick={() => setActiveIdx(idx)}
+              aria-label={`Ver foto ${idx + 1}`}
+              className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                idx === activeIdx
+                  ? 'border-[#ABDB25] shadow-md shadow-[#ABDB25]/20'
+                  : 'border-gray-700 hover:border-gray-500'
+              }`}
+            >
+              <img
+                src={url}
+                alt={`Miniatura ${idx + 1}`}
+                className="w-full h-full object-contain bg-gray-800 p-0.5"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
-};
+}
 
 export default function ProdutoDetalhes() {
   const router = useRouter();
@@ -59,22 +131,8 @@ export default function ProdutoDetalhes() {
     }
   }, []);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchProduto();
-      fetchAvaliacoes();
-    }
-  }, [params.id]);
-
-  useEffect(() => {
-    if (produto && user) {
-      setIsOwner(Number(produto.vendedor_id) === Number(user.id) || produto.vendedor === user.email);
-    }
-  }, [produto, user]);
-
-  const [sellerInfo, setSellerInfo] = useState(null);
-
-  const fetchProduto = async () => {
+  const fetchProduto = useCallback(async () => {
+    if (!params.id) return;
     setLoading(true);
     try {
       const res = await fetch(getApiUrl(`/produtos/${params.id}`));
@@ -106,9 +164,10 @@ export default function ProdutoDetalhes() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
-  const fetchAvaliacoes = async () => {
+  const fetchAvaliacoes = useCallback(async () => {
+    if (!params.id) return;
     try {
       const res = await fetch(getApiUrl(`/avaliacoes/produto/${params.id}`));
       if (res.ok) {
@@ -118,7 +177,12 @@ export default function ProdutoDetalhes() {
     } catch (err) {
       console.error('Erro ao carregar avaliações:', err);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchProduto();
+    fetchAvaliacoes();
+  }, [fetchProduto, fetchAvaliacoes]);
 
   const submitRating = async () => {
     if (!userRating) return;
@@ -252,22 +316,8 @@ export default function ProdutoDetalhes() {
         </Link>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Product Image */}
-          <div className="bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden">
-            {isValidImageUrl(productImage) ? (
-              <ImageWithFallback
-                src={productImage}
-                alt={produto.nome}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="aspect-square flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            )}
-          </div>
+          {/* Galeria de Fotos do Produto */}
+          <ImageGallery images={getProductImages(produto.imagem)} />
 
           {/* Product Info */}
           <div>

@@ -73,23 +73,25 @@ if (isPostgres) {
   const universalExecute = async (sql, params = []) => {
     const translatedSql = convertSqlForPostgres(sql);
     const res = await pgPool.query(translatedSql, params);
+    const isSelect = /^\s*SELECT/i.test(translatedSql);
     const rows = res.rows || [];
 
     const firstRow = rows[0] || {};
     const insertId = firstRow.id_produto || firstRow.id_usuario || firstRow.id || null;
 
-    // Emula propriedades de resultado do MySQL (insertId, affectedRows)
-    rows.insertId = insertId;
-    rows.affectedRows = res.rowCount;
+    if (isSelect) {
+      return [rows, res.fields];
+    }
 
-    // Se a query for INSERT/UPDATE/DELETE e for acessada como result[0].insertId
+    // Para INSERT / UPDATE / DELETE / CREATE
     const resultObj = {
       insertId,
       affectedRows: res.rowCount,
       ...firstRow
     };
 
-    const finalRows = rows.length > 0 ? rows : [resultObj];
+    // Permite tanto [result] quanto result[0] ou rows[0]
+    const finalRows = [resultObj];
     finalRows.insertId = insertId;
     finalRows.affectedRows = res.rowCount;
 

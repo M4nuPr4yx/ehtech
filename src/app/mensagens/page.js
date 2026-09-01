@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getApiUrl } from '../../lib/api';
@@ -71,7 +71,7 @@ export default function MensagensPage() {
   }, [router]);
 
   // 2. Carregar conversas
-  const fetchConversations = async (silent = false) => {
+  const fetchConversations = useCallback(async (silent = false) => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -89,13 +89,13 @@ export default function MensagensPage() {
     } finally {
       if (!silent) setLoadingConversations(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (currentUser) {
       fetchConversations();
     }
-  }, [currentUser]);
+  }, [currentUser, fetchConversations]);
 
   // 3. Lidar com parâmetros de URL (iniciar conversa com vendedor/produto específico)
   useEffect(() => {
@@ -136,7 +136,7 @@ export default function MensagensPage() {
   }, [currentUser, urlVendedorId, urlProdutoId]);
 
   // 4. Carregar mensagens da conversa ativa
-  const fetchMessages = async (partnerId, silent = false) => {
+  const fetchMessages = useCallback(async (partnerId, silent = false) => {
     if (!partnerId) return;
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -169,14 +169,14 @@ export default function MensagensPage() {
     } finally {
       if (!silent) setLoadingMessages(false);
     }
-  };
+  }, [activePartner?.username]);
 
   useEffect(() => {
     if (activePartner?.id_usuario || activePartner?.partner_id) {
       const partnerId = activePartner.id_usuario || activePartner.partner_id;
       fetchMessages(partnerId);
     }
-  }, [activePartner]);
+  }, [activePartner, fetchMessages]);
 
   // 5. Polling em tempo real a cada 4 segundos
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function MensagensPage() {
     }, 4000);
 
     return () => clearInterval(intervalId);
-  }, [currentUser, activePartner]);
+  }, [currentUser, activePartner, fetchConversations, fetchMessages]);
 
   // 6. Scroll automático para a mensagem mais recente
   useEffect(() => {

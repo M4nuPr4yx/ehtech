@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { getApiUrl } from '../../../lib/api';
@@ -43,13 +43,8 @@ export default function SellerProfile() {
     }
   }, []);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchSellerData();
-    }
-  }, [params.id]);
-
-  const fetchSellerData = async () => {
+  const fetchSellerData = useCallback(async () => {
+    if (!params.id) return;
     setLoading(true);
     setError('');
     
@@ -89,7 +84,11 @@ export default function SellerProfile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchSellerData();
+  }, [fetchSellerData]);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('pt-BR', {

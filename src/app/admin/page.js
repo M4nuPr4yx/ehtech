@@ -98,7 +98,7 @@ export default function Admin() {
 
   const loginAdmin = async () => {
     try {
-      const res = await fetch('http://localhost:3000/admin/login', {
+      const res = await fetch(getApiUrl('/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, senha: loginSenha }),
@@ -118,7 +118,7 @@ export default function Admin() {
 
   async function fetchUsers(token) {
     try {
-      const res = await fetch('http://localhost:3000/admin/users', {
+      const res = await fetch(getApiUrl('/admin/users'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -140,7 +140,7 @@ export default function Admin() {
 
   const fetchProducts = async (token) => {
     try {
-      const res = await fetch('http://localhost:3000/admin/produtos', {
+      const res = await fetch(getApiUrl('/admin/produtos'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -152,7 +152,7 @@ export default function Admin() {
 
   const updateProductApproval = async (id, status) => {
     try {
-      const res = await fetch(`http://localhost:3000/admin/produtos/${id}/aprovacao`, {
+      const res = await fetch(getApiUrl(`/admin/produtos/${id}/aprovacao`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ export default function Admin() {
 
     setSavingProduct(true);
     try {
-      const res = await fetch(`http://localhost:3000/produtos/${editingProduct.id_produto}`, {
+      const res = await fetch(getApiUrl(`/produtos/${editingProduct.id_produto}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +223,7 @@ export default function Admin() {
     if (!confirm(`Tem certeza que deseja excluir o produto "${nome}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/produtos/${id}`, {
+      const res = await fetch(getApiUrl(`/produtos/${id}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -243,7 +243,7 @@ export default function Admin() {
     if (!editingUser) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/admin/users/${editingUser.id_usuario}`, {
+      const res = await fetch(getApiUrl(`/admin/users/${editingUser.id_usuario}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -265,7 +265,7 @@ export default function Admin() {
   const deleteUser = async (id, email) => {
     if (!confirm(`Deletar o usuário ${email}?`)) return;
     try {
-      const res = await fetch(`http://localhost:3000/admin/users/${id}`, {
+      const res = await fetch(getApiUrl(`/admin/users/${id}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${adminToken}` },
       });

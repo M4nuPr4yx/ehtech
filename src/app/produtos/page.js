@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
+import { getApiUrl } from '../../lib/api';
 
 function ProdutosContent() {
   const router = useRouter();
@@ -46,7 +47,7 @@ function ProdutosContent() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:3000/produtos');
+      const res = await fetch(getApiUrl('/produtos'));
       
       if (res.ok) {
         const data = await res.json();

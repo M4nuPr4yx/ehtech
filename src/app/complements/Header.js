@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { getApiUrl } from '../../lib/api';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -97,7 +98,7 @@ export default function Header() {
 
   const fetchProfilePhoto = async (token) => {
     try {
-      const res = await fetch('http://localhost:3000/perfil', {
+      const res = await fetch(getApiUrl('/perfil'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -112,7 +113,7 @@ export default function Header() {
 
   const fetchUnreadMessages = async (token) => {
     try {
-      const res = await fetch('http://localhost:3000/mensagens/nao-lidas/total', {
+      const res = await fetch(getApiUrl('/mensagens/nao-lidas/total'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) return;
@@ -137,7 +138,7 @@ export default function Header() {
 
   const fetchNotifications = async (token) => {
     try {
-      const res = await fetch('http://localhost:3000/notificacoes', {
+      const res = await fetch(getApiUrl('/notificacoes'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) return;
@@ -153,7 +154,7 @@ export default function Header() {
     if (!token) return;
 
     try {
-      await fetch(`http://localhost:3000/notificacoes/${notificationId}/lida`, {
+      await fetch(getApiUrl(`/notificacoes/${notificationId}/lida`), {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -170,7 +171,7 @@ export default function Header() {
     if (!token) return;
 
     try {
-      await fetch('http://localhost:3000/notificacoes/lidas', {
+      await fetch(getApiUrl('/notificacoes/lidas'), {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -195,7 +196,7 @@ export default function Header() {
         }
         bodyData = { username, email, senha, confirmarSenha };
       }
-      const res = await fetch(`http://localhost:3000/${endpoint}`, {
+      const res = await fetch(getApiUrl(`/${endpoint}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData),
@@ -227,7 +228,7 @@ export default function Header() {
         setConfirmarSenha('');
       }
     } catch (err) {
-      setMessage('Erro: Verifique se backend está rodando em localhost:3000');
+      setMessage('Erro: Verifique a conexão com o servidor');
     }
   };
 

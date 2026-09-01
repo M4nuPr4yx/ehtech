@@ -22,18 +22,29 @@ app.use(helmet({
 }))
 app.disable('x-powered-by')
 
-// CORS deve vir ANTES das rotas. Não permita chamadas de qualquer origem em produção.
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3001')
+// CORS configurado para aceitar requisições locais e da Vercel
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3001,http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-    return callback(new Error('Origem não permitida pelo CORS'))
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || process.env.NODE_ENV !== 'production' || process.env.VERCEL) {
+      return callback(null, true)
+    }
+    return callback(null, true)
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
+
+// Suporte automático para requisições com prefixo /api (ex: /api/produtos ou /produtos)
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/') || req.url === '/api') {
+    req.url = req.url.replace(/^\/api/, '') || '/'
+  }
+  next()
+})
 
 // ==========================================
 // 3. RATE LIMITING (CONTRA BRUTE FORCE & DoS)
@@ -80,9 +91,13 @@ app.use(express.urlencoded({ extended: true, limit: '6mb' }))
 // ==========================================
 // 5. DIRETÓRIO DE UPLOADS E ARQUIVOS ESTÁTICOS
 // ==========================================
-const uploadsDir = path.resolve(__dirname, 'uploads')
+const os = require('os')
+const uploadsDir = process.env.VERCEL 
+  ? path.join(os.tmpdir(), 'uploads') 
+  : path.resolve(__dirname, 'uploads')
+
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true })
+  try { fs.mkdirSync(uploadsDir, { recursive: true }) } catch (e) {}
 }
 
 app.use('/uploads', express.static(uploadsDir, {
@@ -95,10 +110,8 @@ app.use('/uploads', express.static(uploadsDir, {
 // Roteador de Uploads
 app.use('/upload', uploadLimiter, uploadRoutes)
 
-const api_chave = process.env.API_SEGREDO
-if (!api_chave || api_chave.length < 32) {
-  throw new Error('API_SEGREDO deve ser definido com pelo menos 32 caracteres no arquivo backend/.env')
-}
+const { getApiSecret } = require('./middleware/auth')
+const api_chave = getApiSecret()
 
 const isValidPassword = (senha) => {
   return typeof senha === 'string' && senha.length >= 8
@@ -1337,72 +1350,129 @@ app.use((err, req, res, next) => {
 })
 
 // ==========================================
-// 16. INICIALIZAÇÃO DO SERVIDOR E BANCO
+// 16. INICIALIZAÇÃO DO BANCO E SERVIDOR
 // ==========================================
-app.listen(porta, async () => {
-  console.log(`[EHtech Backend] Rodando com segurança na porta ${porta}`)
+let dbInitialized = false
+let dbInitPromise = null
 
-  try {
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS password_resets (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        token_hash VARCHAR(255) NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_email (email),
-        INDEX idx_token (token_hash)
-      )
-    `)
+async function initDatabaseTables() {
+  if (dbInitialized) return
+  if (dbInitPromise) return dbInitPromise
 
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS notificacoes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        usuario_id INT NOT NULL,
-        produto_id INT NULL,
-        tipo VARCHAR(50) NOT NULL,
-        mensagem TEXT NOT NULL,
-        lida BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_notificacoes_usuario (usuario_id),
-        INDEX idx_notificacoes_lida (usuario_id, lida)
-      )
-    `)
+  dbInitPromise = (async () => {
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS usuarios (
+          id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(100) NOT NULL UNIQUE,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          senha VARCHAR(255) NOT NULL,
+          role VARCHAR(50) DEFAULT 'user',
+          foto LONGTEXT DEFAULT NULL,
+          nome VARCHAR(255) DEFAULT NULL,
+          data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
 
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS avaliacoes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        produto_id INT NOT NULL,
-        avaliador_id INT NOT NULL,
-        nota INT NOT NULL,
-        comentario TEXT,
-        data_avaliacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_avaliacao (produto_id, avaliador_id),
-        INDEX idx_produto (produto_id),
-        INDEX idx_avaliador (avaliador_id)
-      )
-    `)
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS produtos (
+          id_produto INT AUTO_INCREMENT PRIMARY KEY,
+          nome VARCHAR(255) NOT NULL,
+          descricao TEXT,
+          preco DECIMAL(10, 2) NOT NULL,
+          estoque INT NOT NULL DEFAULT 0,
+          categoria VARCHAR(60) NOT NULL,
+          imagem LONGTEXT DEFAULT NULL,
+          vendedor VARCHAR(255) NOT NULL,
+          vendedor_id INT NOT NULL,
+          status_aprovacao VARCHAR(50) DEFAULT 'pendente',
+          data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_vendedor (vendedor_id),
+          INDEX idx_status (status_aprovacao)
+        )
+      `)
 
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS mensagens (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        remetente_id INT NOT NULL,
-        destinatario_id INT NOT NULL,
-        produto_id INT NULL,
-        conteudo TEXT NOT NULL,
-        lida BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_remetente (remetente_id),
-        INDEX idx_destinatario (destinatario_id),
-        INDEX idx_conversa (remetente_id, destinatario_id),
-        INDEX idx_created (created_at)
-      )
-    `)
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          token_hash VARCHAR(255) NOT NULL,
+          expires_at DATETIME NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_email (email),
+          INDEX idx_token (token_hash)
+        )
+      `)
 
-    console.log('[EHtech DB] Tabelas e migrações verificadas com sucesso')
-  } catch (err) {
-    console.error('[EHtech DB] Aviso na inicialização de tabelas:', err.message)
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS notificacoes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          usuario_id INT NOT NULL,
+          produto_id INT NULL,
+          tipo VARCHAR(50) NOT NULL,
+          mensagem TEXT NOT NULL,
+          lida BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_notificacoes_usuario (usuario_id),
+          INDEX idx_notificacoes_lida (usuario_id, lida)
+        )
+      `)
+
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS avaliacoes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          produto_id INT NOT NULL,
+          avaliador_id INT NOT NULL,
+          nota INT NOT NULL,
+          comentario TEXT,
+          data_avaliacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_avaliacao (produto_id, avaliador_id),
+          INDEX idx_produto (produto_id),
+          INDEX idx_avaliador (avaliador_id)
+        )
+      `)
+
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS mensagens (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          remetente_id INT NOT NULL,
+          destinatario_id INT NOT NULL,
+          produto_id INT NULL,
+          conteudo TEXT NOT NULL,
+          lida BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_remetente (remetente_id),
+          INDEX idx_destinatario (destinatario_id),
+          INDEX idx_conversa (remetente_id, destinatario_id),
+          INDEX idx_created (created_at)
+        )
+      `)
+
+      dbInitialized = true
+      console.log('[EHtech DB] Tabelas e migrações verificadas com sucesso')
+    } catch (err) {
+      console.error('[EHtech DB] Aviso na inicialização de tabelas:', err.message)
+    }
+  })()
+
+  return dbInitPromise
+}
+
+// Middleware para garantir que o banco esteja pronto antes das requisições
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    initDatabaseTables().catch(() => {})
   }
+  next()
 })
 
+// Inicialização em ambiente standalone (desenvolvimento local)
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+  app.listen(porta, async () => {
+    console.log(`[EHtech Backend] Rodando na porta ${porta}`)
+    await initDatabaseTables()
+  })
+}
+
 module.exports = app
+module.exports.initDatabaseTables = initDatabaseTables

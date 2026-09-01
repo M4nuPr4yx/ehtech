@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { getApiUrl } from '../../../lib/api';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -44,7 +45,7 @@ export default function EditarProduto() {
           return;
         }
 
-        const res = await fetch(`http://localhost:3000/produtos/${params.id}`, {
+        const res = await fetch(getApiUrl(`/produtos/${params.id}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -105,7 +106,7 @@ export default function EditarProduto() {
     const formData = new FormData();
     formData.append('imagem', file);
 
-    const res = await fetch('http://localhost:3000/upload/imagem', {
+    const res = await fetch(getApiUrl('/upload/imagem'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -196,7 +197,7 @@ export default function EditarProduto() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:3000/produtos/${params.id}`, {
+      const res = await fetch(getApiUrl(`/produtos/${params.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

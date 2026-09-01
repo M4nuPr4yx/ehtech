@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import ImageWithFallback from '../../complements/ImageWithFallback';
 import { getMainImage } from '../../complements/imageHelper';
+import { getApiUrl } from '../../../lib/api';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -52,7 +53,9 @@ export default function ProdutoDetalhes() {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setUser(payload);
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error parsing token:', e);
+      }
     }
   }, []);
 
@@ -74,7 +77,7 @@ export default function ProdutoDetalhes() {
   const fetchProduto = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3000/produtos/${params.id}`);
+      const res = await fetch(getApiUrl(`/produtos/${params.id}`));
       if (res.ok) {
         const found = await res.json();
         setProduto(found);
@@ -88,7 +91,7 @@ export default function ProdutoDetalhes() {
         // Buscar foto e dados do vendedor
         if (found.vendedor_id) {
           try {
-            const sellerRes = await fetch(`http://localhost:3000/usuarios/${found.vendedor_id}/publico`);
+            const sellerRes = await fetch(getApiUrl(`/usuarios/${found.vendedor_id}/publico`));
             if (sellerRes.ok) {
               const sData = await sellerRes.json();
               setSellerInfo(sData);
@@ -107,7 +110,7 @@ export default function ProdutoDetalhes() {
 
   const fetchAvaliacoes = async () => {
     try {
-      const res = await fetch(`http://localhost:3000/avaliacoes/produto/${params.id}`);
+      const res = await fetch(getApiUrl(`/avaliacoes/produto/${params.id}`));
       if (res.ok) {
         const data = await res.json();
         setAvaliacoes(data);
@@ -123,7 +126,7 @@ export default function ProdutoDetalhes() {
     setRatingMessage('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/avaliacoes', {
+      const res = await fetch(getApiUrl('/avaliacoes'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -153,7 +156,7 @@ export default function ProdutoDetalhes() {
     setEditMessage('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:3000/produtos/${params.id}`, {
+      const res = await fetch(getApiUrl(`/produtos/${params.id}`), {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',

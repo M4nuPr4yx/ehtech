@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { getApiUrl } from '../../../lib/api';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -57,7 +58,7 @@ export default function SellerProfile() {
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
       // Fetch all products
-      const produtosRes = await fetch('http://localhost:3000/produtos', { headers });
+      const produtosRes = await fetch(getApiUrl('/produtos'), { headers });
       const produtosData = await produtosRes.json();
       
       // Filter products by this seller
@@ -65,7 +66,7 @@ export default function SellerProfile() {
       setProdutos(sellerProducts);
 
       // Obter dados públicos do vendedor
-      const userRes = await fetch(`http://localhost:3000/usuarios/${params.id}/publico`);
+      const userRes = await fetch(getApiUrl(`/usuarios/${params.id}/publico`));
       if (userRes.ok) {
         const userData = await userRes.json();
         setSeller(userData);
@@ -78,7 +79,7 @@ export default function SellerProfile() {
       }
 
       // Buscar avaliações do vendedor
-      const avaliacoesRes = await fetch(`http://localhost:3000/avaliacoes/usuario/${params.id}`);
+      const avaliacoesRes = await fetch(getApiUrl(`/avaliacoes/usuario/${params.id}`));
       if (avaliacoesRes.ok) {
         const avaliacoesData = await avaliacoesRes.json();
         setAvaliacoes(avaliacoesData);

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { getApiUrl } from '../../lib/api';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -76,7 +77,7 @@ export default function MensagensPage() {
 
     if (!silent) setLoadingConversations(true);
     try {
-      const res = await fetch('http://localhost:3000/mensagens/conversas', {
+      const res = await fetch(getApiUrl('/mensagens/conversas'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -105,7 +106,7 @@ export default function MensagensPage() {
 
     const setupPartnerFromUrl = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/usuarios/${targetVendedorId}/publico`);
+        const res = await fetch(getApiUrl(`/usuarios/${targetVendedorId}/publico`));
         if (res.ok) {
           const userData = await res.json();
           setActivePartner({
@@ -125,7 +126,7 @@ export default function MensagensPage() {
 
     // Se houver produto na URL, buscar detalhes para o banner
     if (urlProdutoId) {
-      fetch(`http://localhost:3000/produtos/${urlProdutoId}`)
+      fetch(getApiUrl(`/produtos/${urlProdutoId}`))
         .then((res) => (res.ok ? res.json() : null))
         .then((prod) => {
           if (prod) setReferencedProduct(prod);
@@ -142,7 +143,7 @@ export default function MensagensPage() {
 
     if (!silent) setLoadingMessages(true);
     try {
-      const res = await fetch(`http://localhost:3000/mensagens/${partnerId}`, {
+      const res = await fetch(getApiUrl(`/mensagens/${partnerId}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -153,7 +154,7 @@ export default function MensagensPage() {
         }
 
         // Marcar como lida
-        fetch(`http://localhost:3000/mensagens/${partnerId}/lidas`, {
+        fetch(getApiUrl(`/mensagens/${partnerId}/lidas`), {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` },
         }).then(() => {
@@ -211,7 +212,7 @@ export default function MensagensPage() {
     setSending(true);
 
     try {
-      const res = await fetch('http://localhost:3000/mensagens', {
+      const res = await fetch(getApiUrl('/mensagens'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

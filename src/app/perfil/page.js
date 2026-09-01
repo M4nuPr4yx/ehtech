@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getApiUrl } from '../../lib/api';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -49,7 +50,7 @@ export default function Perfil() {
         router.replace('/?login=1&next=%2Fperfil');
         return;
       }
-      const res = await fetch('http://localhost:3000/perfil', {
+      const res = await fetch(getApiUrl('/perfil'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -71,7 +72,7 @@ export default function Perfil() {
     setLoadingProducts(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/produtos/meus', {
+      const res = await fetch(getApiUrl('/produtos/meus'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -121,7 +122,7 @@ const handleLogout = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/perfil/senha', {
+      const res = await fetch(getApiUrl('/perfil/senha'), {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -145,7 +146,7 @@ const handleLogout = () => {
         setMessageType('error');
       }
     } catch (err) {
-      setMessage('Erro: Verifique se backend está rodando');
+      setMessage('Erro: Verifique se o servidor está respondendo');
       setMessageType('error');
     }
   };
@@ -157,7 +158,7 @@ const handleChangeEmail = async (e) => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/perfil/email', {
+      const res = await fetch(getApiUrl('/perfil/email'), {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -180,7 +181,7 @@ const handleChangeEmail = async (e) => {
         setMessageType('error');
       }
     } catch (err) {
-      setMessage('Erro: Verifique se backend está rodando');
+      setMessage('Erro: Verifique se o servidor está respondendo');
       setMessageType('error');
     }
   };
@@ -190,7 +191,7 @@ const handleChangeEmail = async (e) => {
     formData.append('imagem', file);
 
     const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:3000/upload/imagem', {
+    const res = await fetch(getApiUrl('/upload/imagem'), {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -228,7 +229,7 @@ const handleChangeEmail = async (e) => {
 
       // Enviar URL para o backend salvar no banco
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/perfil/foto', {
+      const res = await fetch(getApiUrl('/perfil/foto'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -258,7 +259,7 @@ const handleChangeEmail = async (e) => {
   const handleRemovePhoto = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/perfil/foto', {
+      const res = await fetch(getApiUrl('/perfil/foto'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -277,7 +278,7 @@ const handleChangeEmail = async (e) => {
         setMessageType('error');
       }
     } catch (err) {
-      setMessage('Erro: Verifique se backend está rodando');
+      setMessage('Erro: Verifique se o servidor está respondendo');
       setMessageType('error');
     }
   };
@@ -521,7 +522,7 @@ const handleChangeEmail = async (e) => {
                             if (confirm('Tem certeza que deseja excluir este produto?')) {
                               try {
                                 const token = localStorage.getItem('token');
-                                const res = await fetch(`http://localhost:3000/produtos/${produto.id_produto}`, {
+                                const res = await fetch(getApiUrl(`/produtos/${produto.id_produto}`), {
                                   method: 'DELETE',
                                   headers: { 'Authorization': `Bearer ${token}` }
                                 });

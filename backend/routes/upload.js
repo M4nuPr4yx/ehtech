@@ -6,10 +6,24 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { autenticarToken } = require('../middleware/auth');
 
-const uploadsDir = path.resolve(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+const os = require('os');
+
+const getUploadsDir = () => {
+  if (process.env.VERCEL) {
+    const tmpDir = path.join(os.tmpdir(), 'uploads');
+    if (!fs.existsSync(tmpDir)) {
+      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (e) {}
+    }
+    return tmpDir;
+  }
+  const localDir = path.resolve(__dirname, '../uploads');
+  if (!fs.existsSync(localDir)) {
+    try { fs.mkdirSync(localDir, { recursive: true }); } catch (e) {}
+  }
+  return localDir;
+};
+
+const uploadsDir = getUploadsDir();
 
 // Extensões e MIME types estritamente permitidos (rejeita .svg, .html, .php, etc.)
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiUrl } from '../../lib/api';
 
 export default function Anunciar() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function Anunciar() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.replace('/?login=1&next=%2Fanunciar');
+      router.push('/');
       return;
     }
     setLoading(false);
@@ -83,7 +84,7 @@ export default function Anunciar() {
         formData.append('imagens', file);
       });
 
-      const res = await fetch('http://localhost:3000/upload/imagens', {
+      const res = await fetch(getApiUrl('/upload/imagens'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -146,7 +147,7 @@ export default function Anunciar() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/produtos', {
+      const res = await fetch(getApiUrl('/produtos'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

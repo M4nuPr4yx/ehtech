@@ -2,7 +2,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "EHtech",
-  description: "Plataforma de compra, venda e troca de produtos de tecnologia",
+  description: "Marketplace para comprar produtos de tecnologia e contratar serviços especializados de TI",
   icons: {
     icon: "/icon.png",
   },

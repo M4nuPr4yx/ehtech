@@ -12,7 +12,7 @@ export default function Footer() {
               <img src="/ehtech-logo.png" alt="EHtech" className="h-10 w-auto object-contain" />
             </Link>
             <p className="max-w-sm text-xs sm:text-sm leading-relaxed text-gray-400">
-              O marketplace de tecnologia projetado para conectar compradores e vendedores com agilidade, transparência e proteção total de pagamento.
+              O marketplace de tecnologia para comprar equipamentos e encontrar especialistas em TI com agilidade, transparência e contato direto.
             </p>
             <div className="flex items-center gap-3 pt-2 text-xs text-[#d7f58d]">
               <span className="flex h-2 w-2 rounded-full bg-[#ABDB25] animate-pulse"></span>
@@ -30,6 +30,7 @@ export default function Footer() {
               <li><Link href="/produtos?categoria=games" className="hover:text-white transition-colors">Consoles & Games</Link></li>
               <li><Link href="/produtos?categoria=audio" className="hover:text-white transition-colors">Áudio & Headsets</Link></li>
               <li><Link href="/produtos?categoria=acessorios" className="hover:text-white transition-colors">Periféricos & Acessórios</Link></li>
+              <li><Link href="/servicos" className="hover:text-white transition-colors text-[#cde99a]">Serviços de TI</Link></li>
             </ul>
           </div>
 
@@ -40,6 +41,7 @@ export default function Footer() {
               <li><Link href="/sobre" className="hover:text-white transition-colors">Sobre a EHtech</Link></li>
               <li><Link href="/anunciar" className="hover:text-white transition-colors">Como Anunciar</Link></li>
               <li><Link href="/produtos" className="hover:text-white transition-colors">Explorar Produtos</Link></li>
+              <li><Link href="/servicos" className="hover:text-white transition-colors">Explorar Serviços</Link></li>
               <li><Link href="/carrinho" className="hover:text-white transition-colors">Meu Carrinho</Link></li>
               <li><Link href="/mensagens" className="hover:text-white transition-colors">Central de Mensagens</Link></li>
             </ul>
@@ -80,4 +82,3 @@ export default function Footer() {
     </footer>
   );
 }
-

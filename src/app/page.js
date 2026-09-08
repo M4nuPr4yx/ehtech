@@ -14,12 +14,12 @@ export default function Home() {
   useEffect(() => {
     const fetchProdutos = async () => {
       try {
-        const res = await fetch('http://localhost:3000/produtos');
+        const res = await fetch('/api/catalogo?limit=8&page=1');
         
         if (res.ok) {
           const data = await res.json();
           // Produtos disponíveis aparecem primeiro; esgotados ficam no fim.
-          const ordenados = [...data].sort((a, b) => {
+          const ordenados = [...(data.items || [])].sort((a, b) => {
             const aEsgotado = Number(a.estoque) <= 0;
             const bEsgotado = Number(b.estoque) <= 0;
             if (aEsgotado !== bEsgotado) return aEsgotado ? 1 : -1;
@@ -151,7 +151,7 @@ export default function Home() {
           {/* Badge */}
           <div className="scale-up-ver-bottom inline-flex items-center gap-2 rounded-full border border-[#ABDB25]/30 bg-[#ABDB25]/10 px-4 py-1.5 text-xs sm:text-sm font-semibold text-[#d7f58d] mb-6 shadow-lg shadow-[#ABDB25]/5 backdrop-blur-md">
             <span className="flex h-2 w-2 rounded-full bg-[#ABDB25] animate-ping" />
-            O maior marketplace de tecnologia entre pessoas
+            Produtos e serviços de tecnologia em um só lugar
           </div>
 
           {/* Heading */}
@@ -163,7 +163,7 @@ export default function Home() {
           </h1>
 
           <p className="scale-up-ver-bottom text-base sm:text-xl text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed font-normal">
-            Encontre computadores, smartphones, componentes e videogames com preços justos, negociação direta e pagamento 100% protegido.
+            Encontre computadores, smartphones e componentes ou contrate especialistas para cuidar da sua tecnologia.
           </p>
 
           {/* Hero Quick Search Bar */}
@@ -424,6 +424,27 @@ export default function Home() {
             </Link>
           </div>
         )}
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-20">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-7">
+          <div><span className="text-[10px] font-extrabold tracking-[0.18em] text-[#ABDB25]">SUPORTE ESPECIALIZADO</span><h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-2">Tecnologia também é serviço.</h2><p className="text-sm text-gray-400 mt-2">Do primeiro parafuso ao Wi-Fi funcionando melhor.</p></div>
+          <Link href="/servicos" className="inline-flex items-center gap-2 text-sm font-bold text-[#d7f58d] hover:text-white">Explorar todos os serviços <span>→</span></Link>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            ['Montagem de PC', 'Compatibilidade, montagem e testes completos.', 'montagem'],
+            ['Suporte técnico', 'Soluções remotas ou presenciais para o dia a dia.', 'suporte'],
+            ['Redes e Wi-Fi', 'Mais cobertura, estabilidade e segurança.', 'redes'],
+            ['Manutenção', 'Limpeza, upgrades e otimização do equipamento.', 'manutencao']
+          ].map(([title, description, category]) => (
+            <Link key={category} href={`/servicos?categoria=${category}`} className="group rounded-2xl border border-white/10 bg-[#141a15] p-5 hover:border-[#ABDB25]/60 hover:-translate-y-0.5 transition-all">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#ABDB25]/10 text-[#ABDB25] font-extrabold">+</span>
+              <h3 className="text-base font-bold text-white mt-5 group-hover:text-[#d7f58d]">{title}</h3>
+              <p className="text-xs leading-relaxed text-gray-400 mt-2">{description}</p>
+            </Link>
+          ))}
+        </div>
       </section>
 
       {/* Seller Callout Banner */}

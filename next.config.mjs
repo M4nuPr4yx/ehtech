@@ -1,6 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'commons.wikimedia.org', port: '', pathname: '/wiki/Special:FilePath/**' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org', port: '', pathname: '/wikipedia/commons/**' },
+    ],
+    localPatterns: [{ pathname: '/uploads/**', search: '' }],
+    deviceSizes: [384, 640, 960, 1280],
+    imageSizes: [64, 128, 256],
+    formats: ['image/webp'],
+    minimumCacheTTL: 86400,
+    maximumResponseBody: 20000000,
+    maximumRedirects: 3,
+    dangerouslyAllowLocalIP: false,
+    dangerouslyAllowSVG: false,
+  },
   async rewrites() {
     return [{
       source: '/uploads/:path*',

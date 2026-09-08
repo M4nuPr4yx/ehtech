@@ -36,6 +36,7 @@ export default function Header() {
   const [message, setMessage] = useState('');
   const [feedback, setFeedback] = useState('');
   const [userPhoto, setUserPhoto] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Check login status on mount
   useEffect(() => {
@@ -226,8 +227,9 @@ export default function Header() {
         setSenha('');
         setConfirmarSenha('');
       }
+
     } catch (err) {
-      setMessage('Erro: Verifique se backend está rodando em localhost:3000');
+      setMessage('Erro: Verifique se backend esta rodando em localhost:3000');
     }
   };
 
@@ -243,46 +245,38 @@ export default function Header() {
     router.push('/');
   };
 
-  const goToPerfil = () => {
-    setDropdownOpen(false);
-    router.push('/perfil');
+  const requireAuth = (path) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push(`/?login=1&next=${encodeURIComponent(path)}`);
+      return false;
+    }
+    return true;
   };
 
-  const goToMensagens = () => {
-    setDropdownOpen(false);
-    router.push('/mensagens');
-  };
-
-  const goToAnunciar = () => {
-    setDropdownOpen(false);
-    router.push('/anunciar');
-  };
-
-  const [searchTerm, setSearchTerm] = useState('');
+  const goToPerfil = () => { setDropdownOpen(false); if (requireAuth('/perfil')) router.push('/perfil'); };
+  const goToMensagens = () => { setDropdownOpen(false); if (requireAuth('/mensagens')) router.push('/mensagens'); };
+  const goToAnunciar = () => { setDropdownOpen(false); if (requireAuth('/anunciar')) router.push('/anunciar'); };
+  const goToCarrinho = () => { setDropdownOpen(false); if (requireAuth('/carrinho')) router.push('/carrinho'); };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      router.push(`/produtos?search=${encodeURIComponent(searchTerm.trim())}`);
+      const destination = pathname.startsWith('/servicos') ? '/servicos' : '/produtos';
+      router.push(`${destination}?search=${encodeURIComponent(searchTerm.trim())}`);
     }
   };
 
-  const goToCarrinho = () => {
-    setDropdownOpen(false);
-    router.push('/carrinho');
-  };
-
-  const unreadNotifications = notifications.filter((notification) => !notification.lida).length;
+  const unreadNotifications = notifications.filter((n) => !n.lida).length;
 
   return (
     <>
-      {/* Top E-commerce Trust Bar */}
       <div className="bg-[#050705] border-b border-white/[0.06] text-[11px] text-gray-400 py-1.5 px-4 hidden sm:block">
         <div className="mx-auto max-w-7xl flex justify-between items-center">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-gray-300">
               <span className="h-1.5 w-1.5 rounded-full bg-[#ABDB25] animate-pulse"></span>
-              Marketplace de Tecnologia Direto & Seguro
+              Marketplace de Tecnologia Direto &amp; Seguro
             </span>
             <span className="text-gray-600">•</span>
             <span className="inline-flex items-center gap-1">
@@ -302,7 +296,7 @@ export default function Header() {
           <div className="flex items-center gap-4">
             <Link href="/sobre" className="hover:text-[#ABDB25] transition-colors">Como Funciona</Link>
             <span className="text-gray-600">|</span>
-            <Link href="/anunciar" className="text-[#ABDB25] font-semibold hover:underline">Quero Vender</Link>
+            <button type="button" onClick={goToAnunciar} className="text-[#ABDB25] font-semibold hover:underline bg-transparent border-none cursor-pointer">Quero Vender</button>
           </div>
         </div>
       </div>
@@ -314,12 +308,12 @@ export default function Header() {
         </div>
       )}
 
-      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#070907]/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-2.5">
+      <header className="sticky top-0 z-50 border-b border-[#ABDB25]/15 bg-[#070a08]/90 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-2 sm:py-2.5">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo - Sem animação */}
-            <Link href="/" className="group flex items-center shrink-0 transition-transform duration-200 hover:scale-[1.02]" aria-label="EHtech - página inicial">
-              <img src="/ehtech-logo.png" alt="EHtech" className="h-11 sm:h-13 w-auto object-contain drop-shadow-[0_0_15px_rgba(171,219,37,0.25)]" />
+            {/* Marca com área de respiro para reforçar a identidade do site. */}
+            <Link href="/" className="group flex items-center shrink-0 rounded-2xl border border-transparent px-1 transition-all duration-200 hover:border-[#ABDB25]/20 hover:bg-[#ABDB25]/[0.04]" aria-label="EHtech - página inicial">
+              <img src="/ehtech-logo.png" alt="EHtech" className="brand-logo h-14 sm:h-20 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]" />
             </Link>
 
             {/* Central Search Bar */}
@@ -329,7 +323,7 @@ export default function Header() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar computadores, notebooks, celulares, games..."
+                  placeholder={pathname.startsWith('/servicos') ? 'Buscar montagem, suporte, redes...' : 'Buscar computadores, notebooks, celulares, games...'}
                   className="w-full bg-[#121612] border border-white/15 rounded-full py-2 pl-4 pr-10 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25] focus:ring-1 focus:ring-[#ABDB25]/40 transition-all"
                 />
                 <button
@@ -349,6 +343,7 @@ export default function Header() {
               <nav className="hidden lg:flex items-center space-x-5 mr-2 text-sm font-medium">
                 <Link href="/" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Início</Link>
                 <Link href="/produtos" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Produtos</Link>
+                <Link href="/servicos" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Serviços</Link>
                 <Link href="/sobre" className="text-gray-300 hover:text-[#ABDB25] transition-colors">Sobre nós</Link>
               </nav>
 
@@ -526,6 +521,11 @@ export default function Header() {
               )}
             </div>
           </div>
+          <nav className="lg:hidden flex items-center gap-1 overflow-x-auto border-t border-white/[0.06] pt-2 mt-1 text-xs" aria-label="Navegação principal">
+            {[['/', 'Início'], ['/produtos', 'Produtos'], ['/servicos', 'Serviços'], ['/sobre', 'Sobre']].map(([href, label]) => (
+              <Link key={href} href={href} className={`shrink-0 rounded-lg px-3 py-1.5 transition-colors ${pathname === href || (href !== '/' && pathname.startsWith(href)) ? 'bg-[#ABDB25]/15 text-[#d7f58d]' : 'text-gray-400 hover:text-white'}`}>{label}</Link>
+            ))}
+          </nav>
         </div>
       </header>
 

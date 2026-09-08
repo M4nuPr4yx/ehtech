@@ -61,3 +61,25 @@ CREATE TABLE IF NOT EXISTS avaliacoes (
   INDEX idx_produto (produto_id),
   INDEX idx_avaliador (avaliador_id)
 );
+
+CREATE TABLE IF NOT EXISTS servicos (
+  id_servico INT AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(160) NOT NULL UNIQUE,
+  titulo VARCHAR(180) NOT NULL,
+  descricao TEXT NOT NULL,
+  categoria VARCHAR(60) NOT NULL,
+  preco_base DECIMAL(10,2) DEFAULT NULL,
+  tipo_preco VARCHAR(20) NOT NULL DEFAULT 'a_partir_de',
+  prazo VARCHAR(80) NOT NULL,
+  modalidade VARCHAR(20) NOT NULL DEFAULT 'hibrido',
+  regiao VARCHAR(120) DEFAULT NULL,
+  destaques TEXT DEFAULT NULL,
+  prestador_id INT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'ativo',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_servicos_status (status),
+  INDEX idx_servicos_categoria (categoria),
+  INDEX idx_servicos_modalidade (modalidade),
+  INDEX idx_servicos_prestador (prestador_id)
+);

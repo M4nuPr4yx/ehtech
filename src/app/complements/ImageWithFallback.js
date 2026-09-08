@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
+import { canOptimizeImage } from './imagePolicy.mjs';
 
 /**
  * Componente para exibir imagens de forma robusta
@@ -8,12 +10,16 @@ import { useState } from 'react';
  * - Fallback automático quando imagem falha
  * - Placeholder SVG estilizado
  */
-export default function ImageWithFallback({ src, alt, className, style }) {
+export default function ImageWithFallback(props) {
+  return <ImageContent key={props.src || 'empty'} {...props} />;
+}
+
+function ImageContent({ src, alt, className, style, loading = 'lazy', sizes = '(max-width: 640px) 90vw, 33vw' }) {
   const [error, setError] = useState(false);
 
   // Placeholder SVG (ícone de imagem)
   const placeholder = (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
   );
@@ -33,9 +39,26 @@ export default function ImageWithFallback({ src, alt, className, style }) {
 
   if (error || !isValidImageSrc(src)) {
     return (
-      <div className={className} style={style}>
+      <div className={className} role="img" aria-label={alt ? `${alt}: foto indisponível` : 'Foto indisponível'} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {placeholder}
       </div>
+    );
+  }
+
+  if (canOptimizeImage(src)) {
+    return (
+      <Image
+        src={src}
+        alt={alt || 'Imagem'}
+        width={640}
+        height={480}
+        sizes={sizes}
+        quality={75}
+        className={className}
+        style={style}
+        loading={loading}
+        onError={() => setError(true)}
+      />
     );
   }
 
@@ -45,6 +68,8 @@ export default function ImageWithFallback({ src, alt, className, style }) {
       alt={alt || 'Imagem'}
       className={className}
       style={style}
+      loading={loading}
+      decoding="async"
       onError={() => setError(true)}
     />
   );

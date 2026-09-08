@@ -14,6 +14,8 @@ require('dotenv').config()
 
 const pool = require('./db')
 const uploadRoutes = require('./routes/upload')
+const createServicesRouter = require('./routes/services')
+const { initializeDatabase } = require('./database/init')
 const porta = process.env.PORT || 3000
 const app = express()
 
@@ -87,6 +89,11 @@ if (!fs.existsSync(uploadsDir)) {
 
 app.use('/uploads', express.static(uploadsDir, {
   dotfiles: 'ignore',
+  // Uploads recebem nomes únicos e não são alterados depois de publicados.
+  // Isso permite que o navegador reutilize a miniatura já baixada sem pedir o
+  // mesmo arquivo a cada navegação.
+  maxAge: '7d',
+  immutable: true,
   setHeaders: (res) => {
     res.set('X-Content-Type-Options', 'nosniff')
   }
@@ -94,6 +101,7 @@ app.use('/uploads', express.static(uploadsDir, {
 
 // Roteador de Uploads
 app.use('/upload', uploadLimiter, uploadRoutes)
+app.use('/servicos', createServicesRouter(pool))
 
 const api_chave = process.env.API_SEGREDO
 if (!api_chave || api_chave.length < 32) {
@@ -519,6 +527,93 @@ app.get("/produtos", async (req, res) => {
   } catch (error) {
     console.error('[produtos] Erro ao listar vitrine:', error.message)
     return res.status(500).json({ mensagem: "Erro ao listar produtos" })
+  }
+})
+
+// Catálogo público paginado. Mantém /produtos para os consumidores legados
+// (por exemplo, a vitrine da página inicial), mas evita montar e transferir
+// todo o catálogo quando o usuário abre a tela de busca.
+app.get("/produtos/catalogo", async (req, res) => {
+  const requestedPage = Number.parseInt(req.query.page, 10)
+  const requestedLimit = Number.parseInt(req.query.limit, 10)
+  const page = Number.isInteger(requestedPage) && requestedPage > 0
+    ? Math.min(requestedPage, 100000)
+    : 1
+  const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+    ? Math.min(requestedLimit, 24)
+    : 12
+
+  const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : ''
+  const category = typeof req.query.categoria === 'string' ? req.query.categoria.trim().slice(0, 60) : ''
+  const minPrice = Number.parseFloat(req.query.precoMin)
+  const maxPrice = Number.parseFloat(req.query.precoMax)
+  const hasMinPrice = Number.isFinite(minPrice) && minPrice >= 0
+  const hasMaxPrice = Number.isFinite(maxPrice) && maxPrice >= 0
+  const sort = ['recentes', 'menor-preco', 'maior-preco'].includes(req.query.ordenacao)
+    ? req.query.ordenacao
+    : 'recentes'
+
+  if (hasMinPrice && hasMaxPrice && minPrice > maxPrice) {
+    return res.status(400).json({ mensagem: 'O preço mínimo não pode ser maior que o máximo' })
+  }
+
+  const filters = ["status_aprovacao = 'aprovado'"]
+  const params = []
+
+  if (search) {
+    filters.push('nome LIKE ?')
+    params.push(`%${search}%`)
+  }
+  if (category) {
+    // Mantém os filtros compatíveis com registros antigos que salvaram a
+    // categoria com capitalização diferente da usada pelo formulário.
+    const aliases = category.toLowerCase() === 'audio'
+      ? ['audio', 'áudio', 'fones de ouvido']
+      : [category.toLowerCase()]
+    filters.push(`LOWER(categoria) IN (${aliases.map(() => '?').join(',')})`)
+    params.push(...aliases)
+  }
+  if (hasMinPrice) {
+    filters.push('preco >= ?')
+    params.push(minPrice)
+  }
+  if (hasMaxPrice) {
+    filters.push('preco <= ?')
+    params.push(maxPrice)
+  }
+
+  const where = filters.join(' AND ')
+  const orderBy = {
+    recentes: 'id_produto DESC',
+    'menor-preco': 'preco ASC, id_produto DESC',
+    'maior-preco': 'preco DESC, id_produto DESC'
+  }[sort]
+  const offset = (page - 1) * limit
+
+  try {
+    const [[[countResult]], [items]] = await Promise.all([
+      pool.execute(`SELECT COUNT(*) AS total FROM produtos WHERE ${where}`, params),
+      pool.execute(
+        `SELECT id_produto, nome, descricao, preco, estoque, categoria, imagem
+         FROM produtos
+         WHERE ${where}
+         ORDER BY (estoque <= 0) ASC, ${orderBy}
+         LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+      )
+    ])
+
+    const total = Number(countResult.total) || 0
+    return res.json({
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit))
+    })
+  } catch (error) {
+    console.error('[produtos/catalogo] Erro ao listar:', error.message)
+    return res.status(500).json({ mensagem: 'Erro ao listar produtos' })
   }
 })
 
@@ -1343,62 +1438,7 @@ app.listen(porta, async () => {
   console.log(`[EHtech Backend] Rodando com segurança na porta ${porta}`)
 
   try {
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS password_resets (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        token_hash VARCHAR(255) NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_email (email),
-        INDEX idx_token (token_hash)
-      )
-    `)
-
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS notificacoes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        usuario_id INT NOT NULL,
-        produto_id INT NULL,
-        tipo VARCHAR(50) NOT NULL,
-        mensagem TEXT NOT NULL,
-        lida BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_notificacoes_usuario (usuario_id),
-        INDEX idx_notificacoes_lida (usuario_id, lida)
-      )
-    `)
-
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS avaliacoes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        produto_id INT NOT NULL,
-        avaliador_id INT NOT NULL,
-        nota INT NOT NULL,
-        comentario TEXT,
-        data_avaliacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_avaliacao (produto_id, avaliador_id),
-        INDEX idx_produto (produto_id),
-        INDEX idx_avaliador (avaliador_id)
-      )
-    `)
-
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS mensagens (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        remetente_id INT NOT NULL,
-        destinatario_id INT NOT NULL,
-        produto_id INT NULL,
-        conteudo TEXT NOT NULL,
-        lida BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_remetente (remetente_id),
-        INDEX idx_destinatario (destinatario_id),
-        INDEX idx_conversa (remetente_id, destinatario_id),
-        INDEX idx_created (created_at)
-      )
-    `)
-
+    await initializeDatabase(pool)
     console.log('[EHtech DB] Tabelas e migrações verificadas com sucesso')
   } catch (err) {
     console.error('[EHtech DB] Aviso na inicialização de tabelas:', err.message)

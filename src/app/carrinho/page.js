@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage, isValidImageUrl } from '../complements/imageHelper';
+import { getApiUrl } from '../../lib/api';
 
 export default function Carrinho() {
   const router = useRouter();
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [orderError, setOrderError] = useState('');
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   
   // Check login status and load cart on mount
   useEffect(() => {
@@ -22,7 +25,6 @@ export default function Carrinho() {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
       // O carrinho é restaurado uma única vez ao carregar a página.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCart(JSON.parse(savedCart));
     }
     setLoading(false);
@@ -69,6 +71,28 @@ export default function Carrinho() {
     }
   };
 
+  const placeOrder = async () => {
+    if (!window.confirm('Registrar este pedido? Nenhuma cobrança será realizada; você combinará os próximos passos com os vendedores.')) return;
+    setSubmittingOrder(true);
+    setOrderError('');
+    try {
+      const response = await fetch(getApiUrl('/pedidos'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ itens: cart.map((item) => ({ produto_id: item.id_produto, quantidade: item.quantidade })) })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.mensagem || 'Não foi possível registrar o pedido.');
+      localStorage.removeItem('cart');
+      setCart([]);
+      router.push('/perfil?aba=historico&pedido=1');
+    } catch (error) {
+      setOrderError(error.message || 'Não foi possível registrar o pedido.');
+    } finally {
+      setSubmittingOrder(false);
+    }
+  };
+
   // Format price
   const formatPrice = (price) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -102,6 +126,7 @@ export default function Carrinho() {
             {message}
           </div>
         )}
+        {orderError && <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/20 p-4 text-red-300" role="alert">{orderError}</div>}
 
         {/* Empty Cart - Show link to products */}
         {cart.length === 0 ? (
@@ -208,13 +233,14 @@ export default function Carrinho() {
               {/* Actions */}
               <div className="flex flex-col gap-3">
                 <button
-                  disabled
-                  title="A finalização de compra ainda não está disponível."
-                  className="w-full py-4 bg-[#ABDB25] text-black font-bold rounded-xl shadow-xl opacity-60 cursor-not-allowed"
+                  type="button"
+                  onClick={placeOrder}
+                  disabled={submittingOrder}
+                  className="w-full py-4 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl shadow-xl disabled:opacity-60 disabled:cursor-wait transition-colors"
                 >
-                  Finalizar Compra
+                  {submittingOrder ? 'Registrando pedido…' : 'Registrar Pedido'}
                 </button>
-                <p className="text-center text-xs text-gray-400">A finalização de compra estará disponível em breve.</p>
+                <p className="text-center text-xs text-gray-400">Sem cobrança online: o pedido fica salvo e os vendedores são notificados.</p>
                 <div className="flex gap-3">
                   <Link href="/produtos" className="flex-1 py-3 text-center border border-gray-600 text-white rounded-xl hover:bg-gray-800 transition-all">
                     Continuar Comprando

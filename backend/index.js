@@ -15,6 +15,8 @@ require('dotenv').config()
 const pool = require('./db')
 const uploadRoutes = require('./routes/upload')
 const createServicesRouter = require('./routes/services')
+const createServiceContractsRouter = require('./routes/serviceContracts')
+const createOrdersRouter = require('./routes/orders')
 const { initializeDatabase } = require('./database/init')
 const porta = process.env.PORT || 3000
 const app = express()
@@ -24,19 +26,19 @@ app.use(helmet({
 }))
 app.disable('x-powered-by')
 
-// CORS configurado para aceitar requisições locais e da Vercel
+// CORS restrito às origens configuradas e ao domínio exato deste deploy.
 const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3001,http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
+const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+if (vercelOrigin) allowedOrigins.push(vercelOrigin)
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || process.env.NODE_ENV !== 'production' || process.env.VERCEL) {
-      return callback(null, true)
-    }
-    return callback(null, true)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    return callback(new Error('Origem não permitida pelo CORS'))
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
@@ -117,6 +119,8 @@ app.use('/uploads', express.static(uploadsDir, {
 // Roteador de Uploads
 app.use('/upload', uploadLimiter, uploadRoutes)
 app.use('/servicos', createServicesRouter(pool))
+app.use('/contratacoes', createServiceContractsRouter(pool))
+app.use('/pedidos', createOrdersRouter(pool))
 
 const { getApiSecret } = require('./middleware/auth')
 const api_chave = getApiSecret()
@@ -180,12 +184,12 @@ function autenticarToken(req, res, next) {
 
 const verifyAdmin = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '')
-    if (!token) return res.status(401).json({ mensagem: 'Token requerido' })
+    const match = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '')
+    if (!match) return res.status(401).json({ mensagem: 'Token administrativo requerido' })
 
-    const decoded = jwt.verify(token, api_chave)
+    const decoded = jwt.verify(match[1], api_chave, { algorithms: ['HS256'] })
     const [rows] = await pool.execute('SELECT role FROM usuarios WHERE email = ?', [decoded.email])
-    if (rows.length === 0 || rows[0].role !== 'admin') {
+    if (rows.length === 0 || String(rows[0].role).toLowerCase() !== 'admin') {
       return res.status(403).json({ mensagem: 'Acesso admin requerido' })
     }
     req.user = decoded
@@ -303,7 +307,7 @@ app.post("/admin/login", authLimiter, async (req, res) => {
 
   try {
     const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [normalizedEmail])
-    if (rows.length === 0 || rows[0].role !== 'admin') {
+    if (rows.length === 0 || String(rows[0].role).toLowerCase() !== 'admin') {
       return res.status(401).json({ mensagem: "Credenciais de administrador inválidas" })
     }
 
@@ -1455,8 +1459,7 @@ async function initDatabaseTables() {
   if (dbInitPromise) return dbInitPromise
 
   dbInitPromise = (async () => {
-    try {
-      await pool.execute(`
+    await pool.execute(`
         CREATE TABLE IF NOT EXISTS usuarios (
           id_usuario INT AUTO_INCREMENT PRIMARY KEY,
           username VARCHAR(100) NOT NULL UNIQUE,
@@ -1469,7 +1472,7 @@ async function initDatabaseTables() {
         )
       `)
 
-      await pool.execute(`
+    await pool.execute(`
         CREATE TABLE IF NOT EXISTS produtos (
           id_produto INT AUTO_INCREMENT PRIMARY KEY,
           nome VARCHAR(255) NOT NULL,
@@ -1487,85 +1490,26 @@ async function initDatabaseTables() {
         )
       `)
 
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS password_resets (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          token_hash VARCHAR(255) NOT NULL,
-          expires_at DATETIME NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_email (email),
-          INDEX idx_token (token_hash)
-        )
-      `)
-
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS notificacoes (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          usuario_id INT NOT NULL,
-          produto_id INT NULL,
-          tipo VARCHAR(50) NOT NULL,
-          mensagem TEXT NOT NULL,
-          lida BOOLEAN NOT NULL DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_notificacoes_usuario (usuario_id),
-          INDEX idx_notificacoes_lida (usuario_id, lida)
-        )
-      `)
-
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS avaliacoes (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          produto_id INT NOT NULL,
-          avaliador_id INT NOT NULL,
-          nota INT NOT NULL,
-          comentario TEXT,
-          data_avaliacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE KEY unique_avaliacao (produto_id, avaliador_id),
-          INDEX idx_produto (produto_id),
-          INDEX idx_avaliador (avaliador_id)
-        )
-      `)
-
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS mensagens (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          remetente_id INT NOT NULL,
-          destinatario_id INT NOT NULL,
-          produto_id INT NULL,
-          conteudo TEXT NOT NULL,
-          lida BOOLEAN NOT NULL DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_remetente (remetente_id),
-          INDEX idx_destinatario (destinatario_id),
-          INDEX idx_conversa (remetente_id, destinatario_id),
-          INDEX idx_created (created_at)
-        )
-      `)
-
-      dbInitialized = true
-      console.log('[EHtech DB] Tabelas e migrações verificadas com sucesso')
-    } catch (err) {
-      console.error('[EHtech DB] Aviso na inicialização de tabelas:', err.message)
-    }
-  })()
+    await initializeDatabase(pool)
+    dbInitialized = true
+    console.log('[EHtech DB] Tabelas e migrações verificadas com sucesso')
+  })().catch((error) => {
+    dbInitPromise = null
+    throw error
+  })
 
   return dbInitPromise
 }
-
-// Middleware para garantir que o banco esteja pronto antes das requisições
-app.use(async (req, res, next) => {
-  if (!dbInitialized) {
-    initDatabaseTables().catch(() => {})
-  }
-  next()
-})
 
 // Inicialização em ambiente standalone (desenvolvimento local)
 if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   app.listen(porta, async () => {
     console.log(`[EHtech Backend] Rodando na porta ${porta}`)
-    await initDatabaseTables()
+    try {
+      await initDatabaseTables()
+    } catch (error) {
+      console.error('[EHtech DB] Falha ao inicializar:', error.message)
+    }
   })
 }
 

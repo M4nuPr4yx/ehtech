@@ -24,15 +24,15 @@ export const getApiUrl = (endpoint = '') => {
       return `http://localhost:3000${path}`;
     }
 
-    // Em produção (ex: Vercel): usa caminhos relativos (mesmo domínio)
+    // Em produção, todas as chamadas do Express passam pela função /api.
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return path;
+    return `/api${path}`;
   }
 
   // No SSR (Node.js):
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}${path}`;
+    return `https://${process.env.VERCEL_URL}/api${path}`;
   }
   return `http://localhost:3000${path}`;
 };

@@ -16,7 +16,7 @@ O projeto agora conta com um **adaptador universal inteligente** que suporta tan
      ```
    - **Na Vercel**: adicione a variável `DATABASE_URL` em **Settings > Environment Variables**.
 
-O backend detecta a conexão PostgreSQL/Neon automaticamente, cria todas as tabelas necessárias (`usuarios`, `produtos`, `avaliacoes`, `mensagens`, etc.) e converte todas as consultas de forma 100% transparente.
+O backend detecta a conexão PostgreSQL/Neon automaticamente e cria as tabelas necessárias. Antes de publicar, valide os fluxos de cadastro, login, anúncios, avaliações, mensagens e serviços no ambiente de preview.
 
 ---
 
@@ -43,6 +43,9 @@ Esse comando iniciará simultaneamente:
 | Variável | Valor |
 | :--- | :--- |
 | `DATABASE_URL` | Sua URL de conexão do Neon (ex: `postgresql://...`) |
-| `API_SEGREDO` | `g98VFDRf1XFXyF51vjbD+PewDAjB+HY5y5sVARKAB+0zqpZS0cFMr9X4XmerNQvk` |
+| `API_SEGREDO` | Gere uma chave exclusiva com pelo menos 32 caracteres; nunca a salve no Git |
+| `FRONTEND_URL` | URL exata do site publicado, por exemplo `https://seu-projeto.vercel.app` |
 
 4. Clique em **Deploy**!
+
+> Segurança: se uma chave real já foi registrada em um commit, gere outra no painel da Vercel. Apagar o texto do arquivo não remove o valor do histórico do Git.

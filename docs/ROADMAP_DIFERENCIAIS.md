@@ -9,10 +9,10 @@ Transformar a EHtech em um marketplace que não apenas vende tecnologia, mas aco
 ## Backlog inicial
 
 - [ ] Combos de produto com instalação ou configuração.
-- [ ] Orçamento estruturado para serviços.
-- [ ] Acompanhamento: solicitado, orçamento enviado, aceito, em execução e concluído.
-- [ ] Garantia registrada para o serviço executado.
-- [ ] Reputação separada para vendedores e prestadores.
+- [x] Orçamento estruturado para serviços.
+- [x] Acompanhamento: solicitado, orçamento enviado, aceito, em execução e concluído.
+- [x] Garantia registrada para o serviço executado.
+- [x] Reputação separada para vendedores e prestadores.
 - [ ] Perfis profissionais verificados, com especialidades e certificações.
 - [ ] Verificador de compatibilidade de componentes.
 - [ ] Diagnóstico guiado por sintomas.

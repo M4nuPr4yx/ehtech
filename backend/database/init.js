@@ -92,8 +92,69 @@ const TABLES = [
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_servicos_status (status), INDEX idx_servicos_categoria (categoria),
     INDEX idx_servicos_modalidade (modalidade), INDEX idx_servicos_prestador (prestador_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS contratacoes_servico (
+    id_contratacao INT AUTO_INCREMENT PRIMARY KEY, servico_id INT NOT NULL,
+    cliente_id INT NOT NULL, prestador_id INT NOT NULL, descricao_problema TEXT NOT NULL,
+    modalidade VARCHAR(20) NOT NULL, urgencia VARCHAR(20) NOT NULL DEFAULT 'normal',
+    orcamento_max DECIMAL(10,2) NULL, disponibilidade VARCHAR(300) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'solicitado', valor_proposto DECIMAL(10,2) NULL,
+    escopo_proposto TEXT NULL, prazo_proposto VARCHAR(120) NULL,
+    garantia_dias INT NULL, observacoes_prestador TEXT NULL,
+    garantia_codigo VARCHAR(40) NULL, garantia_inicio_em TIMESTAMP NULL,
+    garantia_fim_em TIMESTAMP NULL,
+    orcamento_enviado_em TIMESTAMP NULL, aceito_em TIMESTAMP NULL,
+    iniciado_em TIMESTAMP NULL, concluido_em TIMESTAMP NULL, cancelado_em TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_contratacoes_cliente (cliente_id), INDEX idx_contratacoes_prestador (prestador_id),
+    INDEX idx_contratacoes_status (status), INDEX idx_contratacoes_servico (servico_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS avaliacoes_servico (
+    id_avaliacao INT AUTO_INCREMENT PRIMARY KEY, contratacao_id INT NOT NULL,
+    servico_id INT NOT NULL, prestador_id INT NOT NULL, cliente_id INT NOT NULL,
+    nota INT NOT NULL, comentario TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_avaliacao_contratacao (contratacao_id),
+    INDEX idx_avaliacoes_servico (servico_id), INDEX idx_avaliacoes_prestador (prestador_id),
+    INDEX idx_avaliacoes_cliente (cliente_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS pedidos_produto (
+    id_pedido INT AUTO_INCREMENT PRIMARY KEY, comprador_id INT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'registrado', total DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_pedidos_comprador (comprador_id), INDEX idx_pedidos_status (status)
+  )`,
+  `CREATE TABLE IF NOT EXISTS pedido_produto_itens (
+    id_item INT AUTO_INCREMENT PRIMARY KEY, pedido_id INT NOT NULL, produto_id INT NOT NULL,
+    vendedor_id INT NOT NULL, vendedor_nome VARCHAR(255) NOT NULL,
+    nome_produto VARCHAR(255) NOT NULL, preco_unitario DECIMAL(10,2) NOT NULL,
+    quantidade INT NOT NULL, imagem TEXT NULL,
+    INDEX idx_itens_pedido (pedido_id), INDEX idx_itens_vendedor (vendedor_id),
+    INDEX idx_itens_produto (produto_id)
   )`
 ]
+
+const CONTRACT_WARRANTY_COLUMNS = [
+  ['garantia_codigo', 'VARCHAR(40) NULL'],
+  ['garantia_inicio_em', 'TIMESTAMP NULL'],
+  ['garantia_fim_em', 'TIMESTAMP NULL']
+]
+
+function isDuplicateColumnError(error) {
+  return error?.code === 'ER_DUP_FIELDNAME' || error?.code === '42701' || /duplicate column|already exists/i.test(error?.message || '')
+}
+
+async function ensureContractWarrantyColumns(pool) {
+  for (const [column, definition] of CONTRACT_WARRANTY_COLUMNS) {
+    try {
+      await pool.execute(`ALTER TABLE contratacoes_servico ADD COLUMN ${column} ${definition}`)
+    } catch (error) {
+      if (!isDuplicateColumnError(error)) throw error
+    }
+  }
+}
 
 async function seedServices(pool) {
   const [providers] = await pool.execute(
@@ -124,6 +185,7 @@ async function seedServices(pool) {
 
 async function initializeDatabase(pool) {
   for (const statement of TABLES) await pool.execute(statement)
+  await ensureContractWarrantyColumns(pool)
   await seedServices(pool)
 }
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import ImageWithFallback from '../../complements/ImageWithFallback';
-import { getMainImage, getProductImages, isValidImageUrl } from '../../complements/imageHelper';
+import { getProductImages, isValidImageUrl } from '../../complements/imageHelper';
 import { getApiUrl } from '../../../lib/api';
 
 // ImageGallery Component - galeria interativa com miniaturas
@@ -79,10 +79,11 @@ function ImageGallery({ images }) {
                   : 'border-gray-700 hover:border-gray-500'
               }`}
             >
-              <img
+              <ImageWithFallback
                 src={url}
                 alt={`Miniatura ${idx + 1}`}
                 className="w-full h-full object-contain bg-gray-800 p-0.5"
+                sizes="64px"
               />
             </button>
           ))}
@@ -117,6 +118,7 @@ export default function ProdutoDetalhes() {
   // User state
   const [user, setUser] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [sellerInfo, setSellerInfo] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -130,6 +132,14 @@ export default function ProdutoDetalhes() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (produto && user) {
+      setIsOwner(Number(produto.vendedor_id) === Number(user.id) || produto.vendedor === user.email);
+    } else {
+      setIsOwner(false);
+    }
+  }, [produto, user]);
 
   const fetchProduto = useCallback(async () => {
     if (!params.id) return;
@@ -298,8 +308,6 @@ export default function ProdutoDetalhes() {
       </div>
     );
   }
-
-  const productImage = getMainImage(produto.imagem);
 
   return (
     <div className="site-background min-h-screen text-white pt-20 pb-20">

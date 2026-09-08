@@ -2,6 +2,15 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getApiUrl } from '../../lib/api';
+
+async function readApiResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(response.ok ? 'Resposta inválida do servidor' : `Servidor indisponível (${response.status})`);
+  }
+  return response.json();
+}
 
 function formatPercent(value, total) {
   if (!total || total <= 0) return '0%';
@@ -57,6 +66,7 @@ function SimpleBarChart({ categories }) {
 export default function Admin() {
   const [adminToken, setAdminToken] = useState(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'produtos', 'usuarios'
 
   const [users, setUsers] = useState([]);
@@ -92,27 +102,68 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState('');
 
   useEffect(() => {
-    localStorage.removeItem('adminToken');
-    setIsCheckingSession(false);
+    let active = true;
+    const restoreSession = async () => {
+      // Remove o token persistente usado pela versão antiga. A sessão admin agora
+      // existe apenas nesta aba, reduzindo o risco em computadores compartilhados.
+      localStorage.removeItem('adminToken');
+      const token = sessionStorage.getItem('adminToken');
+      if (!token) {
+        if (active) setIsCheckingSession(false);
+        return;
+      }
+
+      try {
+        const sessionResponse = await fetch(getApiUrl('/admin/sessao'), {
+          headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
+        });
+        if (!sessionResponse.ok) throw new Error('Sessão administrativa expirada');
+
+        const [usersResponse, productsResponse] = await Promise.all([
+          fetch(getApiUrl('/admin/users'), { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+          fetch(getApiUrl('/admin/produtos'), { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        ]);
+        if (!usersResponse.ok || !productsResponse.ok) throw new Error('Não foi possível restaurar a sessão');
+        const [usersData, productsData] = await Promise.all([readApiResponse(usersResponse), readApiResponse(productsResponse)]);
+        if (active) {
+          setAdminToken(token);
+          setUsers(Array.isArray(usersData) ? usersData : []);
+          setProducts(Array.isArray(productsData) ? productsData : []);
+        }
+      } catch {
+        sessionStorage.removeItem('adminToken');
+        if (active) setFeedback('Sua sessão administrativa expirou. Entre novamente.');
+      } finally {
+        if (active) setIsCheckingSession(false);
+      }
+    };
+
+    restoreSession();
+    return () => { active = false; };
   }, []);
 
   const loginAdmin = async () => {
+    setIsLoggingIn(true);
+    setFeedback('');
     try {
       const res = await fetch(getApiUrl('/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, senha: loginSenha }),
       });
-      const data = await res.json();
+      const data = await readApiResponse(res);
       if (res.ok && data.token) {
+        sessionStorage.setItem('adminToken', data.token);
         setAdminToken(data.token);
-        fetchUsers(data.token);
-        fetchProducts(data.token);
+        setLoginSenha('');
+        await Promise.all([fetchUsers(data.token), fetchProducts(data.token)]);
       } else {
         setFeedback(data.mensagem || 'Credenciais inválidas');
       }
-    } catch {
-      setFeedback('Erro de conexão ao autenticar administrador');
+    } catch (error) {
+      setFeedback(error.message || 'Não foi possível conectar ao servidor da intranet.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -121,27 +172,31 @@ export default function Admin() {
       const res = await fetch(getApiUrl('/admin/users'), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data = await readApiResponse(res);
+      if (res.status === 401 || res.status === 403) {
+        sessionStorage.removeItem('adminToken');
+        setAdminToken(null);
+        setFeedback('Sua sessão administrativa expirou. Entre novamente.');
+        return;
+      }
       setUsers(Array.isArray(data) ? data : []);
     } catch {
       console.error('Erro ao listar usuários');
     }
   }
 
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-      setAdminToken(token);
-      fetchUsers(token);
-    }
-  }, []);
-
   const fetchProducts = async (token) => {
     try {
       const res = await fetch(getApiUrl('/admin/produtos'), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data = await readApiResponse(res);
+      if (res.status === 401 || res.status === 403) {
+        sessionStorage.removeItem('adminToken');
+        setAdminToken(null);
+        setFeedback('Sua sessão administrativa expirou. Entre novamente.');
+        return;
+      }
       setProducts(Array.isArray(data) ? data : []);
     } catch {
       console.error('Erro ao listar produtos');
@@ -278,7 +333,11 @@ export default function Admin() {
   };
 
   const logout = () => {
+    sessionStorage.removeItem('adminToken');
     setAdminToken(null);
+    setUsers([]);
+    setProducts([]);
+    setFeedback('');
   };
 
   // Estatísticas
@@ -399,9 +458,10 @@ export default function Admin() {
 
             <button
               type="submit"
+              disabled={isLoggingIn}
               className="w-full py-4 bg-[#ABDB25] hover:bg-white text-black font-extrabold rounded-2xl shadow-xl hover:shadow-[#ABDB25]/20 transition-all duration-300 mt-4 text-base"
             >
-              Entrar como Administrador
+              {isLoggingIn ? 'Autenticando…' : 'Entrar como Administrador'}
             </button>
           </form>
         </div>

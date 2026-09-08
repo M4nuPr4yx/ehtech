@@ -23,14 +23,25 @@ function parseHighlights(value) {
 }
 
 function normalizeService(service) {
-  return { ...service, preco_base: service.preco_base === null ? null : Number(service.preco_base), destaques: parseHighlights(service.destaques) }
+  return {
+    ...service,
+    preco_base: service.preco_base === null ? null : Number(service.preco_base),
+    prestador_nota: Number(service.prestador_nota) || 0,
+    prestador_avaliacoes: Number(service.prestador_avaliacoes) || 0,
+    destaques: parseHighlights(service.destaques)
+  }
 }
 
 function createServicesRouter(pool) {
   const router = express.Router()
   const fields = `s.id_servico, s.slug, s.titulo, s.descricao, s.categoria, s.preco_base,
     s.tipo_preco, s.prazo, s.modalidade, s.regiao, s.destaques, s.prestador_id,
-    s.created_at, COALESCE(u.nome, u.username, 'Especialista EHtech') AS prestador, u.foto AS prestador_foto`
+    s.created_at, COALESCE(u.nome, u.username, 'Especialista EHtech') AS prestador, u.foto AS prestador_foto,
+    COALESCE(reputacao.media, 0) AS prestador_nota, COALESCE(reputacao.total, 0) AS prestador_avaliacoes`
+  const ratingJoin = `LEFT JOIN (
+    SELECT prestador_id, ROUND(AVG(nota), 1) AS media, COUNT(*) AS total
+    FROM avaliacoes_servico GROUP BY prestador_id
+  ) reputacao ON reputacao.prestador_id = s.prestador_id`
 
   router.get('/', async (req, res) => {
     const page = boundedInteger(req.query.page, 1, 100000)
@@ -58,7 +69,7 @@ function createServicesRouter(pool) {
       const currentPage = Math.min(page, totalPages)
       const offset = (currentPage - 1) * limit
       const [rows] = await pool.execute(
-        `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id
+        `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id ${ratingJoin}
          ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...values, limit, offset]
       )
@@ -70,12 +81,38 @@ function createServicesRouter(pool) {
     }
   })
 
+  router.get('/reputacao/prestador/:id', async (req, res) => {
+    const providerId = Number.parseInt(req.params.id, 10)
+    if (!Number.isInteger(providerId) || providerId <= 0) return res.status(400).json({ mensagem: 'Prestador inválido.' })
+    try {
+      const [[summary]] = await pool.execute(
+        'SELECT ROUND(AVG(nota), 1) AS media, COUNT(*) AS total FROM avaliacoes_servico WHERE prestador_id = ?',
+        [providerId]
+      )
+      const [reviews] = await pool.execute(
+        `SELECT a.nota, a.comentario, a.created_at,
+          COALESCE(cliente.nome, cliente.username, 'Cliente EHtech') AS avaliador,
+          s.titulo AS servico
+         FROM avaliacoes_servico a
+         JOIN usuarios cliente ON cliente.id_usuario = a.cliente_id
+         JOIN servicos s ON s.id_servico = a.servico_id
+         WHERE a.prestador_id = ? ORDER BY a.created_at DESC, a.id_avaliacao DESC LIMIT 20`,
+        [providerId]
+      )
+      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+      return res.json({ media: Number(summary.media) || 0, total: Number(summary.total) || 0, avaliacoes: reviews })
+    } catch (error) {
+      console.error('[servicos/reputacao] Erro:', error.message)
+      return res.status(500).json({ mensagem: 'Não foi possível carregar a reputação técnica.' })
+    }
+  })
+
   router.get('/:slug', async (req, res) => {
     const slug = String(req.params.slug || '').trim().slice(0, 160)
     if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ mensagem: 'Serviço inválido.' })
     try {
       const [rows] = await pool.execute(
-        `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id
+        `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id ${ratingJoin}
          WHERE s.slug = ? AND s.status = 'ativo' LIMIT 1`,
         [slug]
       )

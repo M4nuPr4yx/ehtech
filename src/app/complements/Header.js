@@ -257,6 +257,7 @@ export default function Header() {
 
   const goToPerfil = () => { setDropdownOpen(false); if (requireAuth('/perfil')) router.push('/perfil'); };
   const goToMensagens = () => { setDropdownOpen(false); if (requireAuth('/mensagens')) router.push('/mensagens'); };
+  const goToContratacoes = () => { setDropdownOpen(false); if (requireAuth('/contratacoes')) router.push('/contratacoes'); };
   const goToAnunciar = () => { setDropdownOpen(false); if (requireAuth('/anunciar')) router.push('/anunciar'); };
   const goToCarrinho = () => { setDropdownOpen(false); if (requireAuth('/carrinho')) router.push('/carrinho'); };
 
@@ -478,6 +479,15 @@ export default function Header() {
                               {unreadMessages}
                             </span>
                           )}
+                        </button>
+                        <button
+                          onClick={goToContratacoes}
+                          className="w-full px-4 py-3 text-left text-white hover:bg-gray-800 flex items-center transition-colors text-sm"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6M7 3h8l4 4v14H5V3h2zm8 0v5h5" />
+                          </svg>
+                          Minhas Contratações
                         </button>
                         <button 
                           onClick={goToAnunciar}

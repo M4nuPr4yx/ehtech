@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import ServiceIcon from './ServiceIcon'
 import { MODALITIES, SERVICE_CATEGORIES, categoryLabel, modalityLabel, servicePrice } from './serviceData'
 import styles from './servicos.module.css'
+import { getApiUrl } from '../../lib/api'
 
 const PAGE_SIZE = 9
 const INITIAL = { search: '', categoria: '', modalidade: '', ordenacao: 'recentes' }
@@ -40,7 +41,7 @@ function ServiceCatalog({ initial }) {
       setLoading(true)
       setError('')
       try {
-        const response = await fetch(`/api/servicos?${params}`, { signal: controller.signal })
+        const response = await fetch(getApiUrl(`/servicos?${params}`), { signal: controller.signal })
         const data = await response.json()
         if (!response.ok || !Array.isArray(data.items)) throw new Error(data.mensagem || 'Não foi possível carregar os serviços.')
         if (active) setResult(data)
@@ -126,6 +127,7 @@ function ServiceCatalog({ initial }) {
                   <span className={styles.category}>{categoryLabel(service.categoria)}</span>
                   <h3>{service.titulo}</h3>
                   <p className={styles.description}>{service.descricao}</p>
+                  <div className={styles.providerRating}><span>★</span><strong>{service.prestador_nota ? service.prestador_nota.toFixed(1) : 'Novo'}</strong><small>{service.prestador_avaliacoes ? `${service.prestador_avaliacoes} avaliações técnicas` : 'prestador sem avaliações'}</small></div>
                   <div className={styles.meta}><span>Prazo estimado</span><strong>{service.prazo}</strong></div>
                   <div className={styles.cardBottom}><div><span>Investimento</span><strong>{servicePrice(service)}</strong></div><i aria-hidden="true">→</i></div>
                 </Link>

@@ -10,6 +10,10 @@ function getApiSecret() {
     return process.env.API_SEGREDO.trim();
   }
 
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    throw new Error('API_SEGREDO deve ser configurado com uma chave exclusiva em produção');
+  }
+
   if (!fallbackSecret) {
     fallbackSecret = crypto.randomBytes(32).toString('hex');
     console.warn('\n⚠️ [SEGURANÇA] API_SEGREDO não definido ou usando valor padrão no .env.');

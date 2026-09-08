@@ -28,6 +28,7 @@ export default function SellerProfile() {
   const [seller, setSeller] = useState(null);
   const [produtos, setProdutos] = useState([]);
   const [avaliacoes, setAvaliacoes] = useState({ media: 0, total: 0 });
+  const [avaliacoesServicos, setAvaliacoesServicos] = useState({ media: 0, total: 0, avaliacoes: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -78,6 +79,11 @@ export default function SellerProfile() {
       if (avaliacoesRes.ok) {
         const avaliacoesData = await avaliacoesRes.json();
         setAvaliacoes(avaliacoesData);
+      }
+
+      const servicosRes = await fetch(getApiUrl(`/servicos/reputacao/prestador/${params.id}`));
+      if (servicosRes.ok) {
+        setAvaliacoesServicos(await servicosRes.json());
       }
     } catch (err) {
       setError('Erro ao carregar dados do vendedor');
@@ -158,13 +164,16 @@ export default function SellerProfile() {
               <h1 className="text-3xl font-bold text-white mb-2">{seller.nome || seller.username}</h1>
               {seller.nome && <p className="text-gray-400 text-sm mb-2">@{seller.username}</p>}
               
-              {/* Rating */}
-              <div className="flex items-center justify-center md:justify-start gap-2">
-                <div className="flex">
-                  {renderStars(parseFloat(avaliacoes.media))}
+              {/* Reputações independentes para vendas e serviços */}
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Vendas de produtos</span>
+                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoes.media))}</div><strong className="text-[#ABDB25]">{avaliacoes.media}</strong><small className="text-gray-500">({avaliacoes.total})</small></div>
                 </div>
-                <span className="text-xl font-bold text-[#ABDB25]">{avaliacoes.media}</span>
-                <span className="text-gray-400">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
+                <div className="rounded-xl border border-[#ABDB25]/30 bg-[#ABDB25]/5 px-4 py-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Serviços técnicos</span>
+                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoesServicos.media))}</div><strong className="text-[#ABDB25]">{avaliacoesServicos.media}</strong><small className="text-gray-500">({avaliacoesServicos.total})</small></div>
+                </div>
               </div>
             </div>
 
@@ -189,6 +198,20 @@ export default function SellerProfile() {
             </div>
           </div>
         </div>
+
+        {avaliacoesServicos.avaliacoes.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Avaliações dos serviços técnicos</h2>
+            <div className="grid gap-3">
+              {avaliacoesServicos.avaliacoes.slice(0, 6).map((avaliacao, index) => (
+                <article key={`${avaliacao.created_at}-${index}`} className="rounded-2xl border border-gray-700 bg-gray-900/75 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><div><strong className="text-white">{avaliacao.avaliador}</strong><span className="ml-2 text-xs text-gray-500">em {avaliacao.servico}</span></div><span className="text-[#ABDB25] tracking-wider">{'★'.repeat(avaliacao.nota)}{'☆'.repeat(5 - avaliacao.nota)}</span></div>
+                  {avaliacao.comentario && <p className="mt-3 text-sm leading-relaxed text-gray-300">{avaliacao.comentario}</p>}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Products Grid */}
         <div className="mb-8">

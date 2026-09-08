@@ -15,7 +15,7 @@ export default function Home() {
   useEffect(() => {
     const fetchProdutos = async () => {
       try {
-        const res = await fetch(getApiUrl('/produtos'));
+        const res = await fetch(getApiUrl('/produtos/catalogo?limit=8&page=1'));
         
         if (res.ok) {
           const data = await res.json();

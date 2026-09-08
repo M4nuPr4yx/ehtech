@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
+import styles from './catalogo.module.css';
 import { getApiUrl } from '../../lib/api';
 
 const PAGE_SIZE = 12;
@@ -39,56 +40,13 @@ function Catalog({ initialFilters }) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // Filter states
-  const [search, setSearch] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [precoMin, setPrecoMin] = useState('');
-  const [precoMax, setPrecoMax] = useState('');
-  const [ordenacao, setOrdenacao] = useState('recentes');
-
-  // Categories
-  const categorias = [
-    { value: '', label: 'Todas as categorias' },
-    { value: 'smartphones', label: 'Smartphones' },
-    { value: 'notebooks', label: 'Notebooks' },
-    { value: 'computadores', label: 'Computadores' },
-    { value: 'tablets', label: 'Tablets' },
-    { value: 'acessorios', label: 'Acessórios' },
-    { value: 'gadgets', label: 'Gadgets' },
-    { value: 'games', label: 'Games' },
-    { value: 'redes', label: 'Redes e Internet' },
-    { value: 'audio', label: 'Áudio' },
-    { value: 'outros', label: 'Outros' }
-  ];
-
-  // Sync with URL query parameters
-  useEffect(() => {
-    const q = searchParams.get('search');
-    if (q) setSearch(q);
-    const cat = searchParams.get('categoria');
-    if (cat) setCategoria(cat);
-  }, [searchParams]);
-
-  const fetchProdutos = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(getApiUrl('/produtos'));
-      
-      if (res.ok) {
-        const data = await res.json();
-        setProdutos(data);
-      } else {
-        setProdutos([]);
-      }
-    } catch (err) {
-      setError('Erro ao carregar produtos');
-      setProdutos([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [retry, setRetry] = useState(0);
+  const resultsRef = useRef(null);
+  const filtersRef = useRef(null);
+  const draftKey = JSON.stringify(draft);
+  const { page, ...appliedFilters } = query;
+  const pendingFilters = draftKey !== JSON.stringify(appliedFilters);
+  const invalidRange = draft.precoMin !== '' && draft.precoMax !== '' && Number(draft.precoMin) > Number(draft.precoMax);
 
   useEffect(() => {
     // Native disclosure stays compact on phones; controls remain usable without JS.
@@ -111,7 +69,7 @@ function Catalog({ initialFilters }) {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(`/api/catalogo?${params}`, { signal: controller.signal });
+        const response = await fetch(getApiUrl(`/produtos/catalogo?${params}`), { signal: controller.signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data.mensagem || 'Não foi possível carregar o catálogo.');
         if (!Array.isArray(data.items)) throw new Error('Resposta inválida do catálogo.');

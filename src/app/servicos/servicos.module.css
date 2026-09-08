@@ -1,6 +1,6 @@
-.page, .detailPage { --accent: #b8e344; --line: #293329; --muted: #99a493; min-height: 80vh; background: #0c110e; color: #f3f6ef; }
+.page, .detailPage { --accent: #b8e344; --line: #293329; --muted: #99a493; min-height: 80vh; background-color: #08100b; background-image: linear-gradient(180deg,rgba(4,10,6,.12),rgba(7,13,9,.9) 650px,#08100b 1120px),url('/media/ehtech-ambient-v1.webp'); background-repeat: no-repeat; background-position: center top; background-size: 100% 100%,max(100vw,1280px) auto; color: #f3f6ef; }
 .shell, .detailShell { width: min(1220px, calc(100% - 48px)); margin: 0 auto; }
-.hero { position: relative; overflow: hidden; border-bottom: 1px solid #263026; padding: 32px 0 50px; background: linear-gradient(135deg, #101710, #0b100d 55%, #131c0e); }
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid rgba(184,227,68,.13); padding: 32px 0 50px; background: linear-gradient(135deg,rgba(14,23,16,.72),rgba(7,13,9,.4) 55%,rgba(15,26,11,.66)); backdrop-filter: blur(5px); }
 .heroGlow { position: absolute; width: 520px; height: 520px; right: 4%; top: -300px; border-radius: 50%; background: rgba(184,227,68,.14); filter: blur(70px); pointer-events: none; }
 .breadcrumb { display: flex; align-items: center; gap: 10px; color: #7f8a7c; font-size: 12px; margin-bottom: 34px; min-width: 0; overflow: hidden; }
 .breadcrumb a { color: #a9b3a3; flex-shrink: 0; }
@@ -43,6 +43,10 @@
 .category { color: var(--accent); font-size: 9px; text-transform: uppercase; letter-spacing: .12em; font-weight: 750; }
 .card h3 { min-height: 48px; margin: 8px 0 10px; color: #eef4e9; font-size: 18px; line-height: 1.35; letter-spacing: -.02em; }
 .description { display: -webkit-box; min-height: 58px; overflow: hidden; color: #98a493; font-size: 12px; line-height: 1.6; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.providerRating { display: flex; align-items: center; gap: 6px; margin-top: 13px; color: #8d9988; font-size: 9px; }
+.providerRating > span { color: var(--accent); font-size: 13px; }
+.providerRating > strong { color: #d8e7c8; font-size: 10px; }
+.providerRating > small { color: #788474; }
 .meta { margin: 20px 0 0; padding: 13px 0; border-top: 1px solid #293329; border-bottom: 1px solid #293329; }
 .meta span, .cardBottom span { display: block; color: #7f8c7a; font-size: 9px; margin-bottom: 4px; }
 .meta strong { color: #bdc9b5; font-size: 11px; font-weight: 600; }
@@ -88,18 +92,42 @@
 .provider > span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--accent); color: #18200e; font-weight: 850; }
 .provider small { display: block; color: #818d7d; font-size: 9px; margin-bottom: 3px; }
 .provider strong { color: #dfe7da; font-size: 13px; }
+.provider em { display: block; margin-top: 3px; color: #9cac91; font-size: 8px; font-style: normal; }
 .hireCard dl { display: grid; gap: 12px; margin-bottom: 23px; }
 .hireCard dl div { display: flex; justify-content: space-between; gap: 16px; font-size: 11px; }
 .hireCard dt { color: #859080; }
 .hireCard dd { color: #c3ccbd; text-align: right; }
 .contact { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: 10px; background: var(--accent); color: #17200b; font-size: 13px; font-weight: 800; }
 .contact:hover { background: #d6f181; }
+.quoteButton { display: flex; width: 100%; justify-content: space-between; align-items: center; margin-bottom: 9px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent); color: #17200b; font-size: 13px; font-weight: 850; cursor: pointer; }
+.quoteButton:hover { background: #d6f181; border-color: #d6f181; }
+.hireCard .contact { color: #cbd6c4; border: 1px solid #3d4a39; background: #19211a; font-weight: 650; }
+.hireCard .contact:hover { color: var(--accent); border-color: #738e4b; background: #1e281c; }
 .safe { display: block; color: #7d8879; font-size: 9px; line-height: 1.55; text-align: center; margin-top: 13px; }
+.modalBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; overflow-y: auto; background: rgba(2,5,3,.82); backdrop-filter: blur(9px); }
+.quoteModal { width: min(720px,100%); max-height: calc(100vh - 40px); overflow-y: auto; border: 1px solid #4c603a; border-radius: 22px; background: #111812; box-shadow: 0 30px 90px rgba(0,0,0,.55); }
+.modalHeader { display: flex; justify-content: space-between; gap: 24px; padding: 25px 27px 21px; border-bottom: 1px solid #293429; background: linear-gradient(135deg,#1a2518,#111812); }
+.modalHeader h2 { color: #f1f6ec; margin: 5px 0 3px; font-size: 25px; letter-spacing: -.035em; }
+.modalHeader p { color: #96a391; font-size: 11px; }
+.modalHeader > button { align-self: flex-start; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #3b4739; border-radius: 10px; color: #aab5a5; font-size: 22px; cursor: pointer; }
+.quoteForm { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; padding: 26px; }
+.quoteForm label > span { display: block; margin: 0 0 7px 2px; color: #a9b4a4; font-size: 10px; font-weight: 750; }
+.quoteForm input, .quoteForm select, .quoteForm textarea { width: 100%; border: 1px solid #344033; border-radius: 10px; background: #19211a; color: #eef3e9; outline: none; font-size: 12px; }
+.quoteForm input, .quoteForm select { height: 45px; padding: 0 12px; }
+.quoteForm textarea { resize: vertical; min-height: 112px; padding: 12px; line-height: 1.55; }
+.quoteForm input:focus, .quoteForm select:focus, .quoteForm textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184,227,68,.08); }
+.fullField, .formError, .formActions { grid-column: 1 / -1; }
+.formError { padding: 11px 13px; border: 1px solid #733f35; border-radius: 9px; background: #2b1815; color: #efb2a5; font-size: 11px; }
+.formActions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 5px; }
+.formActions button { padding: 12px 17px; border: 1px solid #3b4739; border-radius: 9px; color: #b7c1b2; font-size: 12px; font-weight: 750; cursor: pointer; }
+.formActions button[type=submit] { border-color: var(--accent); background: var(--accent); color: #17200b; }
+.formActions button:disabled { opacity: .55; cursor: wait; }
 .detailState { min-height: 58vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #0c110e; color: #aeb9a8; text-align: center; }
 .detailState h1 { color: #eff4eb; font-size: 28px; }
 .detailState a { color: var(--accent); text-decoration: underline; }
 .loadingMark { width: 28px; height: 28px; border: 2px solid #34402f; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .heroGrid { grid-template-columns: 1fr; gap: 30px; } .heroPanel { grid-template-columns: repeat(3,1fr); } .searchPanel { grid-template-columns: 1.5fr 1fr; } .grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .detailGrid { grid-template-columns: 1fr; } .hireCard { position: static; } }
-@media (max-width: 620px) { .shell, .detailShell { width: min(100% - 32px, 1220px); } .hero { padding-top: 22px; } .heroPanel { grid-template-columns: 1fr; } .searchPanel { grid-template-columns: 1fr; margin-top: -15px; } .grid { grid-template-columns: 1fr; } .card { min-height: 355px; } .detailHero { flex-direction: column; padding: 24px; } .detailContent ul { grid-template-columns: 1fr; } .pagination { align-items: flex-start; gap: 12px; flex-direction: column; } }
+@media (max-width: 620px) { .shell, .detailShell { width: min(100% - 32px, 1220px); } .hero { padding-top: 22px; } .heroPanel { grid-template-columns: 1fr; } .searchPanel { grid-template-columns: 1fr; margin-top: -15px; } .grid { grid-template-columns: 1fr; } .card { min-height: 355px; } .detailHero { flex-direction: column; padding: 24px; } .detailContent ul { grid-template-columns: 1fr; } .pagination { align-items: flex-start; gap: 12px; flex-direction: column; } .modalBackdrop { padding: 10px; } .quoteModal { max-height: calc(100vh - 20px); } .quoteForm { grid-template-columns: 1fr; padding: 20px; } .quoteForm label, .formError, .formActions { grid-column: 1; } .modalHeader { padding: 21px; } }
+@media (max-width: 720px) { .page, .detailPage { background-size: auto 34rem; } }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .loadingMark { animation: none; } }

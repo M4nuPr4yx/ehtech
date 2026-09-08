@@ -3,6 +3,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getApiUrl } from '../../lib/api';
+import ImageWithFallback from '../complements/ImageWithFallback';
+import { getMainImage } from '../complements/imageHelper';
+
+const CONTRACT_STATUS = {
+  solicitado: 'Solicitado', orcamento_enviado: 'Orçamento enviado', aceito: 'Aceito',
+  em_execucao: 'Em execução', concluido: 'Concluído', cancelado: 'Cancelado'
+};
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -42,6 +49,12 @@ export default function Perfil() {
   const [editForm, setEditForm] = useState({ nome: '', descricao: '', preco: '', categoria: '', imagem: '' });
   const [editLoading, setEditLoading] = useState(false);
   const fileInputRefEdit = useRef(null);
+
+  // Histórico permanente de serviços e pedidos de produtos
+  const [serviceHistory, setServiceHistory] = useState([]);
+  const [productOrders, setProductOrders] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   const fetchPerfil = useCallback(async () => {
     try {
@@ -86,6 +99,28 @@ export default function Perfil() {
     }
   }, []);
 
+  const fetchHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    setHistoryError('');
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [servicesResponse, ordersResponse] = await Promise.all([
+        fetch(getApiUrl('/contratacoes'), { headers, cache: 'no-store' }),
+        fetch(getApiUrl('/pedidos'), { headers, cache: 'no-store' })
+      ]);
+      const [servicesData, ordersData] = await Promise.all([servicesResponse.json(), ordersResponse.json()]);
+      if (!servicesResponse.ok) throw new Error(servicesData.mensagem || 'Não foi possível carregar os serviços.');
+      if (!ordersResponse.ok) throw new Error(ordersData.mensagem || 'Não foi possível carregar os produtos.');
+      setServiceHistory(Array.isArray(servicesData) ? servicesData : []);
+      setProductOrders(Array.isArray(ordersData) ? ordersData : []);
+    } catch (error) {
+      setHistoryError(error.message || 'Não foi possível carregar seu histórico.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPerfil();
   }, [fetchPerfil]);
@@ -95,7 +130,22 @@ export default function Perfil() {
     if (activeTab === 'produtos') {
       fetchUserProducts();
     }
-  }, [activeTab, fetchUserProducts]);
+    if (activeTab === 'historico') {
+      fetchHistory();
+    }
+  }, [activeTab, fetchUserProducts, fetchHistory]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('aba') === 'historico') {
+      setActiveTab('historico');
+      if (params.get('pedido') === '1') {
+        setMessage('Pedido registrado no seu histórico. Nenhuma cobrança foi realizada.');
+        setMessageType('success');
+        window.history.replaceState({}, '', '/perfil?aba=historico');
+      }
+    }
+  }, []);
 
 const handleLogout = () => {
     localStorage.removeItem('token');
@@ -301,14 +351,18 @@ const handleChangeEmail = async (e) => {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
+  const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL'
+  }).format(Number(value) || 0);
+
   return (
     <div className="site-background min-h-screen text-white pt-20 pb-20">
-      <div className="max-w-2xl mx-auto px-6">
+      <div className={`${activeTab === 'historico' ? 'max-w-5xl' : 'max-w-2xl'} mx-auto px-6 transition-all`}>
         <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
           <h1 className="text-3xl font-bold text-[#ABDB25] mb-6"> Meu Perfil</h1>
           
 {/* Tabs */}
-          <div className="flex mb-6 border-b border-gray-700">
+          <div className="flex mb-6 border-b border-gray-700 overflow-x-auto">
             <button
               onClick={() => { setActiveTab('perfil'); setMessage(''); }}
               className={`py-3 px-6 font-bold transition-all ${activeTab === 'perfil' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
@@ -326,6 +380,12 @@ const handleChangeEmail = async (e) => {
               className={`py-3 px-6 font-bold transition-all ${activeTab === 'produtos' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
             >
               Seus Produtos
+            </button>
+            <button
+              onClick={() => { setActiveTab('historico'); setMessage(''); }}
+              className={`py-3 px-6 whitespace-nowrap font-bold transition-all ${activeTab === 'historico' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
+            >
+              Histórico
             </button>
           </div>
 
@@ -561,6 +621,48 @@ const handleChangeEmail = async (e) => {
                 <p className={`mt-4 p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
                   {message}
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Histórico de serviços e produtos */}
+          {activeTab === 'historico' && (
+            <div className="space-y-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ABDB25]">Sua jornada EHtech</span><h2 className="mt-1 text-2xl font-bold text-white">Histórico de contratações</h2><p className="mt-1 text-sm text-gray-400">Registros permanecem disponíveis mesmo após a conclusão.</p></div>
+                <button type="button" onClick={fetchHistory} disabled={loadingHistory} className="self-start rounded-xl border border-gray-700 px-4 py-2 text-xs font-bold text-gray-300 hover:border-[#ABDB25] hover:text-[#ABDB25] disabled:opacity-50">↻ Atualizar</button>
+              </div>
+
+              {message && <div className={`rounded-xl border px-4 py-3 text-sm ${messageType === 'success' ? 'border-green-500/30 bg-green-500/10 text-green-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>{message}</div>}
+              {historyError && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300" role="alert">{historyError}</div>}
+
+              {loadingHistory ? <div className="py-16 text-center text-gray-400">Carregando seu histórico…</div> : (
+                <>
+                  <section>
+                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-white">Serviços</h3><p className="text-xs text-gray-500">Como cliente ou prestador</p></div><span className="rounded-full bg-[#ABDB25]/10 px-3 py-1 text-xs font-bold text-[#ABDB25]">{serviceHistory.length}</span></div>
+                    {serviceHistory.length ? <div className="grid gap-3 md:grid-cols-2">{serviceHistory.map((contract) => (
+                      <article key={contract.id_contratacao} className="flex flex-col rounded-2xl border border-gray-700 bg-gray-800/45 p-5">
+                        <div className="flex items-start justify-between gap-3"><div><span className="text-[9px] font-bold uppercase tracking-wider text-[#ABDB25]">{contract.papel === 'prestador' ? 'Você prestou' : 'Você contratou'}</span><h4 className="mt-1 font-bold text-white">{contract.servico_titulo}</h4><p className="mt-1 text-xs text-gray-500">Com {contract.papel === 'prestador' ? contract.cliente_nome : contract.prestador_nome} · #{contract.id_contratacao}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold ${contract.status === 'concluido' ? 'bg-green-500/15 text-green-300' : contract.status === 'cancelado' ? 'bg-red-500/15 text-red-300' : 'bg-blue-500/15 text-blue-300'}`}>{CONTRACT_STATUS[contract.status] || contract.status}</span></div>
+                        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-700/70 pt-4"><div><span className="block text-[9px] uppercase text-gray-500">Valor acordado</span><strong className="text-sm text-gray-200">{contract.valor_proposto == null ? 'Aguardando proposta' : formatCurrency(contract.valor_proposto)}</strong></div><div><span className="block text-[9px] uppercase text-gray-500">Última atualização</span><strong className="text-sm text-gray-200">{formatDate(contract.updated_at)}</strong></div></div>
+                        {contract.garantia_codigo && <div className="mt-3 rounded-xl border border-[#ABDB25]/25 bg-[#ABDB25]/5 p-3"><span className="block text-[9px] font-bold uppercase text-[#ABDB25]">Garantia registrada</span><strong className="font-mono text-xs text-gray-200">{contract.garantia_codigo}</strong><p className="mt-1 text-[10px] text-gray-500">Válida até {formatDate(contract.garantia_fim_em)}</p></div>}
+                        <Link href="/contratacoes" className="mt-auto pt-4 text-xs font-bold text-[#ABDB25] hover:underline">Ver detalhes e ações →</Link>
+                      </article>
+                    ))}</div> : <div className="rounded-2xl border border-dashed border-gray-700 p-8 text-center"><p className="text-sm text-gray-400">Você ainda não possui serviços no histórico.</p><Link href="/servicos" className="mt-2 inline-block text-sm font-bold text-[#ABDB25] hover:underline">Explorar serviços →</Link></div>}
+                  </section>
+
+                  <section>
+                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-white">Pedidos de produtos</h3><p className="text-xs text-gray-500">Registro dos itens solicitados aos vendedores</p></div><span className="rounded-full bg-[#ABDB25]/10 px-3 py-1 text-xs font-bold text-[#ABDB25]">{productOrders.length}</span></div>
+                    {productOrders.length ? <div className="space-y-4">{productOrders.map((order) => (
+                      <article key={order.id_pedido} className="overflow-hidden rounded-2xl border border-gray-700 bg-gray-800/45">
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-700 px-5 py-4"><div><span className="text-[9px] uppercase tracking-wider text-gray-500">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-gray-400">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-blue-500/15 px-2.5 py-1 text-[9px] font-bold text-blue-300">Pedido registrado</span><strong className="mt-1 block text-lg text-[#ABDB25]">{formatCurrency(order.total)}</strong></div></header>
+                        <div className="divide-y divide-gray-700/70">{order.itens.map((item) => (
+                          <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-700"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><Link href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-white hover:text-[#ABDB25]">{item.nome_produto}</Link><p className="truncate text-xs text-gray-500">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-gray-500">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-gray-200">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
+                        ))}</div>
+                        <footer className="border-t border-gray-700 bg-gray-900/35 px-5 py-3 text-[10px] text-gray-500">Este registro não representa pagamento. Combine entrega e pagamento diretamente com o vendedor.</footer>
+                      </article>
+                    ))}</div> : <div className="rounded-2xl border border-dashed border-gray-700 p-8 text-center"><p className="text-sm text-gray-400">Nenhum pedido de produto foi registrado.</p><Link href="/produtos" className="mt-2 inline-block text-sm font-bold text-[#ABDB25] hover:underline">Explorar produtos →</Link></div>}
+                  </section>
+                </>
               )}
             </div>
           )}

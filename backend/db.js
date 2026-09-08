@@ -41,6 +41,8 @@ if (isPostgres) {
   // Tradutor de queries MySQL -> PostgreSQL (placeholders ?, DDL, RETURNING)
   function convertSqlForPostgres(sql) {
     let converted = sql;
+    const insertIgnore = /^\s*INSERT\s+IGNORE\s+INTO/i.test(converted);
+    const ratingUpsert = /ON\s+DUPLICATE\s+KEY\s+UPDATE\s+nota/i.test(converted);
 
     if (/create\s+table/i.test(converted)) {
       converted = converted
@@ -52,9 +54,20 @@ if (isPostgres) {
         .replace(/LONGTEXT/gi, 'TEXT')
         .replace(/DATETIME/gi, 'TIMESTAMP')
         .replace(/UNIQUE\s+KEY\s+(\w+)\s*\(([^)]+)\)/gi, 'UNIQUE ($2)')
+        .replace(/\s+ON\s+UPDATE\s+CURRENT_TIMESTAMP/gi, '')
         .replace(/,\s*INDEX\s+\w+\s*\([^)]+\)/gi, '')
         .replace(/INDEX\s+\w+\s*\([^)]+\),?/gi, '')
         .replace(/,\s*\)/g, '\n)');
+    }
+
+    converted = converted.replace(/^\s*INSERT\s+IGNORE\s+INTO/i, 'INSERT INTO');
+    if (ratingUpsert) {
+      converted = converted.replace(
+        /ON\s+DUPLICATE\s+KEY\s+UPDATE\s+nota\s*=\s*\?,\s*comentario\s*=\s*\?/i,
+        'ON CONFLICT (produto_id, avaliador_id) DO UPDATE SET nota = EXCLUDED.nota, comentario = EXCLUDED.comentario'
+      );
+    } else if (insertIgnore) {
+      converted = converted.trim().replace(/;?$/, '') + ' ON CONFLICT DO NOTHING';
     }
 
     // Se for INSERT sem RETURNING, anexa RETURNING para obter o ID gerado
@@ -71,13 +84,14 @@ if (isPostgres) {
 
   // Wrapper compatível com a interface do mysql2/promise ([rows, fields])
   const universalExecute = async (sql, params = []) => {
+    if (/ON\s+DUPLICATE\s+KEY\s+UPDATE\s+nota/i.test(sql)) params = params.slice(0, 4);
     const translatedSql = convertSqlForPostgres(sql);
     const res = await pgPool.query(translatedSql, params);
     const isSelect = /^\s*SELECT/i.test(translatedSql);
     const rows = res.rows || [];
 
     const firstRow = rows[0] || {};
-    const insertId = firstRow.id_produto || firstRow.id_usuario || firstRow.id || null;
+    const insertId = firstRow.id_produto || firstRow.id_usuario || firstRow.id_servico || firstRow.id_contratacao || firstRow.id_pedido || firstRow.id_item || firstRow.id || null;
 
     if (isSelect) {
       return [rows, res.fields];

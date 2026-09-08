@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from './complements/ImageWithFallback';
 import { getMainImage } from './complements/imageHelper';
+import { getApiUrl } from '../lib/api';
 
 export default function Home() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function Home() {
   useEffect(() => {
     const fetchProdutos = async () => {
       try {
-        const res = await fetch('/api/catalogo?limit=8&page=1');
+        const res = await fetch(getApiUrl('/produtos'));
         
         if (res.ok) {
           const data = await res.json();

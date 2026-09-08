@@ -17,10 +17,17 @@ const nextConfig = {
     dangerouslyAllowSVG: false,
   },
   async rewrites() {
-    return [{
-      source: '/uploads/:path*',
-      destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/:path*`,
-    }];
+    // Em desenvolvimento local, repassa chamadas /api para o backend local (porta 3000)
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/:path*`,
+      },
+      {
+        source: '/uploads/:path*',
+        destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/:path*`,
+      },
+    ];
   },
   async headers() {
     return [

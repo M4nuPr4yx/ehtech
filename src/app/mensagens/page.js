@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { getApiUrl } from '../../lib/api';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -70,13 +71,13 @@ export default function MensagensPage() {
   }, [router]);
 
   // 2. Carregar conversas
-  const fetchConversations = async (silent = false) => {
+  const fetchConversations = useCallback(async (silent = false) => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
     if (!silent) setLoadingConversations(true);
     try {
-      const res = await fetch('http://localhost:3000/mensagens/conversas', {
+      const res = await fetch(getApiUrl('/mensagens/conversas'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -88,13 +89,13 @@ export default function MensagensPage() {
     } finally {
       if (!silent) setLoadingConversations(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (currentUser) {
       fetchConversations();
     }
-  }, [currentUser]);
+  }, [currentUser, fetchConversations]);
 
   // 3. Lidar com parâmetros de URL (iniciar conversa com vendedor/produto específico)
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function MensagensPage() {
 
     const setupPartnerFromUrl = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/usuarios/${targetVendedorId}/publico`);
+        const res = await fetch(getApiUrl(`/usuarios/${targetVendedorId}/publico`));
         if (res.ok) {
           const userData = await res.json();
           setActivePartner({
@@ -125,7 +126,7 @@ export default function MensagensPage() {
 
     // Se houver produto na URL, buscar detalhes para o banner
     if (urlProdutoId) {
-      fetch(`http://localhost:3000/produtos/${urlProdutoId}`)
+      fetch(getApiUrl(`/produtos/${urlProdutoId}`))
         .then((res) => (res.ok ? res.json() : null))
         .then((prod) => {
           if (prod) setReferencedProduct(prod);
@@ -135,14 +136,14 @@ export default function MensagensPage() {
   }, [currentUser, urlVendedorId, urlProdutoId]);
 
   // 4. Carregar mensagens da conversa ativa
-  const fetchMessages = async (partnerId, silent = false) => {
+  const fetchMessages = useCallback(async (partnerId, silent = false) => {
     if (!partnerId) return;
     const token = localStorage.getItem('token');
     if (!token) return;
 
     if (!silent) setLoadingMessages(true);
     try {
-      const res = await fetch(`http://localhost:3000/mensagens/${partnerId}`, {
+      const res = await fetch(getApiUrl(`/mensagens/${partnerId}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -153,7 +154,7 @@ export default function MensagensPage() {
         }
 
         // Marcar como lida
-        fetch(`http://localhost:3000/mensagens/${partnerId}/lidas`, {
+        fetch(getApiUrl(`/mensagens/${partnerId}/lidas`), {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` },
         }).then(() => {
@@ -168,14 +169,14 @@ export default function MensagensPage() {
     } finally {
       if (!silent) setLoadingMessages(false);
     }
-  };
+  }, [activePartner?.username]);
 
   useEffect(() => {
     if (activePartner?.id_usuario || activePartner?.partner_id) {
       const partnerId = activePartner.id_usuario || activePartner.partner_id;
       fetchMessages(partnerId);
     }
-  }, [activePartner]);
+  }, [activePartner, fetchMessages]);
 
   // 5. Polling em tempo real a cada 4 segundos
   useEffect(() => {
@@ -190,7 +191,7 @@ export default function MensagensPage() {
     }, 4000);
 
     return () => clearInterval(intervalId);
-  }, [currentUser, activePartner]);
+  }, [currentUser, activePartner, fetchConversations, fetchMessages]);
 
   // 6. Scroll automático para a mensagem mais recente
   useEffect(() => {
@@ -211,7 +212,7 @@ export default function MensagensPage() {
     setSending(true);
 
     try {
-      const res = await fetch('http://localhost:3000/mensagens', {
+      const res = await fetch(getApiUrl('/mensagens'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

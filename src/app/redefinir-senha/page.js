@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { getApiUrl } from '../../lib/api';
 
 export default function RedefinirSenhaPage() {
   const searchParams = useSearchParams();
@@ -23,7 +24,7 @@ export default function RedefinirSenhaPage() {
 
     const verificar = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/verificar-token/${token}`);
+        const res = await fetch(getApiUrl(`/verificar-token/${token}`));
         const data = await res.json();
         if (data.valido) {
           setTokenValido(true);
@@ -55,7 +56,7 @@ export default function RedefinirSenhaPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/redefinir-senha', {
+      const res = await fetch(getApiUrl('/redefinir-senha'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, novaSenha }),

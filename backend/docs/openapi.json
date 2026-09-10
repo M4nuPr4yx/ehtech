@@ -1,0 +1,574 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "EHtech — Produtos e teste de carga",
+    "version": "1.0.0",
+    "description": "Consultas públicas: não exigem cadastro, login ou token. GET /produtos retorna a vitrine inteira e é o cenário de maior volume de resposta. GET /produtos/catalogo representa a navegação paginada e executa COUNT + SELECT. POST /produtos exige autenticação JWT (obtenha o token em POST /login) e cria um produto com status 'pendente'. A rota mais lenta só pode ser determinada por medição. As fotos são referências/dados no JSON: Swagger e testes HTTP desta API não baixam automaticamente as imagens referenciadas."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Express direto (porta 3000) — use este para o Swagger UI funcionar corretamente no desenvolvimento local."
+    },
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Via Next.js (porta 3001) — prefixo /api é removido pelo middleware antes de chegar ao Express."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Autenticação",
+      "description": "Login e obtenção de token JWT. Necessário para rotas protegidas."
+    },
+    {
+      "name": "Produtos",
+      "description": "Leitura pública (sem token) e cadastro de anúncios (requer JWT)."
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/login": {
+      "post": {
+        "tags": ["Autenticação"],
+        "operationId": "login",
+        "summary": "Autenticar usuário e obter token JWT",
+        "description": "Valida e-mail e senha e retorna um token JWT Bearer válido por 8 horas. Copie o valor do campo `token` e clique em **Authorize** (🔓) no topo desta página para autenticar as rotas protegidas.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredenciaisLogin"
+              },
+              "example": {
+                "email": "usuario@gmail.com",
+                "senha": "minhasenha123"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login realizado. Use o campo `token` no botão Authorize.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespostaLogin"
+                },
+                "example": {
+                  "mensagem": "Login OK",
+                  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                  "username": "meuusuario",
+                  "email": "usuario@gmail.com",
+                  "userId": 42,
+                  "foto": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "E-mail ou senha ausentes.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "E-mail e senha são obrigatórios" }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciais inválidas.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "E-mail ou senha incorretos" }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de tentativas de autenticação: 20 por IP em 15 minutos.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Muitas tentativas de autenticação. Tente novamente em 15 minutos." }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até nova tentativa.",
+                "schema": { "type": "integer" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno ao autenticar.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Erro interno no servidor ao realizar login" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/produtos": {
+      "get": {
+        "tags": ["Produtos"],
+        "operationId": "listarProdutos",
+        "summary": "Vitrine completa — cenário de maior volume",
+        "description": "SELECT * de todos os produtos aprovados, ordenados por id decrescente. Não há paginação nem filtros nesta rota legada. O corpo cresce com a quantidade de anúncios e o tamanho do campo imagem. Compare bytes, p50/p95, vazão e erros com o catálogo paginado.",
+        "responses": {
+          "200": {
+            "description": "Lista completa; [] se não houver anúncios aprovados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ProdutoCompleto" }
+                },
+                "example": [
+                  {
+                    "id_produto": 1,
+                    "nome": "Notebook de exemplo",
+                    "descricao": "Produto ilustrativo.",
+                    "preco": "2499.90",
+                    "estoque": 5,
+                    "categoria": "notebooks",
+                    "imagem": null,
+                    "vendedor": "Vendedor exemplo",
+                    "vendedor_id": 2,
+                    "status_aprovacao": "aprovado",
+                    "data_criacao": "2026-09-10T10:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "429": {
+            "description": "Limite padrão: 300 requisições por IP em 15 minutos.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Muitas requisições. Tente novamente em alguns minutos." }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até nova tentativa.",
+                "schema": { "type": "integer" }
+              }
+            }
+          },
+          "500": {
+            "description": "Falha ao consultar o banco.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Erro ao listar produtos" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Produtos"],
+        "operationId": "cadastrarProduto",
+        "summary": "Cadastrar produto — requer autenticação JWT",
+        "description": "Cria um novo anúncio de produto com status **pendente**, aguardando aprovação de um administrador. Requer token JWT válido obtido em `POST /login`. Para teste de carga: faça login uma única vez, copie o token e reutilize-o em todas as requisições (válido por 8 horas). **Atenção:** o rate limit padrão de 300 req/IP em 15 min se aplica e não pode ser ampliado via `LOAD_TEST_PRODUCTS_MAX` (essa variável afeta apenas GET /produtos e GET /produtos/catalogo).",
+        "security": [
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NovoProduto" },
+              "example": {
+                "nome": "Teclado Mecânico RGB",
+                "descricao": "Teclado compacto 75% com switches blue e retroiluminação RGB.",
+                "preco": 349.90,
+                "estoque": 10,
+                "categoria": "perifericos",
+                "imagem": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Produto cadastrado com sucesso e aguardando aprovação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mensagem": { "type": "string" },
+                    "id": { "type": "integer", "description": "ID do produto criado." }
+                  }
+                },
+                "example": {
+                  "mensagem": "Produto cadastrado com sucesso! Aguardando aprovação.",
+                  "id": 123
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados do produto inválidos ou ausentes.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "examples": {
+                  "nome_ausente": {
+                    "summary": "Nome ausente",
+                    "value": { "mensagem": "Nome do produto é obrigatório" }
+                  },
+                  "preco_invalido": {
+                    "summary": "Preço inválido",
+                    "value": { "mensagem": "Preço deve ser um valor numérico positivo" }
+                  },
+                  "categoria_ausente": {
+                    "summary": "Categoria ausente",
+                    "value": { "mensagem": "Categoria é obrigatória" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token ausente ou no formato errado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "error": "Token não fornecido" }
+              }
+            }
+          },
+          "403": {
+            "description": "Token inválido ou expirado.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "examples": {
+                  "token_expirado": {
+                    "summary": "Token expirado",
+                    "value": { "error": "Token expirado. Faça login novamente.", "code": "TOKEN_EXPIRED" }
+                  },
+                  "token_invalido": {
+                    "summary": "Token inválido",
+                    "value": { "error": "Token inválido. Faça login novamente.", "code": "INVALID_TOKEN" }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite padrão de 300 req/IP em 15 min atingido. Não é ampliável para esta rota.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Muitas requisições. Tente novamente em alguns minutos." }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até nova tentativa.",
+                "schema": { "type": "integer" }
+              }
+            }
+          },
+          "500": {
+            "description": "Falha ao inserir no banco.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Erro ao cadastrar produto" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/produtos/catalogo": {
+      "get": {
+        "tags": ["Produtos"],
+        "operationId": "consultarCatalogo",
+        "summary": "Catálogo paginado — cenário de uso habitual",
+        "description": "Produtos aprovados com estoque aparecem primeiro; a ordenação selecionada é aplicada dentro desses grupos. Executa contagem e seleção em paralelo. Busca usa LIKE '%termo%'. Categoria ignora capitalização; 'audio' também aceita 'áudio' e 'fones de ouvido'. Parâmetros numéricos são normalizados conforme descrito.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Página: inválidos ou <= 0 viram 1; acima de 100000 são limitados.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Itens: inválidos ou <= 0 viram 12; acima de 24 são limitados.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 24,
+              "default": 12
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Trecho do nome; espaços externos removidos; truncado em 100 caracteres.",
+            "schema": { "type": "string", "maxLength": 100 },
+            "example": "Notebook"
+          },
+          {
+            "name": "categoria",
+            "in": "query",
+            "description": "Categoria exata sem diferenciar maiúsculas/minúsculas; truncada em 60 caracteres.",
+            "schema": { "type": "string", "maxLength": 60 },
+            "example": "notebooks"
+          },
+          {
+            "name": "precoMin",
+            "in": "query",
+            "description": "Mínimo inclusivo em reais. Inválidos ou negativos são ignorados.",
+            "schema": { "type": "number", "minimum": 0 },
+            "example": 100
+          },
+          {
+            "name": "precoMax",
+            "in": "query",
+            "description": "Máximo inclusivo em reais. Inválidos ou negativos são ignorados; menor que precoMin retorna 400.",
+            "schema": { "type": "number", "minimum": 0 },
+            "example": 5000
+          },
+          {
+            "name": "ordenacao",
+            "in": "query",
+            "description": "Ausente ou desconhecida usa recentes. Empates usam id decrescente.",
+            "schema": {
+              "type": "string",
+              "enum": ["recentes", "menor-preco", "maior-preco"],
+              "default": "recentes"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "totalPages é pelo menos 1 mesmo sem produtos. Página além dos resultados retorna items vazio.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Catalogo" },
+                "example": {
+                  "items": [
+                    {
+                      "id_produto": 1,
+                      "nome": "Notebook de exemplo",
+                      "descricao": "Produto ilustrativo.",
+                      "preco": "2499.90",
+                      "estoque": 5,
+                      "categoria": "notebooks",
+                      "imagem": null
+                    }
+                  ],
+                  "total": 1,
+                  "page": 1,
+                  "limit": 12,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Intervalo de preços invertido.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "O preço mínimo não pode ser maior que o máximo" }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite padrão: 300 requisições por IP em 15 minutos.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Muitas requisições. Tente novamente em alguns minutos." }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até nova tentativa.",
+                "schema": { "type": "integer" }
+              }
+            }
+          },
+          "500": {
+            "description": "Falha ao consultar o banco.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": { "mensagem": "Erro ao listar produtos" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT obtido em POST /login. Válido por 8 horas. Clique em **Authorize** (🔓), cole o token no campo e confirme. Não é necessário digitar 'Bearer' — o Swagger UI adiciona automaticamente."
+      }
+    },
+    "schemas": {
+      "CredenciaisLogin": {
+        "type": "object",
+        "required": ["email", "senha"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "E-mail cadastrado (@gmail.com, @hotmail.com ou @outlook.com)."
+          },
+          "senha": {
+            "type": "string",
+            "minLength": 8,
+            "description": "Senha do usuário (mínimo 8 caracteres)."
+          }
+        }
+      },
+      "RespostaLogin": {
+        "type": "object",
+        "properties": {
+          "mensagem": { "type": "string" },
+          "token": {
+            "type": "string",
+            "description": "Token JWT Bearer. Copie e use no botão Authorize (🔓)."
+          },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "userId": { "type": "integer" },
+          "foto": { "type": "string", "nullable": true }
+        }
+      },
+      "NovoProduto": {
+        "type": "object",
+        "required": ["nome", "descricao", "preco", "categoria"],
+        "properties": {
+          "nome": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Nome do produto. Obrigatório, não pode ser vazio."
+          },
+          "descricao": {
+            "type": "string",
+            "maxLength": 5000,
+            "description": "Descrição detalhada do produto. Obrigatória."
+          },
+          "preco": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Preço em reais. Deve ser numérico e positivo."
+          },
+          "estoque": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Quantidade em estoque. Valores negativos ou ausentes são tratados como 0."
+          },
+          "categoria": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Categoria do produto. Obrigatória.",
+            "example": "perifericos"
+          },
+          "imagem": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "URL única da imagem (/uploads/... ou https://...)."
+              },
+              {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Lista de URLs de imagens."
+              }
+            ],
+            "nullable": true,
+            "description": "URL ou lista de URLs de imagem. Aceita /uploads/, https:// e data:image/. Null ou ausente é permitido."
+          }
+        }
+      },
+      "Produto": {
+        "type": "object",
+        "required": ["id_produto", "nome", "descricao", "preco", "estoque", "categoria", "imagem"],
+        "properties": {
+          "id_produto": { "type": "integer", "minimum": 1 },
+          "nome": { "type": "string" },
+          "descricao": { "type": "string", "nullable": true },
+          "preco": {
+            "description": "DECIMAL normalmente retorna texto; alguns adaptadores retornam número.",
+            "oneOf": [
+              { "type": "string", "example": "2499.90" },
+              { "type": "number", "example": 2499.9 }
+            ]
+          },
+          "estoque": { "type": "integer" },
+          "categoria": { "type": "string" },
+          "imagem": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL, string JSON com URLs ou data URI legada; não é lista normalizada."
+          }
+        }
+      },
+      "ProdutoCompleto": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Produto" },
+          {
+            "type": "object",
+            "properties": {
+              "vendedor": { "type": "string" },
+              "vendedor_id": { "type": "integer" },
+              "status_aprovacao": {
+                "type": "string",
+                "enum": ["aprovado"]
+              },
+              "data_criacao": { "type": "string", "format": "date-time" }
+            }
+          }
+        ]
+      },
+      "Catalogo": {
+        "type": "object",
+        "required": ["items", "total", "page", "limit", "totalPages"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Produto" }
+          },
+          "total": { "type": "integer", "minimum": 0 },
+          "page": { "type": "integer", "minimum": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 24 },
+          "totalPages": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "required": ["mensagem"],
+        "properties": {
+          "mensagem": { "type": "string" }
+        }
+      }
+    }
+  }
+}

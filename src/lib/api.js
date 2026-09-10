@@ -14,17 +14,9 @@ export const getApiUrl = (endpoint = '') => {
     return `${base}${path}`;
   }
 
-  // No navegador:
+  // Mesmo endereço do site, tanto por localhost quanto pelo IP da rede.
+  // O Next local encaminha /api ao Express; a Vercel usa a função serverless.
   if (typeof window !== 'undefined') {
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    // Em desenvolvimento local: direciona para o backend na porta 3000
-    if (isLocalhost) {
-      const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-      return `http://localhost:3000${path}`;
-    }
-
-    // Em produção, todas as chamadas do Express passam pela função /api.
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     return `/api${path}`;
   }

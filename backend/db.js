@@ -115,6 +115,7 @@ if (isPostgres) {
   poolInstance = {
     execute: universalExecute,
     query: universalExecute,
+    end: () => pgPool.end(),
     getConnection: async () => {
       const client = await pgPool.connect();
       return {

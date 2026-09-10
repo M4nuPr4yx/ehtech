@@ -25,6 +25,7 @@
     "pg": "^8.23.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "swagger-ui-dist": "5.32.15",
     "validator": "^13.15.35"
   },
   "devDependencies": {

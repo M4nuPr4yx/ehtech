@@ -1,5 +1,8 @@
+import lan from './config/lan.cjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: lan.getLanHosts(),
   reactCompiler: true,
   images: {
     remotePatterns: [
@@ -17,10 +20,20 @@ const nextConfig = {
     dangerouslyAllowSVG: false,
   },
   async rewrites() {
-    return [{
-      source: '/uploads/:path*',
-      destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/:path*`,
-    }];
+    const backend = (process.env.BACKEND_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
+    return {
+      beforeFiles: [],
+      afterFiles: [{
+        source: '/uploads/:path*',
+        destination: `${backend}/uploads/:path*`,
+      }],
+      // Mantém os handlers Next existentes; as demais rotas chegam ao Express.
+      // Na Vercel, vercel.json já encaminha /api para a função serverless.
+      fallback: process.env.VERCEL ? [] : [{
+        source: '/api/:path*',
+        destination: `${backend}/api/:path*`,
+      }],
+    };
   },
   async headers() {
     return [

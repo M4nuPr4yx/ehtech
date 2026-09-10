@@ -18,13 +18,21 @@ const createServicesRouter = require('./routes/services')
 const createServiceContractsRouter = require('./routes/serviceContracts')
 const createOrdersRouter = require('./routes/orders')
 const { initializeDatabase } = require('./database/init')
+const { getLanHosts } = require('../config/lan.cjs')
+const { createDocsRouter } = require('./docs/router')
+const { createProductLoadPolicy } = require('./middleware/productLoadPolicy')
 const porta = process.env.PORT || 3000
 const app = express()
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: { 'upgrade-insecure-requests': process.env.NODE_ENV === 'production' ? [] : null }
+  }
 }))
 app.disable('x-powered-by')
+// O proxy local Next conecta por loopback. Não confiar em proxies arbitrários.
+if (!process.env.VERCEL) app.set('trust proxy', 'loopback')
 
 // CORS restrito às origens configuradas e ao domínio exato deste deploy.
 const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3001,http://localhost:3000')
@@ -32,11 +40,15 @@ const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '
   .map((origin) => origin.trim())
 const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
 if (vercelOrigin) allowedOrigins.push(vercelOrigin)
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+  for (const host of getLanHosts()) allowedOrigins.push(`http://${host}:3001`)
+}
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-    return callback(new Error('Origem não permitida pelo CORS'))
+    // Rejeita sem lançar erro: o browser bloqueia via política CORS sem gerar um 500 no servidor
+    return callback(null, false)
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -53,14 +65,28 @@ app.use((req, res, next) => {
 // ==========================================
 // 3. RATE LIMITING (CONTRA BRUTE FORCE & DoS)
 // ==========================================
+const productLoadPolicy = createProductLoadPolicy(process.env)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 300, // 300 requisições por IP
   message: { mensagem: 'Muitas requisições. Tente novamente em alguns minutos.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: productLoadPolicy.matches
 })
 app.use(globalLimiter)
+if (productLoadPolicy.enabled) {
+  const productLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: productLoadPolicy.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { mensagem: 'Limite do teste de produtos atingido. Aguarde a próxima janela.' }
+  })
+  app.use((req, res, next) => productLoadPolicy.matches(req) ? productLimiter(req, res, next) : next())
+  console.log(`[EHtech Teste] Consultas de produtos: ${productLoadPolicy.max} requisições/IP em 15 minutos. Autenticação mantém seus limites.`)
+}
+app.use('/docs', createDocsRouter())
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1435,7 +1461,32 @@ app.put("/mensagens/:outroUsuarioId/lidas", autenticarToken, async (req, res) =>
 })
 
 // ==========================================
-// 15. TRATAMENTO CENTRALIZADO DE ERROS (500)
+// 15. STATUS DA API
+// ==========================================
+app.get('/', (req, res) => {
+  return res.json({
+    servico: 'EHtech API',
+    status: 'online',
+    health: '/health'
+  })
+})
+
+app.get('/health', async (req, res) => {
+  const connection = typeof pool.testConnection === 'function'
+    ? await pool.testConnection()
+    : { ok: true, type: 'database' }
+
+  return res.status(connection.ok ? 200 : 503).json({
+    status: connection.ok ? 'ok' : 'degraded',
+    api: 'online',
+    banco: connection.ok ? 'conectado' : 'indisponivel',
+    tipoBanco: connection.type || 'desconhecido',
+    timestamp: new Date().toISOString()
+  })
+})
+
+// ==========================================
+// 16. TRATAMENTO CENTRALIZADO DE ERROS (500)
 // ==========================================
 app.use((err, req, res, next) => {
   console.error('[UNHANDLED ERROR]', err.stack || err.message || err)
@@ -1449,10 +1500,12 @@ app.use((err, req, res, next) => {
 })
 
 // ==========================================
-// 16. INICIALIZAÇÃO DO BANCO E SERVIDOR
+// 17. INICIALIZAÇÃO DO BANCO E SERVIDOR
 // ==========================================
 let dbInitialized = false
 let dbInitPromise = null
+let serverInstance = null
+let serverStartPromise = null
 
 async function initDatabaseTables() {
   if (dbInitialized) return
@@ -1501,17 +1554,60 @@ async function initDatabaseTables() {
   return dbInitPromise
 }
 
-// Inicialização em ambiente standalone (desenvolvimento local)
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
-  app.listen(porta, async () => {
-    console.log(`[EHtech Backend] Rodando na porta ${porta}`)
-    try {
-      await initDatabaseTables()
-    } catch (error) {
-      console.error('[EHtech DB] Falha ao inicializar:', error.message)
+async function startServer({ port = porta } = {}) {
+  if (serverInstance?.listening) return serverInstance
+  if (serverStartPromise) return serverStartPromise
+
+  serverStartPromise = (async () => {
+    console.log('[EHtech Backend] Verificando banco de dados e migrações...')
+    await initDatabaseTables()
+
+    return new Promise((resolve, reject) => {
+      const server = app.listen(port)
+
+      const handleError = (error) => {
+        server.removeListener('listening', handleListening)
+        reject(error)
+      }
+      const handleListening = () => {
+        server.removeListener('error', handleError)
+        serverInstance = server
+        const address = server.address()
+        const activePort = typeof address === 'object' && address ? address.port : port
+        console.log(`[EHtech Backend] Pronto em http://localhost:${activePort}`)
+        resolve(server)
+      }
+
+      server.once('error', handleError)
+      server.once('listening', handleListening)
+    })
+  })()
+
+  try {
+    return await serverStartPromise
+  } finally {
+    serverStartPromise = null
+  }
+}
+
+// Só inicia a porta quando este arquivo é executado diretamente. Importações
+// pela Vercel ou por testes recebem apenas a aplicação Express.
+if (require.main === module && !process.env.VERCEL) {
+  startServer().catch(async (error) => {
+    if (error?.code === 'EADDRINUSE') {
+      console.error(`[EHtech Backend] A porta ${porta} já está em uso. A API pode já estar aberta; consulte http://localhost:${porta}/health antes de iniciar outra instância.`)
+    } else {
+      console.error('[EHtech Backend] Inicialização interrompida:', error.message)
     }
+    try {
+      if (typeof pool.end === 'function') await pool.end()
+    } catch (closeError) {
+      console.error('[EHtech DB] Não foi possível encerrar o pool após a falha:', closeError.message)
+    }
+    process.exitCode = 1
   })
 }
 
 module.exports = app
 module.exports.initDatabaseTables = initDatabaseTables
+module.exports.startServer = startServer

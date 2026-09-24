@@ -5,8 +5,10 @@ export default function Loading() {
         <div className="absolute h-64 w-64 rounded-full border border-[#abdb25]/10 animate-ping" />
         <div className="relative grid h-44 w-44 place-items-center rounded-full border border-[#abdb25]/20 bg-black/30 shadow-[0_0_60px_rgba(171,219,37,0.15)]">
         <img
-          src="/ehtech-logo.png"
+          src="/ehtech-logo.png?v=3"
           alt="EHtech"
+          width={586}
+          height={489}
           className="h-32 w-auto object-contain animate-pulse"
         />
         </div>

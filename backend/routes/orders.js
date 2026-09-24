@@ -1,5 +1,6 @@
 const express = require('express')
 const { autenticarToken } = require('../middleware/auth')
+const { integer } = require('../validation')
 
 function createOrdersRouter(pool) {
   const router = express.Router()
@@ -12,8 +13,8 @@ function createOrdersRouter(pool) {
     }
 
     const normalized = requestedItems.map((item) => ({
-      produto_id: Number.parseInt(item.produto_id, 10),
-      quantidade: Number.parseInt(item.quantidade, 10)
+      produto_id: integer(item?.produto_id),
+      quantidade: integer(item?.quantidade)
     }))
     if (normalized.some((item) => !Number.isInteger(item.produto_id) || item.produto_id <= 0 || !Number.isInteger(item.quantidade) || item.quantidade < 1 || item.quantidade > 99)) {
       return res.status(400).json({ mensagem: 'Há produtos ou quantidades inválidas no pedido.' })

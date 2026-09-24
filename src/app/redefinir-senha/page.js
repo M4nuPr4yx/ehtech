@@ -49,8 +49,8 @@ export default function RedefinirSenhaPage() {
       setMessage('As senhas não coincidem.');
       return;
     }
-    if (novaSenha.length < 7) {
-      setMessage('A senha deve ter no mínimo 7 caracteres.');
+    if (novaSenha.length < 8) {
+      setMessage('A senha deve ter no mínimo 8 caracteres.');
       return;
     }
 
@@ -107,7 +107,8 @@ export default function RedefinirSenhaPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="password"
-            placeholder="Nova senha (mín. 7 caracteres)"
+            placeholder="Nova senha (mín. 8 caracteres)"
+            minLength={8}
             value={novaSenha}
             onChange={(e) => setNovaSenha(e.target.value)}
             className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"

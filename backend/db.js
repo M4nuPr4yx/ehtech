@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+require('./env');
 
 // Detecta se a string de conexão é PostgreSQL / Neon
 const connectionUri = (
@@ -83,15 +83,15 @@ if (isPostgres) {
   }
 
   // Wrapper compatível com a interface do mysql2/promise ([rows, fields])
-  const universalExecute = async (sql, params = []) => {
+  const universalExecute = async (sql, params = [], connection = pgPool) => {
     if (/ON\s+DUPLICATE\s+KEY\s+UPDATE\s+nota/i.test(sql)) params = params.slice(0, 4);
     const translatedSql = convertSqlForPostgres(sql);
-    const res = await pgPool.query(translatedSql, params);
+    const res = await connection.query(translatedSql, params);
     const isSelect = /^\s*SELECT/i.test(translatedSql);
     const rows = res.rows || [];
 
     const firstRow = rows[0] || {};
-    const insertId = firstRow.id_produto || firstRow.id_usuario || firstRow.id_servico || firstRow.id_contratacao || firstRow.id_pedido || firstRow.id_item || firstRow.id || null;
+    const insertId = firstRow.id_produto || firstRow.id_usuario || firstRow.id_servico || firstRow.id_contratacao || firstRow.id_pedido || firstRow.id_item || firstRow.id_avaliacao || firstRow.id || null;
 
     if (isSelect) {
       return [rows, res.fields];
@@ -120,8 +120,11 @@ if (isPostgres) {
       const client = await pgPool.connect();
       return {
         release: () => client.release(),
-        execute: universalExecute,
-        query: universalExecute
+        execute: (sql, params) => universalExecute(sql, params, client),
+        query: (sql, params) => universalExecute(sql, params, client),
+        beginTransaction: () => client.query('BEGIN'),
+        commit: () => client.query('COMMIT'),
+        rollback: () => client.query('ROLLBACK')
       };
     },
     testConnection: async () => {
@@ -175,9 +178,7 @@ if (isPostgres) {
   };
 
   const poolConfig = getMySQLConfig();
-  const rawPool = poolConfig.uri 
-    ? mysql.createPool(poolConfig.uri) 
-    : mysql.createPool(poolConfig);
+  const rawPool = mysql.createPool(poolConfig);
 
   poolInstance = rawPool;
   poolInstance.testConnection = async () => {

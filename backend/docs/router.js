@@ -1,7 +1,8 @@
 const express = require('express')
 const path = require('node:path')
 const swaggerUi = require('swagger-ui-dist')
-const specification = require('./openapi.json')
+const { extendSpecification } = require('./additional-routes')
+const specification = extendSpecification(require('./openapi.json'))
 
 function createDocsRouter() {
   const router = express.Router()
@@ -22,7 +23,7 @@ function createDocsRouter() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EHtech | Swagger de produtos</title>
+<title>EHtech | Documentação da API</title>
 <link rel="stylesheet" href="./docs/swagger-ui.css">
 </head>
 <body>

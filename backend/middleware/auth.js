@@ -37,7 +37,7 @@ function autenticarToken(req, res, next) {
 
   const token = parts[1];
 
-  jwt.verify(token, getApiSecret(), { algorithms: ['HS256'] }, (err, decoded) => {
+  jwt.verify(token, getApiSecret(), { algorithms: ['HS256'] }, async (err, decoded) => {
     if (err) {
       if (err.name === 'TokenExpiredError') {
         return res.status(403).json({
@@ -53,33 +53,25 @@ function autenticarToken(req, res, next) {
       });
     }
 
-    req.user = decoded;
-    next();
+    if (!Number.isSafeInteger(Number(decoded?.id)) || Number(decoded.id) <= 0 || typeof decoded.email !== 'string') {
+      return res.status(403).json({ mensagem: 'Token inválido.', code: 'INVALID_TOKEN' });
+    }
+    try {
+      const [users] = await pool.execute('SELECT id_usuario, username, email, role FROM usuarios WHERE id_usuario = ? AND email = ?', [decoded.id, decoded.email]);
+      if (!users.length) return res.status(403).json({ mensagem: 'Sessão encerrada. Faça login novamente.', code: 'INVALID_TOKEN' });
+      req.user = { ...decoded, username: users[0].username, role: users[0].role };
+      next();
+    } catch (error) {
+      console.error('[auth] Erro ao validar sessão:', error.message);
+      return res.status(503).json({ mensagem: 'Não foi possível validar sua sessão. Tente novamente.' });
+    }
   });
 }
 
 async function verifyAdmin(req, res, next) {
   autenticarToken(req, res, async () => {
-    try {
-      if (!req.user || !req.user.email) {
-        return res.status(403).json({ mensagem: 'Acesso admin requerido' });
-      }
-
-      const [rows] = await pool.execute(
-        'SELECT id_usuario, email, role FROM usuarios WHERE id_usuario = ? AND email = ?',
-        [req.user.id, req.user.email]
-      );
-
-      if (rows.length === 0 || rows[0].role !== 'admin') {
-        return res.status(403).json({ mensagem: 'Acesso restrito a administradores' });
-      }
-
-      req.user.role = 'admin';
-      next();
-    } catch (error) {
-      console.error('[auth] Erro ao validar admin:', error.message);
-      return res.status(500).json({ mensagem: 'Erro interno ao validar permissões' });
-    }
+    if (req.user.role !== 'admin') return res.status(403).json({ mensagem: 'Acesso restrito a administradores' });
+    next();
   });
 }
 

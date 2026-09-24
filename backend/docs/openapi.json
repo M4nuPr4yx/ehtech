@@ -7,12 +7,8 @@
   },
   "servers": [
     {
-      "url": "http://localhost:3000",
-      "description": "Express direto (porta 3000) — use este para o Swagger UI funcionar corretamente no desenvolvimento local."
-    },
-    {
-      "url": "http://localhost:3001/api",
-      "description": "Via Next.js (porta 3001) — prefixo /api é removido pelo middleware antes de chegar ao Express."
+      "url": "..",
+      "description": "Servidor Relativo — funciona automaticamente via localhost ou pelo IP na rede local"
     }
   ],
   "tags": [

@@ -1,6 +1,7 @@
 const express = require('express')
 const crypto = require('crypto')
 const { autenticarToken } = require('../middleware/auth')
+const { integer } = require('../validation')
 
 const MODALITIES = new Set(['presencial', 'remoto', 'hibrido'])
 const URGENCIES = new Set(['flexivel', 'normal', 'urgente'])
@@ -61,7 +62,7 @@ function createServiceContractsRouter(pool) {
   router.use(autenticarToken)
 
   router.post('/', async (req, res) => {
-    const serviceId = Number.parseInt(req.body.servico_id, 10)
+    const serviceId = integer(req.body.servico_id)
     const description = textValue(req.body.descricao_problema, 2000)
     const modality = MODALITIES.has(req.body.modalidade) ? req.body.modalidade : ''
     const urgency = URGENCIES.has(req.body.urgencia) ? req.body.urgencia : ''
@@ -127,11 +128,11 @@ function createServiceContractsRouter(pool) {
   })
 
   router.patch('/:id/orcamento', async (req, res) => {
-    const id = Number.parseInt(req.params.id, 10)
+    const id = integer(req.params.id)
     const value = moneyValue(req.body.valor_proposto, { required: true })
     const scope = textValue(req.body.escopo_proposto, 3000)
     const deadline = textValue(req.body.prazo_proposto, 120)
-    const warranty = Number.parseInt(req.body.garantia_dias, 10)
+    const warranty = integer(req.body.garantia_dias)
     const notes = textValue(req.body.observacoes_prestador, 2000)
 
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ mensagem: 'Contratação inválida.' })
@@ -168,9 +169,9 @@ function createServiceContractsRouter(pool) {
   })
 
   router.patch('/:id/status', async (req, res) => {
-    const id = Number.parseInt(req.params.id, 10)
+    const id = integer(req.params.id)
     const nextStatus = textValue(req.body.status, 30)
-    if (!Number.isInteger(id) || id <= 0 || !STATUS_LABELS[nextStatus]) {
+    if (!Number.isInteger(id) || id <= 0 || !Object.hasOwn(STATUS_LABELS, nextStatus)) {
       return res.status(400).json({ mensagem: 'Contratação ou status inválido.' })
     }
 
@@ -238,8 +239,8 @@ function createServiceContractsRouter(pool) {
   })
 
   router.post('/:id/avaliacao', async (req, res) => {
-    const id = Number.parseInt(req.params.id, 10)
-    const rating = Number.parseInt(req.body.nota, 10)
+    const id = integer(req.params.id)
+    const rating = integer(req.body.nota)
     const comment = textValue(req.body.comentario, 1000)
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ mensagem: 'Contratação inválida.' })
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ mensagem: 'A nota deve estar entre 1 e 5.' })

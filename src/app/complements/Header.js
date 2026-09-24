@@ -315,7 +315,7 @@ export default function Header() {
           <div className="flex items-center justify-between gap-4">
             {/* Marca com área de respiro para reforçar a identidade do site. */}
             <Link href="/" className="group flex items-center shrink-0 rounded-2xl border border-transparent px-1 transition-all duration-200 hover:border-[#ABDB25]/20 hover:bg-[#ABDB25]/[0.04]" aria-label="EHtech - página inicial">
-              <img src="/ehtech-logo.png" alt="EHtech" className="brand-logo h-14 sm:h-20 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]" />
+              <img src="/ehtech-logo.png?v=3" alt="EHtech" width={586} height={489} className="brand-logo h-14 sm:h-20 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]" />
             </Link>
 
             {/* Central Search Bar */}

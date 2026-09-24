@@ -6,24 +6,14 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { autenticarToken } = require('../middleware/auth');
 
-const os = require('os');
+const { uploadsDir } = require('../uploads');
 
-const getUploadsDir = () => {
-  if (process.env.VERCEL) {
-    const tmpDir = path.join(os.tmpdir(), 'uploads');
-    if (!fs.existsSync(tmpDir)) {
-      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (e) {}
-    }
-    return tmpDir;
-  }
-  const localDir = path.resolve(__dirname, '../uploads');
-  if (!fs.existsSync(localDir)) {
-    try { fs.mkdirSync(localDir, { recursive: true }); } catch (e) {}
-  }
-  return localDir;
-};
-
-const uploadsDir = getUploadsDir();
+function matchesImageType(buffer, mime) {
+  if (mime === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+  if (mime === 'image/jpeg') return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (mime === 'image/webp') return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  return false;
+}
 
 // Extensões e MIME types estritamente permitidos (rejeita .svg, .html, .php, etc.)
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
@@ -37,7 +27,7 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname).toLowerCase();
     const safeExt = ALLOWED_EXTENSIONS.has(ext) ? ext : '.jpg';
     const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-    cb(null, `img-${uniqueSuffix}${safeExt}`);
+    cb(null, `img-${req.user.id}-${uniqueSuffix}${safeExt}`);
   }
 });
 
@@ -70,6 +60,11 @@ function handleMulterError(uploadMiddleware) {
         return res.status(400).json({ erro: `Erro no upload: ${err.message}` });
       } else if (err) {
         return res.status(400).json({ erro: err.message || 'Erro ao processar arquivo.' });
+      }
+      const files = req.file ? [req.file] : req.files || [];
+      if (files.some(file => !matchesImageType(fs.readFileSync(file.path), file.mimetype))) {
+        for (const file of files) fs.unlinkSync(file.path);
+        return res.status(400).json({ erro: 'O conteúdo do arquivo não corresponde a uma imagem JPG, PNG ou WEBP.' });
       }
       next();
     });
@@ -145,7 +140,7 @@ router.post('/imagem-base64', autenticarToken, async (req, res) => {
     }
 
     // Aceita apenas tipos de imagem seguros
-    const match = imagem.match(/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/i);
+    const match = imagem.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
     if (!match) {
       return res.status(400).json({ erro: 'Formato base64 inválido ou tipo de imagem não suportado. Use JPG, PNG ou WEBP.' });
     }
@@ -155,13 +150,17 @@ router.post('/imagem-base64', autenticarToken, async (req, res) => {
     const base64Data = match[2];
 
     const buffer = Buffer.from(base64Data, 'base64');
+    const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+    if (!matchesImageType(buffer, mime) || buffer.toString('base64').replace(/=+$/, '') !== base64Data.replace(/=+$/, '')) {
+      return res.status(400).json({ erro: 'Conteúdo base64 de imagem inválido.' });
+    }
 
     // Limite estrito de 5MB
     if (buffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({ erro: 'Imagem excede o limite de 5MB' });
     }
 
-    const filename = `img-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
+    const filename = `img-${req.user.id}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
     const filepath = path.resolve(uploadsDir, filename);
 
     // Validação de escape de diretório
@@ -234,6 +233,12 @@ router.delete('/imagem/:filename', autenticarToken, async (req, res) => {
 
     // Extrai estritamente o basename para eliminar qualquer ../ ou caracteres de caminho
     const safeFilename = path.basename(rawFilename);
+    if (safeFilename !== rawFilename || /[/\\]/.test(rawFilename)) {
+      return res.status(400).json({ erro: 'Nome de arquivo inválido.' });
+    }
+    if (!safeFilename.startsWith(`img-${req.user.id}-`) && !safeFilename.startsWith(`perfil-${req.user.id}-`)) {
+      return res.status(403).json({ erro: 'Você só pode remover imagens enviadas pela sua conta.' });
+    }
     const targetPath = path.resolve(uploadsDir, safeFilename);
 
     // Garante que o arquivo está estritamente dentro da pasta uploads

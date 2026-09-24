@@ -10,6 +10,7 @@ export default function Home() {
   const router = useRouter();
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
   const [heroSearch, setHeroSearch] = useState('');
 
   useEffect(() => {
@@ -27,9 +28,12 @@ export default function Home() {
             return Number(b.id_produto) - Number(a.id_produto);
           });
           setProdutos(ordenados.slice(0, 8));
+        } else {
+          setProductsError('Não foi possível carregar os anúncios. Tente novamente em alguns instantes.');
         }
       } catch (err) {
         console.error('Error fetching products:', err);
+        setProductsError('Não foi possível carregar os anúncios. Verifique sua conexão e tente novamente.');
       } finally {
         setLoading(false);
       }
@@ -333,13 +337,18 @@ export default function Home() {
               </div>
             ))}
           </div>
+        ) : productsError ? (
+          <div role="alert" className="rounded-2xl border border-red-400/30 bg-red-400/10 p-6 text-center text-gray-200">
+            <p>{productsError}</p>
+            <button type="button" onClick={() => window.location.reload()} className="mt-3 font-semibold text-[#ABDB25] hover:underline">Tentar novamente</button>
+          </div>
         ) : produtos.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {produtos.map((produto, index) => {
               const imageUrl = getMainImage(produto.imagem);
               const isEsgotado = Number(produto.estoque) <= 0;
               const precoNum = Number(produto.preco) || 0;
-              const parcela = precoNum > 0 ? (precoNum / 10).toFixed(2) : '0.00';
+              const parcela = formatPrice(precoNum / 10);
 
               return (
                 <Link
@@ -396,7 +405,7 @@ export default function Home() {
                         {formatPrice(produto.preco)}
                       </div>
                       <p className="text-[10px] sm:text-[11px] text-gray-400">
-                        em até <strong className="text-gray-200">10x de R$ {parcela}</strong>
+                        em até <strong className="text-gray-200">10x de {parcela}</strong>
                       </p>
 
                       <div className="mt-3 w-full rounded-xl bg-white/[0.06] py-2 text-center text-xs font-bold text-gray-200 group-hover:bg-[#ABDB25] group-hover:text-black transition-all">

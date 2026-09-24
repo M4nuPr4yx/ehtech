@@ -9,7 +9,7 @@ export default function Footer() {
           {/* Brand Col */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="inline-flex items-center" aria-label="EHtech Home">
-              <img src="/ehtech-logo.png" alt="EHtech" className="h-10 w-auto object-contain" />
+              <img src="/ehtech-logo.png?v=3" alt="EHtech" width={586} height={489} className="h-10 w-auto object-contain" />
             </Link>
             <p className="max-w-sm text-xs sm:text-sm leading-relaxed text-gray-400">
               O marketplace de tecnologia para comprar equipamentos e encontrar especialistas em TI com agilidade, transparência e contato direto.

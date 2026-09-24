@@ -4,7 +4,8 @@ export const metadata = {
   title: "EHtech",
   description: "Marketplace para comprar produtos de tecnologia e contratar serviços especializados de TI",
   icons: {
-    icon: "/icon.png",
+    icon: "/icon.png?v=2",
+    shortcut: "/icon.png?v=2",
   },
 };
 

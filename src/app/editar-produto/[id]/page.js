@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getApiUrl } from '../../../lib/api';
+import { getMainImage } from '../../complements/imageHelper';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -23,6 +24,7 @@ export default function EditarProduto() {
   const [messageType, setMessageType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Form states
   const [nome, setNome] = useState('');
@@ -50,6 +52,7 @@ export default function EditarProduto() {
         });
 
         if (res.status === 404) {
+          setLoadError('Produto não encontrado');
           setMessage('Produto não encontrado');
           setMessageType('error');
           setLoading(false);
@@ -57,6 +60,7 @@ export default function EditarProduto() {
         }
 
         if (res.status === 403) {
+          setLoadError('Você não tem permissão para acessar este produto');
           setMessage('Você não tem permissão para editar este produto');
           setMessageType('error');
           setLoading(false);
@@ -64,6 +68,7 @@ export default function EditarProduto() {
         }
 
         if (!res.ok) {
+          setLoadError('Não foi possível carregar o produto');
           setMessage('Erro ao carregar produto');
           setMessageType('error');
           setLoading(false);
@@ -77,13 +82,15 @@ export default function EditarProduto() {
         setCategoria(data.categoria || '');
         setEstoque(data.estoque || 0);
         setImagemUrl(data.imagem || '');
-        setImagemPreview(data.imagem || '');
+        setImagemPreview(getMainImage(data.imagem));
         setLoadingData(false);
       } catch (err) {
+        setLoadError('Não foi possível carregar o produto. Verifique sua conexão.');
         setMessage('Erro: Verifique se backend está rodando');
         setMessageType('error');
       } finally {
         setLoading(false);
+        setLoadingData(false);
       }
     };
 
@@ -251,6 +258,15 @@ export default function EditarProduto() {
     return (
       <div className="site-background min-h-screen text-white flex items-center justify-center">
         <div className="text-[#ABDB25] text-xl">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="site-background min-h-[70vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <h1 className="text-2xl font-bold text-white">{loadError}</h1>
+        <button type="button" onClick={() => router.push('/perfil')} className="rounded-xl bg-[#ABDB25] px-5 py-3 font-bold text-black">Voltar ao perfil</button>
       </div>
     );
   }

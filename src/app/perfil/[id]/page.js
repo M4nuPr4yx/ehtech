@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { getApiUrl } from '../../../lib/api';
+import { getMainImage } from '../../complements/imageHelper';
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -226,9 +227,9 @@ export default function SellerProfile() {
                 >
                   {/* Product Image */}
                   <div className="aspect-square bg-gray-800 relative overflow-hidden">
-                    {isValidImageUrl(produto.imagem) ? (
+                    {getMainImage(produto.imagem) ? (
                       <img 
-                        src={produto.imagem} 
+                        src={getMainImage(produto.imagem)}
                         alt={produto.nome}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         onError={(e) => { e.target.style.display = 'none'; }}

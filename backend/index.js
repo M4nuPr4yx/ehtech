@@ -7,10 +7,10 @@ const bcrypt = require('bcrypt')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const path = require('path')
-const fs = require('fs')
 const validator = require('validator')
 const multer = require('multer')
-require('dotenv').config()
+require('./env')
+const { integer, money } = require('./validation')
 
 const pool = require('./db')
 const uploadRoutes = require('./routes/upload')
@@ -18,7 +18,6 @@ const createServicesRouter = require('./routes/services')
 const createServiceContractsRouter = require('./routes/serviceContracts')
 const createOrdersRouter = require('./routes/orders')
 const { initializeDatabase } = require('./database/init')
-const { getLanHosts } = require('../config/lan.cjs')
 const { createDocsRouter } = require('./docs/router')
 const { createProductLoadPolicy } = require('./middleware/productLoadPolicy')
 const porta = process.env.PORT || 3000
@@ -34,22 +33,8 @@ app.disable('x-powered-by')
 // O proxy local Next conecta por loopback. Não confiar em proxies arbitrários.
 if (!process.env.VERCEL) app.set('trust proxy', 'loopback')
 
-// CORS restrito às origens configuradas e ao domínio exato deste deploy.
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3001,http://localhost:3000')
-  .split(',')
-  .map((origin) => origin.trim())
-const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
-if (vercelOrigin) allowedOrigins.push(vercelOrigin)
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
-  for (const host of getLanHosts()) allowedOrigins.push(`http://${host}:3001`)
-}
-
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-    // Rejeita sem lançar erro: o browser bloqueia via política CORS sem gerar um 500 no servidor
-    return callback(null, false)
-  },
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
@@ -115,20 +100,26 @@ const uploadLimiter = rateLimit({
 // ==========================================
 // 4. PARSER DE PAYLOAD COM LIMITES SEGUROS
 // ==========================================
-app.use(express.json({ limit: '6mb' }))
+app.use(express.json({ limit: '7mb' }))
 app.use(express.urlencoded({ extended: true, limit: '6mb' }))
+app.use((req, res, next) => {
+  if (req.body && (typeof req.body !== 'object' || Array.isArray(req.body))) {
+    return res.status(400).json({ mensagem: 'Envie um objeto JSON válido.' })
+  }
+  next()
+})
+
+for (const name of ['id', 'outroUsuarioId']) {
+  app.param(name, (req, res, next, value) => {
+    if (!(integer(value) > 0)) return res.status(400).json({ mensagem: 'Identificador inválido.' })
+    next()
+  })
+}
 
 // ==========================================
 // 5. DIRETÓRIO DE UPLOADS E ARQUIVOS ESTÁTICOS
 // ==========================================
-const os = require('os')
-const uploadsDir = process.env.VERCEL 
-  ? path.join(os.tmpdir(), 'uploads') 
-  : path.resolve(__dirname, 'uploads')
-
-if (!fs.existsSync(uploadsDir)) {
-  try { fs.mkdirSync(uploadsDir, { recursive: true }) } catch (e) {}
-}
+const { uploadsDir } = require('./uploads')
 
 app.use('/uploads', express.static(uploadsDir, {
   dotfiles: 'ignore',
@@ -174,56 +165,7 @@ const criarNotificacao = async ({ usuarioId, produtoId = null, tipo, mensagem })
   )
 }
 
-function autenticarToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-
-  if (!authHeader) {
-    return res.status(401).json({ error: "Token não fornecido" });
-  }
-
-  const parts = authHeader.split(" ");
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({ error: "Formato de token inválido. Use: Bearer <token>" });
-  }
-
-  const token = parts[1];
-  jwt.verify(token, api_chave, (err, user) => {
-    if (err) {
-      if (err.name === 'TokenExpiredError') {
-        return res.status(403).json({
-          error: "Token expirado. Faça login novamente.",
-          code: 'TOKEN_EXPIRED'
-        });
-      }
-      if (err.name === 'JsonWebTokenError') {
-        return res.status(403).json({
-          error: "Token inválido. Faça login novamente.",
-          code: 'INVALID_TOKEN'
-        });
-      }
-      return res.status(403).json({ error: "Token inválido" });
-    }
-    req.user = user;
-    next();
-  });
-}
-
-const verifyAdmin = async (req, res, next) => {
-  try {
-    const match = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '')
-    if (!match) return res.status(401).json({ mensagem: 'Token administrativo requerido' })
-
-    const decoded = jwt.verify(match[1], api_chave, { algorithms: ['HS256'] })
-    const [rows] = await pool.execute('SELECT role FROM usuarios WHERE email = ?', [decoded.email])
-    if (rows.length === 0 || String(rows[0].role).toLowerCase() !== 'admin') {
-      return res.status(403).json({ mensagem: 'Acesso admin requerido' })
-    }
-    req.user = decoded
-    next()
-  } catch (error) {
-    res.status(401).json({ mensagem: 'Token inválido' })
-  }
-}
+const { autenticarToken, verifyAdmin } = require('./middleware/auth')
 
 // ==========================================
 // 7. ROTAS DE AUTENTICAÇÃO E CADASTRO
@@ -389,7 +331,7 @@ app.put("/admin/users/:id", verifyAdmin, async (req, res) => {
     return res.status(400).json({ mensagem: "Role deve ser 'user' ou 'admin'" })
   }
 
-  if (!email || !validator.isEmail(email)) {
+  if (typeof email !== 'string' || !validator.isEmail(email.trim())) {
     return res.status(400).json({ mensagem: "E-mail inválido" })
   }
 
@@ -404,7 +346,10 @@ app.put("/admin/users/:id", verifyAdmin, async (req, res) => {
       }
     }
 
-    await pool.execute('UPDATE usuarios SET email = ?, role = ? WHERE id_usuario = ?', [normalizedEmail, role, numericId])
+    const [existing] = await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ? AND id_usuario != ?', [normalizedEmail, numericId])
+    if (existing.length) return res.status(409).json({ mensagem: 'Este e-mail já está em uso por outra conta' })
+    const [result] = await pool.execute('UPDATE usuarios SET email = ?, role = ? WHERE id_usuario = ?', [normalizedEmail, role, numericId])
+    if (!result.affectedRows) return res.status(404).json({ mensagem: 'Usuário não encontrado' })
     return res.json({ mensagem: "Usuário atualizado com sucesso" })
   } catch (error) {
     console.error('[admin/users/update] Erro:', error.message)
@@ -425,7 +370,8 @@ app.delete("/admin/users/:id", verifyAdmin, async (req, res) => {
   }
 
   try {
-    await pool.execute('DELETE FROM usuarios WHERE id_usuario = ?', [numericId])
+    const [result] = await pool.execute('DELETE FROM usuarios WHERE id_usuario = ?', [numericId])
+    if (!result.affectedRows) return res.status(404).json({ mensagem: 'Usuário não encontrado' })
     return res.json({ mensagem: "Usuário deletado com sucesso" })
   } catch (error) {
     console.error('[admin/users/delete] Erro:', error.message)
@@ -448,7 +394,8 @@ app.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(novaSenha, 10)
-    await pool.execute('UPDATE usuarios SET senha = ? WHERE id_usuario = ?', [hash, numericId])
+    const [result] = await pool.execute('UPDATE usuarios SET senha = ? WHERE id_usuario = ?', [hash, numericId])
+    if (!result.affectedRows) return res.status(404).json({ mensagem: 'Usuário não encontrado' })
     return res.json({ mensagem: "Senha alterada com sucesso" })
   } catch (error) {
     console.error('[admin/users/senha] Erro:', error.message)
@@ -497,7 +444,9 @@ app.put("/admin/produtos/:id/aprovacao", verifyAdmin, async (req, res) => {
     const produto = products[0]
     const mensagem = status === 'aprovado'
       ? `Seu anúncio "${produto.nome}" foi aprovado e já está visível na vitrine.`
-      : `Seu anúncio "${produto.nome}" não foi aprovado. Revise os dados e envie um novo anúncio.`
+      : status === 'pendente'
+        ? `Seu anúncio "${produto.nome}" está aguardando análise da administração.`
+        : `Seu anúncio "${produto.nome}" não foi aprovado. Revise os dados e envie um novo anúncio.`
 
     await criarNotificacao({
       usuarioId: produto.vendedor_id,
@@ -705,8 +654,8 @@ app.post("/produtos", autenticarToken, async (req, res) => {
     return res.status(400).json({ mensagem: "Descrição é obrigatória" })
   }
 
-  const parsedPreco = parseFloat(preco)
-  if (isNaN(parsedPreco) || parsedPreco <= 0) {
+  const parsedPreco = money(preco)
+  if (!Number.isFinite(parsedPreco)) {
     return res.status(400).json({ mensagem: "Preço deve ser um valor numérico positivo" })
   }
 
@@ -714,8 +663,10 @@ app.post("/produtos", autenticarToken, async (req, res) => {
     return res.status(400).json({ mensagem: "Categoria é obrigatória" })
   }
 
-  const parsedEstoque = estoque !== undefined && estoque !== null ? parseInt(estoque, 10) : 0
-  const cleanEstoque = isNaN(parsedEstoque) || parsedEstoque < 0 ? 0 : parsedEstoque
+  const cleanEstoque = estoque === undefined ? 0 : integer(estoque)
+  if (!Number.isInteger(cleanEstoque) || cleanEstoque < 0 || cleanEstoque > 2147483647) {
+    return res.status(400).json({ mensagem: 'Estoque deve ser um número inteiro não negativo.' })
+  }
 
   const cleanNome = nome.trim().slice(0, 255)
   const cleanDescricao = descricao.trim().slice(0, 5000)
@@ -764,7 +715,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
 
   try {
-    const [rows] = await pool.execute('SELECT nome, vendedor, vendedor_id, imagem, status_aprovacao FROM produtos WHERE id_produto = ?', [numericId])
+    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao FROM produtos WHERE id_produto = ?', [numericId])
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Produto não encontrado" })
     }
@@ -778,9 +729,14 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
 
     const cleanNome = (nome !== undefined ? String(nome) : rows[0].nome).trim().slice(0, 255)
     const cleanDescricao = (descricao !== undefined ? String(descricao) : rows[0].descricao).trim().slice(0, 5000)
-    const parsedPreco = preco !== undefined ? parseFloat(preco) : rows[0].preco
-    const parsedEstoque = estoque !== undefined ? parseInt(estoque, 10) : rows[0].estoque
+    const parsedPreco = money(preco !== undefined ? preco : rows[0].preco)
+    const parsedEstoque = integer(estoque !== undefined ? estoque : rows[0].estoque)
     const cleanCategoria = (categoria !== undefined ? String(categoria) : rows[0].categoria).trim().slice(0, 60)
+    if (!cleanNome || !cleanDescricao || !cleanCategoria ||
+        [nome, descricao, categoria].some(value => value !== undefined && typeof value !== 'string') ||
+        !Number.isFinite(parsedPreco) || !Number.isInteger(parsedEstoque) || parsedEstoque < 0 || parsedEstoque > 2147483647) {
+      return res.status(400).json({ mensagem: 'Informe nome, descrição, categoria, preço positivo e estoque inteiro válido.' })
+    }
 
     const statusesValidos = ['aprovado', 'reprovado', 'pendente']
     const statusAprovacao = (isAdmin && req.body.status_aprovacao && statusesValidos.includes(req.body.status_aprovacao))
@@ -874,10 +830,10 @@ app.delete("/produtos/:id", autenticarToken, async (req, res) => {
 app.post("/avaliacoes", autenticarToken, async (req, res) => {
   const { produtoId, nota, comentario } = req.body
 
-  const numericProdutoId = parseInt(produtoId, 10)
-  const numericNota = parseInt(nota, 10)
+  const numericProdutoId = integer(produtoId)
+  const numericNota = integer(nota)
 
-  if (isNaN(numericProdutoId) || isNaN(numericNota)) {
+  if (!(numericProdutoId > 0) || isNaN(numericNota)) {
     return res.status(400).json({ mensagem: "Produto e nota são obrigatórios" })
   }
 
@@ -1086,7 +1042,7 @@ app.put("/perfil/foto", autenticarToken, (req, res, next) => {
 app.put("/perfil/senha", autenticarToken, async (req, res) => {
   const { senhaAtual, novaSenha } = req.body
 
-  if (!senhaAtual || !novaSenha) {
+  if (typeof senhaAtual !== 'string' || !senhaAtual || !novaSenha) {
     return res.status(400).json({ mensagem: "Senha atual e nova senha são obrigatórias" })
   }
 
@@ -1117,7 +1073,7 @@ app.put("/perfil/senha", autenticarToken, async (req, res) => {
 app.put("/perfil/email", autenticarToken, async (req, res) => {
   const { novoEmail, senha } = req.body
 
-  if (!novoEmail || !senha) {
+  if (!novoEmail || typeof senha !== 'string' || !senha) {
     return res.status(400).json({ mensagem: "Novo e-mail e senha são obrigatórios" })
   }
 
@@ -1168,7 +1124,7 @@ const transporter = emailEnabled ? nodemailer.createTransport({
 
 app.post('/esqueci-senha', passwordResetLimiter, async (req, res) => {
   const { email } = req.body
-  if (!email || !validator.isEmail(String(email).trim())) {
+  if (typeof email !== 'string' || !validator.isEmail(email.trim())) {
     return res.status(400).json({ mensagem: 'Informe um e-mail válido' })
   }
 
@@ -1195,7 +1151,7 @@ app.post('/esqueci-senha', passwordResetLimiter, async (req, res) => {
       [normalizedEmail, tokenHash, expiresAt]
     )
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(/\/+$/, '')
     const resetLink = `${frontendUrl}/redefinir-senha?token=${tokenRaw}`
 
     if (emailEnabled && transporter) {
@@ -1294,8 +1250,11 @@ app.post('/redefinir-senha', passwordResetLimiter, async (req, res) => {
 app.post("/mensagens", autenticarToken, async (req, res) => {
   const { destinatarioId, conteudo, produtoId } = req.body
 
-  const parsedDestinatarioId = parseInt(destinatarioId, 10)
-  const parsedProdutoId = produtoId ? parseInt(produtoId, 10) : null
+  const parsedDestinatarioId = integer(destinatarioId)
+  const parsedProdutoId = produtoId === undefined || produtoId === null ? null : integer(produtoId)
+  if (parsedProdutoId !== null && !(parsedProdutoId > 0)) {
+    return res.status(400).json({ mensagem: 'Produto inválido.' })
+  }
 
   if (isNaN(parsedDestinatarioId) || parsedDestinatarioId <= 0) {
     return res.status(400).json({ mensagem: "Destinatário inválido" })
@@ -1489,10 +1448,13 @@ app.get('/health', async (req, res) => {
 // 16. TRATAMENTO CENTRALIZADO DE ERROS (500)
 // ==========================================
 app.use((err, req, res, next) => {
-  console.error('[UNHANDLED ERROR]', err.stack || err.message || err)
   if (res.headersSent) {
     return next(err)
   }
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ mensagem: 'JSON inválido.' })
+  if (err.type === 'entity.too.large') return res.status(413).json({ mensagem: 'O conteúdo excede o limite permitido.' })
+  if (err instanceof URIError) return res.status(400).json({ mensagem: 'Endereço inválido.' })
+  console.error('[UNHANDLED ERROR]', err.stack || err.message || err)
   return res.status(500).json({
     mensagem: 'Ocorreu um erro interno no servidor.',
     error: 'Internal Server Error'

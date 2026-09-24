@@ -159,8 +159,8 @@ const handleLogout = () => {
     setMessage('');
     setMessageType('');
 
-    if (novaSenha.length < 7) {
-      setMessage('Nova senha mínimo 7 dígitos');
+    if (novaSenha.length < 8) {
+      setMessage('Nova senha deve ter no mínimo 8 caracteres');
       setMessageType('error');
       return;
     }
@@ -473,7 +473,8 @@ const handleChangeEmail = async (e) => {
                   />
                   <input
                     type="password"
-                    placeholder="Nova senha (mínimo 7 dígitos)"
+                    placeholder="Nova senha (mínimo 8 caracteres)"
+                    minLength={8}
                     value={novaSenha}
                     onChange={(e) => setNovaSenha(e.target.value)}
                     className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"

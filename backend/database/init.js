@@ -184,6 +184,12 @@ async function seedServices(pool) {
 }
 
 async function initializeDatabase(pool) {
+  // Bancos importados de versões antigas não tinham o estado de aprovação.
+  try {
+    await pool.execute("ALTER TABLE produtos ADD COLUMN status_aprovacao VARCHAR(50) DEFAULT 'pendente'")
+  } catch (error) {
+    if (!isDuplicateColumnError(error)) throw error
+  }
   for (const statement of TABLES) await pool.execute(statement)
   await ensureContractWarrantyColumns(pool)
   await seedServices(pool)

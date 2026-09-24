@@ -1,4 +1,5 @@
 const express = require('express')
+const { integer } = require('../validation')
 
 const SORTS = {
   recentes: 's.id_servico DESC',
@@ -49,7 +50,7 @@ function createServicesRouter(pool) {
     const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : ''
     const category = typeof req.query.categoria === 'string' ? req.query.categoria.trim().slice(0, 60) : ''
     const modality = MODALITIES.has(req.query.modalidade) ? req.query.modalidade : ''
-    const orderBy = SORTS[req.query.ordenacao] || SORTS.recentes
+    const orderBy = Object.hasOwn(SORTS, req.query.ordenacao) ? SORTS[req.query.ordenacao] : SORTS.recentes
     const conditions = ["s.status = 'ativo'"]
     const values = []
 
@@ -82,7 +83,7 @@ function createServicesRouter(pool) {
   })
 
   router.get('/reputacao/prestador/:id', async (req, res) => {
-    const providerId = Number.parseInt(req.params.id, 10)
+    const providerId = integer(req.params.id)
     if (!Number.isInteger(providerId) || providerId <= 0) return res.status(400).json({ mensagem: 'Prestador inválido.' })
     try {
       const [[summary]] = await pool.execute(

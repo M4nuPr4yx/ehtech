@@ -99,6 +99,7 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       await request('POST', '/admin/login', { body: { email: users.buyer.email, senha: password }, expected: 401 })
       assert.ok((await request('POST', '/admin/login', { body: { email: users.admin.email, senha: password } })).token)
       await request('GET', '/admin/users', { token: users.buyer.token, expected: 403 })
+      await request('GET', '/admin/sessao', { token: users.buyer.token, expected: 403 })
       assert.equal((await request('GET', '/admin/sessao', { token: users.admin.token })).role, 'admin')
       assert.equal((await request('GET', '/admin/users', { token: users.admin.token })).length, 4)
       await request('PUT', `/admin/users/${users.admin.id}`, { token: users.admin.token, body: { email: users.admin.email, role: 'user' }, expected: 400 })
@@ -440,6 +441,7 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       await request('DELETE', `/admin/users/${users.other.id}`, { token: users.admin.token })
       await request('GET', '/perfil', { token: users.other.token, expected: 403 })
       await pool.execute("UPDATE usuarios SET role = 'user' WHERE id_usuario = ?", [users.admin.id])
+      await request('GET', '/admin/sessao', { token: users.admin.token, expected: 403 })
       await request('GET', '/admin/users', { token: users.admin.token, expected: 403 })
     })
     await t.test('todas as operações documentadas foram exercitadas por HTTP', () => {

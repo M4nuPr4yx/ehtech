@@ -103,11 +103,13 @@ export default function Admin() {
 
   useEffect(() => {
     let active = true;
+    let revision = 0;
     const restoreSession = async () => {
-      // Remove o token persistente usado pela versão antiga. A sessão admin agora
-      // existe apenas nesta aba, reduzindo o risco em computadores compartilhados.
+      const requestRevision = ++revision;
       localStorage.removeItem('adminToken');
-      const token = sessionStorage.getItem('adminToken');
+      const userToken = localStorage.getItem('token');
+      const token = userToken || sessionStorage.getItem('adminToken');
+      if (userToken) sessionStorage.removeItem('adminToken');
       if (!token) {
         if (active) setIsCheckingSession(false);
         return;
@@ -117,7 +119,9 @@ export default function Admin() {
         const sessionResponse = await fetch(getApiUrl('/admin/sessao'), {
           headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
         });
-        if (!sessionResponse.ok) throw new Error('Sessão administrativa expirada');
+        if (!sessionResponse.ok) throw new Error(sessionResponse.status === 403 ? 'Acesso restrito a contas com cargo admin ou sessão expirada.' : 'Sua sessão expirou. Entre novamente.');
+        const session = await readApiResponse(sessionResponse);
+        if (session.role !== 'admin') throw new Error('Acesso restrito a administradores');
 
         const [usersResponse, productsResponse] = await Promise.all([
           fetch(getApiUrl('/admin/users'), { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
@@ -125,21 +129,38 @@ export default function Admin() {
         ]);
         if (!usersResponse.ok || !productsResponse.ok) throw new Error('Não foi possível restaurar a sessão');
         const [usersData, productsData] = await Promise.all([readApiResponse(usersResponse), readApiResponse(productsResponse)]);
-        if (active) {
+        if (active && requestRevision === revision) {
+          sessionStorage.setItem('adminToken', token);
           setAdminToken(token);
           setUsers(Array.isArray(usersData) ? usersData : []);
           setProducts(Array.isArray(productsData) ? productsData : []);
         }
-      } catch {
-        sessionStorage.removeItem('adminToken');
-        if (active) setFeedback('Sua sessão administrativa expirou. Entre novamente.');
+      } catch (error) {
+        if (active && requestRevision === revision) {
+          sessionStorage.removeItem('adminToken');
+          setFeedback(error.message);
+        }
       } finally {
-        if (active) setIsCheckingSession(false);
+        if (active && requestRevision === revision) setIsCheckingSession(false);
       }
     };
 
     restoreSession();
-    return () => { active = false; };
+    const handleAuthChange = event => {
+      if (event.type === 'storage' && event.key !== 'token' && event.key !== null) return;
+      setAdminToken(null);
+      setUsers([]);
+      setProducts([]);
+      setIsCheckingSession(true);
+      restoreSession();
+    };
+    window.addEventListener('storage', handleAuthChange);
+    window.addEventListener('ehtech:auth-change', handleAuthChange);
+    return () => {
+      active = false;
+      window.removeEventListener('storage', handleAuthChange);
+      window.removeEventListener('ehtech:auth-change', handleAuthChange);
+    };
   }, []);
 
   const loginAdmin = async () => {
@@ -334,6 +355,12 @@ export default function Admin() {
 
   const logout = () => {
     sessionStorage.removeItem('adminToken');
+    if (localStorage.getItem('token') === adminToken) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userUsername');
+      localStorage.removeItem('userFoto');
+      window.dispatchEvent(new Event('ehtech:auth-change'));
+    }
     setAdminToken(null);
     setUsers([]);
     setProducts([]);

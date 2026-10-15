@@ -27,6 +27,7 @@ export default function Header() {
   const pathname = usePathname();
   const [modalOpen, setModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -65,6 +66,12 @@ export default function Header() {
   // Check login status on mount
   useEffect(() => {
     const token = localStorage.getItem('token');
+    queueMicrotask(() => { setIsLoggedIn(!!token); setUserRole(null); });
+    if (token) fetchProfilePhoto(token);
+  }, [pathname]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
     setAuthReady(true);
 
@@ -80,7 +87,6 @@ export default function Header() {
       }
     }
     if (token) {
-      fetchProfilePhoto(token);
       fetchNotifications(token);
       fetchUnreadMessages(token);
     }
@@ -115,17 +121,31 @@ export default function Header() {
       if (e.key === 'userFoto') {
         setUserPhoto(e.newValue || '');
       }
+      if (e.key === 'token' || e.key === null || e.type === 'ehtech:auth-change') {
+        const token = localStorage.getItem('token');
+        sessionStorage.removeItem('adminToken');
+        setUserRole(null);
+        setIsLoggedIn(Boolean(token));
+        setDropdownOpen(false);
+        if (token) fetchProfilePhoto(token);
+      }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('ehtech:auth-change', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('ehtech:auth-change', handleStorageChange);
+    };
   }, []);
 
   const fetchProfilePhoto = async (token) => {
     try {
       const res = await fetch(getApiUrl('/perfil'), {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
       });
       const data = await res.json();
+      if (localStorage.getItem('token') !== token) return;
+      setUserRole(res.ok ? data.role : null);
       if (res.ok && data.foto && isValidImageUrl(data.foto)) {
         setUserPhoto(data.foto);
         localStorage.setItem('userFoto', data.foto);
@@ -228,9 +248,11 @@ export default function Header() {
       const data = await res.json();
       setMessage(data.mensagem || data.error || '');
       if (activeTab === 'login' && data.token) {
+        sessionStorage.removeItem('adminToken');
+        setUserRole(null);
         localStorage.setItem('token', data.token);
         localStorage.setItem('userUsername', data.username || username);
-        fetchProfilePhoto(data.token);
+        window.dispatchEvent(new Event('ehtech:auth-change'));
         fetchNotifications(data.token);
         fetchUnreadMessages(data.token);
         setIsLoggedIn(true);
@@ -261,6 +283,9 @@ export default function Header() {
     localStorage.removeItem('token');
     localStorage.removeItem('userUsername');
     localStorage.removeItem('userFoto');
+    sessionStorage.removeItem('adminToken');
+    window.dispatchEvent(new Event('ehtech:auth-change'));
+    setUserRole(null);
     setIsLoggedIn(false);
     setDropdownOpen(false);
     setNotificationsOpen(false);
@@ -368,6 +393,11 @@ export default function Header() {
               ) : isLoggedIn ? (
                 // Logged in - show chat, notifications, avatar dropdown
                 <div className="relative flex items-center gap-2 sm:gap-3" ref={dropdownRef}>
+                  {userRole === 'admin' && (
+                    <Link href="/admin" aria-label="Painel administrativo" title="Painel administrativo" className="hidden h-9 w-9 items-center justify-center rounded-xl border border-accent bg-accent-soft text-accent transition-colors hover:bg-accent-fill hover:text-accent-contrast sm:flex sm:h-10 sm:w-10">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4zm-3 9l2 2 4-4" /></svg>
+                    </Link>
+                  )}
                   {/* Botão de Chat / Mensagens */}
                   <Link
                     href="/mensagens"
@@ -452,6 +482,12 @@ export default function Header() {
                   {dropdownOpen && (
                     <div className="absolute right-0 top-12 w-52 bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden z-50 divide-y divide-line">
                       <div className="py-1">
+                        {userRole === 'admin' && (
+                          <Link href="/admin" onClick={() => setDropdownOpen(false)} className="flex w-full items-center px-4 py-3 text-left text-sm font-semibold text-accent transition-colors hover:bg-surface-raised">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4zm-3 9l2 2 4-4" /></svg>
+                            Painel administrativo
+                          </Link>
+                        )}
                         <button 
                           onClick={goToPerfil}
                           className="w-full px-4 py-3 text-left text-foreground hover:bg-surface-raised flex items-center transition-colors text-sm"

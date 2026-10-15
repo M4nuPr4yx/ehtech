@@ -141,6 +141,8 @@ app.use('/upload', uploadLimiter, uploadRoutes)
 app.use('/servicos', createServicesRouter(pool))
 app.use('/contratacoes', createServiceContractsRouter(pool))
 app.use('/pedidos', createOrdersRouter(pool))
+app.use('/enderecos', require('./routes/addresses')(pool))
+app.use('/checkout', require('./routes/checkout')(pool))
 app.use('/passaportes', createPassportsRouter(pool))
 app.use('/componentes', createComponentsRouter(pool))
 

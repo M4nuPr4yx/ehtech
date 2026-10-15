@@ -5,29 +5,29 @@ import { useRouter } from 'next/navigation';
 
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage, isValidImageUrl } from '../complements/imageHelper';
-import { getApiUrl } from '../../lib/api';
 
 export default function Carrinho() {
   const router = useRouter();
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [orderError, setOrderError] = useState('');
-  const [submittingOrder, setSubmittingOrder] = useState(false);
   
   // Check login status and load cart on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.replace('/?login=1&next=%2Fcarrinho');
-      return;
-    }
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      // O carrinho é restaurado uma única vez ao carregar a página.
-      setCart(JSON.parse(savedCart));
-    }
-    setLoading(false);
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      if (!localStorage.getItem('token')) {
+        router.replace('/?login=1&next=%2Fcarrinho');
+        return;
+      }
+      try {
+        const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCart(Array.isArray(savedCart) ? savedCart : []);
+      } catch { setCart([]); }
+      setLoading(false);
+    });
+    return () => { active = false; };
   }, [router]);
 
   // Save cart to localStorage
@@ -72,25 +72,7 @@ export default function Carrinho() {
   };
 
   const placeOrder = async () => {
-    if (!window.confirm('Registrar este pedido? Nenhuma cobrança será realizada; você combinará os próximos passos com os vendedores.')) return;
-    setSubmittingOrder(true);
-    setOrderError('');
-    try {
-      const response = await fetch(getApiUrl('/pedidos'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ itens: cart.map((item) => ({ produto_id: item.id_produto, quantidade: item.quantidade })) })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.mensagem || 'Não foi possível registrar o pedido.');
-      localStorage.removeItem('cart');
-      setCart([]);
-      router.push('/perfil?aba=historico&pedido=1');
-    } catch (error) {
-      setOrderError(error.message || 'Não foi possível registrar o pedido.');
-    } finally {
-      setSubmittingOrder(false);
-    }
+    router.push('/checkout');
   };
 
   // Format price
@@ -130,7 +112,6 @@ export default function Carrinho() {
             {message}
           </div>
         )}
-        {orderError && <div className="mb-6 rounded-xl border border-danger bg-danger-soft p-4 text-danger" role="alert">{orderError}</div>}
 
         {/* Empty Cart - Show link to products */}
         {cart.length === 0 ? (
@@ -239,10 +220,9 @@ export default function Carrinho() {
                 <button
                   type="button"
                   onClick={placeOrder}
-                  disabled={submittingOrder}
                   className="w-full py-4 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl shadow-xl disabled:opacity-60 disabled:cursor-wait transition-colors"
                 >
-                  {submittingOrder ? 'Registrando pedido…' : 'Registrar Pedido'}
+                  Finalizar compra
                 </button>
                 <p className="text-center text-xs text-muted">Sem cobrança online: o pedido fica salvo e os vendedores são notificados.</p>
                 <div className="flex gap-3">

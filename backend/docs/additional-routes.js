@@ -83,7 +83,7 @@ function add(method, path, tag, summary, options = {}) {
   }
   const routeParams = Array.from(path.matchAll(/\{([^}]+)\}/g), ([, name]) => ({
     name, in: 'path', required: true,
-    schema: name === 'codigo' ? str('Código aleatório do link de consulta', { pattern: '^[a-f0-9]{64}$' }) : ['slug', 'token', 'filename'].includes(name) ? str('Valor real do recurso') : id
+    schema: path.startsWith('/checkout/') ? str('UUID do checkout autenticado', { format: 'uuid' }) : name === 'cep' ? str('CEP com oito dígitos', { pattern: '^[0-9]{8}$' }) : name === 'codigo' ? str('Código aleatório do link de consulta', { pattern: '^[a-f0-9]{64}$' }) : ['slug', 'token', 'filename'].includes(name) ? str('Valor real do recurso') : id
   }))
   paths[path] ||= {}
   paths[path][method] = {
@@ -215,11 +215,39 @@ add('post', '/contratacoes/{id}/avaliacao', 'Contratações', 'Avaliar serviço 
   description: 'Somente o cliente, após a conclusão. Uma avaliação por contratação; duplicatas retornam 409.'
 })
 add('post', '/pedidos', 'Pedidos', 'Registrar pedido de produtos', {
-  code: 201, errors: [400, 409], input: body({ itens: { ...arr(obj({ produto_id: { ...id, minimum: 1 }, quantidade: int('Quantidade', { minimum: 1, maximum: 99 }) }, ['produto_id', 'quantidade'])), minItems: 1, maxItems: 20 } }, ['itens'], { itens: [{ produto_id: 1, quantidade: 1 }] }),
+  code: 201, errors: [400, 404, 409], input: body({ checkout_id: str('Checkout com endereço e entregas confirmados', { format: 'uuid' }) }, ['checkout_id']),
   output: obj({ id_pedido: id, total: num('Total calculado pelo backend'), status: str('Estado', { enum: ['registrado'] }), mensagem: text }),
-  description: 'Somente produtos aprovados, com estoque suficiente e de outros vendedores. Não repita produto_id. O backend calcula preços, registra pedido e itens e notifica vendedores. Não realiza cobrança nem baixa/reserva de estoque.'
+  description: 'Exige checkout privado válido. Valida preços e itens atuais, endereço completo pertencente à conta, sua versão e confirmação para a compra e modalidades reais de cada vendedor físico. Registra snapshot imutável do endereço, frete e itens em uma transação. Repetir checkout retorna o mesmo pedido. Sem cobrança, reserva de estoque ou marcação automática como pago.'
 })
 add('get', '/pedidos', 'Pedidos', 'Consultar meu histórico de compras', { output: arr(ref('DocPedido')), description: 'Retorna até 50 pedidos do comprador autenticado com seus itens e valores registrados.' })
+
+const addressFields = {
+  destinatario: str('Nome completo', { minLength: 3, maxLength: 150 }), telefone: str('Telefone com DDD', { maxLength: 20 }),
+  identificacao: str('Casa, Trabalho ou nome personalizado', { maxLength: 60 }), cep: str('CEP', { pattern: '^[0-9]{5}-?[0-9]{3}$' }),
+  uf: str('UF brasileira', { minLength: 2, maxLength: 2 }), cidade: str('Cidade', { maxLength: 100 }), bairro: str('Bairro', { maxLength: 100 }),
+  logradouro: str('Rua ou avenida', { maxLength: 180 }), numero: str('Obrigatório se sem_numero=false', { maxLength: 20 }), sem_numero: bool,
+  complemento: str('Complemento', { maxLength: 150 }), referencia: str('Referência', { maxLength: 200 }), instrucoes: str('Instruções', { maxLength: 500 }), principal: bool, salvar: bool
+}
+const addressRequired = ['destinatario', 'telefone', 'identificacao', 'cep', 'uf', 'cidade', 'bairro', 'logradouro']
+schemas.DocEndereco = obj({ id, ...addressFields, versao: id, confirmado_em: { ...text, nullable: true }, created_at: text, updated_at: text })
+schemas.DocEntrega = obj({ vendedor_id: id, vendedor: text, opcoes: arr(obj({ id: text, nome: text, valor: money, prazo: text, fonte: text })) })
+schemas.DocCheckout = obj({ id: str('UUID', { format: 'uuid' }), pedido_id: { ...id, nullable: true }, exige_entrega: bool, itens: arr(obj({ produto_id: id, quantidade: id, nome: text, preco: money, vendedor: text })), subtotal: money, frete: { ...money, nullable: true }, total: money, endereco: { ...ref('DocEndereco'), nullable: true }, endereco_confirmado: bool, modalidades: arr(ref('DocEntrega')), entrega: arr(obj({ vendedor_id: id, id: text, nome: text, valor: money, prazo: text })), pronto: bool, pagamento_online: bool, expires_at: text })
+schemas.DocPedido.properties.endereco_entrega = { ...ref('DocEndereco'), nullable: true }
+schemas.DocPedido.properties.entrega = schemas.DocCheckout.properties.entrega
+schemas.DocPedido.properties.frete = money
+schemas.DocPedido.properties.status_pagamento = text
+add('get', '/enderecos', 'Endereços', 'Listar meus endereços reutilizáveis', { output: arr(ref('DocEndereco')), description: 'Somente proprietário. Principal primeiro. Não retorna excluídos ou endereços salvos apenas para uma compra.' })
+add('post', '/enderecos', 'Endereços', 'Cadastrar endereço privado', { code: 201, errors: [400, 409], input: body(addressFields, addressRequired), output: ref('DocEndereco'), description: 'Validação de campos no servidor; erros específicos em erros. Retentativa com os mesmos dados recupera o registro existente. Até 30 endereços ativos por conta.' })
+add('put', '/enderecos/{id}', 'Endereços', 'Editar endereço e invalidar confirmação', { errors: [400, 404, 409], input: body({ ...addressFields, versao: id }, [...addressRequired, 'versao']), output: ref('DocEndereco'), description: 'Somente proprietário. Aumenta versão e invalida confirmação e frete em checkouts antigos. Pedidos anteriores permanecem intactos.' })
+add('delete', '/enderecos/{id}', 'Endereços', 'Excluir endereço preservando pedidos', { errors: [400, 404], description: 'Exclusão lógica pelo proprietário, invalidando utilização em novas compras.' })
+add('post', '/enderecos/{id}/confirmar', 'Endereços', 'Confirmar revisão dos dados da conta', { errors: [400, 404, 409], input: body({ versao: id }, ['versao']), output: ref('DocEndereco'), description: 'Revisão declarada pelo usuário, não comprovação de residência. Cada checkout exige sua própria confirmação.' })
+add('post', '/enderecos/{id}/principal', 'Endereços', 'Definir endereço principal', { errors: [400, 404] })
+add('get', '/enderecos/cep/{cep}', 'Endereços', 'Consultar CEP no ViaCEP', { errors: [400, 404, 503], output: obj({ cep: text, uf: text, cidade: text, bairro: text, logradouro: text }), description: 'Autenticado. Consulta HTTPS com timeout de 5 segundos. 503 permite preenchimento manual. Envia somente CEP ao serviço.' })
+add('post', '/checkout', 'Checkout', 'Iniciar checkout persistente', { errors: [400, 409], input: body({ itens: { ...arr(obj({ produto_id: id, quantidade: int('Quantidade', { minimum: 1, maximum: 99 }) }, ['produto_id', 'quantidade'])), minItems: 1, maxItems: 20 } }, ['itens']), output: ref('DocCheckout'), description: 'Preços, estoque, vendedores e exigência de entrega vêm do servidor. Expira em 24 horas.' })
+add('get', '/checkout/{id}', 'Checkout', 'Restaurar meu checkout', { errors: [400, 404, 409], output: ref('DocCheckout'), description: 'Revalida endereço, versão, regras de entrega e preços. Checkout concluído retorna id e pedido_id.' })
+add('put', '/checkout/{id}/endereco', 'Checkout', 'Selecionar e confirmar endereço para esta compra', { errors: [400, 404, 409], input: body({ endereco_id: id, versao: id, confirmado: bool }, ['endereco_id', 'versao', 'confirmado']), output: ref('DocCheckout'), description: 'Exige confirmado=true após revisão. Valida proprietário e versão, registra confirmação e limpa frete anterior.' })
+add('put', '/checkout/{id}/entrega', 'Checkout', 'Selecionar modalidades reais de cada vendedor', { errors: [400, 404, 409], input: body({ modalidades: arr(obj({ vendedor_id: id, id: text }, ['vendedor_id', 'id'])) }, ['modalidades']), output: ref('DocCheckout'), description: 'Exige endereço confirmado para produtos físicos e uma modalidade compatível de SHIPPING_RULES_JSON para cada vendedor. Valores enviados pelo cliente não são usados.' })
+add('post', '/checkout/{id}/pagamento', 'Checkout', 'Verificar acesso à etapa de pagamento', { errors: [400, 404, 409], output: ref('DocCheckout'), description: 'Revalida endereço e frete no servidor. Como não há provedor integrado, retorna disponivel=false e mensagem explicativa. Não cobra nem marca pedido como pago.' })
 
 add('post', '/mensagens', 'Mensagens', 'Enviar mensagem privada', {
   code: 201, errors: [400, 404], input: body({ destinatarioId: { ...id, minimum: 1 }, conteudo: str('Mensagem não vazia, truncada em 2000 caracteres', { minLength: 1, maxLength: 2000 }), produtoId: { ...id, nullable: true } }, ['destinatarioId', 'conteudo']),

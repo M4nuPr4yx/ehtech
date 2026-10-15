@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getApiUrl } from '../../lib/api';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
+import AddressBook, { AddressDetails } from '../complements/AddressBook';
 
 const CONTRACT_STATUS = {
   solicitado: 'Solicitado', orcamento_enviado: 'Orçamento enviado', aceito: 'Aceito',
@@ -137,6 +138,7 @@ export default function Perfil() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.get('aba') === 'enderecos') setActiveTab('enderecos');
     if (params.get('aba') === 'historico') {
       setActiveTab('historico');
       if (params.get('pedido') === '1') {
@@ -385,6 +387,7 @@ const handleChangeEmail = async (e) => {
             >
               Seus Produtos
             </button>
+            <button aria-pressed={activeTab === 'enderecos'} onClick={() => { setActiveTab('enderecos'); setMessage(''); }} className={`whitespace-nowrap px-4 py-3 text-sm font-bold ${activeTab === 'enderecos' ? 'border-b-2 border-accent text-accent' : 'text-muted hover:text-foreground'}`}>Meus Endereços</button>
             <button
               aria-pressed={activeTab === 'historico'} onClick={() => { setActiveTab('historico'); setMessage(''); }}
               className={`py-3 px-6 whitespace-nowrap font-bold transition-all ${activeTab === 'historico' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
@@ -394,6 +397,7 @@ const handleChangeEmail = async (e) => {
           </div>
 
 {/* Tab: Perfil */}
+          {activeTab === 'enderecos' && <AddressBook />}
           {activeTab === 'perfil' && perfil && (
             <div className="space-y-4">
 {/* Foto de Perfil */}
@@ -663,7 +667,11 @@ const handleChangeEmail = async (e) => {
                         <div className="divide-y divide-line">{order.itens.map((item) => (
                           <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><Link href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-foreground hover:text-accent">{item.nome_produto}</Link><p className="truncate text-xs text-muted">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-muted">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-muted">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
                         ))}</div>
-                        <footer className="border-t border-line bg-surface px-5 py-3 text-xs text-muted">Este registro não representa pagamento. Combine entrega e pagamento diretamente com o vendedor.</footer>
+                        <footer className="space-y-3 border-t border-line bg-surface px-5 py-4 text-xs text-muted">
+                          {order.endereco_entrega && <div><p className="mb-2 font-bold">Endereço registrado neste pedido</p><AddressDetails address={order.endereco_entrega} /></div>}
+                          {order.entrega?.map(option => <p key={option.vendedor_id}>{option.vendedor}: {option.nome} · {formatCurrency(option.valor)} · {option.prazo}</p>)}
+                          <p>Frete: {formatCurrency(order.frete || 0)} · Pagamento: {order.status_pagamento === 'pago' ? 'Pago' : 'Não iniciado'}. Nenhuma cobrança online realizada pelo registro do pedido.</p>
+                        </footer>
                       </article>
                     ))}</div> : <div className="rounded-2xl border border-dashed border-line p-8 text-center"><p className="text-sm text-muted">Nenhum pedido de produto foi registrado.</p><Link href="/produtos" className="mt-2 inline-block text-sm font-bold text-accent hover:underline">Explorar produtos →</Link></div>}
                   </section>

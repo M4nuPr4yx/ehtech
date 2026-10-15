@@ -14,6 +14,22 @@ function loadAdapter(env, dependencies) {
   return context.module.exports
 }
 
+test('PostgreSQL traduz migração de endereços e checkout com booleanos e snapshots', async () => {
+  const queries = []
+  class Pool {
+    async query(sql) { queries.push(sql); return { rows: [], rowCount: 0 } }
+  }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  await require('../backend/database/addresses').initializeAddresses(pool)
+  assert.equal(queries.length, 8)
+  assert.match(queries[0], /id SERIAL PRIMARY KEY/)
+  assert.match(queries[0], /confirmado_em TIMESTAMP NULL/)
+  assert.match(queries[1], /id VARCHAR\(36\) PRIMARY KEY/)
+  assert.match(queries[1], /endereco_versao INT/)
+  assert.match(queries[2], /exige_entrega BOOLEAN NOT NULL DEFAULT TRUE/)
+  for (const sql of queries) assert.doesNotMatch(sql, /AUTO_INCREMENT|INDEX idx_/)
+})
+
 test('PostgreSQL mantém consultas e transações na conexão adquirida', async () => {
   const calls = []
   const client = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: /^SELECT/.test(sql) ? [{ total: 3 }] : [], rowCount: 0 } }, release: () => calls.push({ sql: 'RELEASE' }) }

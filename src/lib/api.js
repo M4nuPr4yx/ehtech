@@ -7,22 +7,32 @@
  */
 
 export const getApiUrl = (endpoint = '') => {
-  // Se houver uma variável de ambiente definida, usa ela com prioridade
+  const path = `/${endpoint.replace(/^\/+/, '').replace(/^api(?:\/|$)/, '')}`;
+  const browser = typeof window !== 'undefined';
+  const deployment = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+  const origin = browser ? window.location.origin : deployment;
   if (process.env.NEXT_PUBLIC_API_URL) {
-    const base = process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
-    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${base}${path}`;
+    try {
+      const configured = process.env.NEXT_PUBLIC_API_URL.trim().replace(/\/+$/, '');
+      const url = new URL(configured, origin || 'http://localhost:3001');
+      const local = hostname => /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|0\.0\.0\.0)$/.test(hostname) || hostname.endsWith('.localhost');
+      const privateHost = hostname => local(hostname) || /^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(hostname);
+      const site = origin ? new URL(origin) : null;
+      const invalid = !['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || (site && ((site.protocol === 'https:' && url.protocol !== 'https:') || (!privateHost(site.hostname) && privateHost(url.hostname)) || (local(url.hostname) && !local(site.hostname))));
+      if (!invalid && (configured.startsWith('/') || /^https?:\/\//.test(configured))) {
+        const base = url.pathname === '/' && site?.origin === url.origin ? `${url.origin}/api` : url.href.replace(/\/+$/, '');
+        return `${base}${path}`;
+      }
+    } catch {}
   }
 
   // Mesmo endereço do site, tanto por localhost quanto pelo IP da rede.
   // O Next local encaminha /api ao Express; a Vercel usa a função serverless.
-  if (typeof window !== 'undefined') {
-    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (browser) {
     return `/api${path}`;
   }
 
   // No SSR (Node.js):
-  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}/api${path}`;
   }

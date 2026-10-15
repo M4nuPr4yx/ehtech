@@ -36,7 +36,8 @@ test('CEP: válido, inválido, inexistente, sem bairro e indisponibilidade', asy
 })
 
 test('frete real por vendedor, faixa de CEP, UF e ausência de cobertura', () => {
-  const cart = { items: [{ product: { vendedor_id: 1, vendedor: 'Loja A', exige_entrega: true } }, { product: { vendedor_id: 2, vendedor: 'Loja B', exige_entrega: true } }, { product: { vendedor_id: 3, vendedor: 'Digital', exige_entrega: false } }] }
+  const origin = JSON.stringify(validateAddress(address).value)
+  const cart = { items: [{ product: { vendedor_id: 1, vendedor: 'Loja A', exige_entrega: true, origem_snapshot: origin } }, { product: { vendedor_id: 2, vendedor: 'Loja B', exige_entrega: true, origem_snapshot: origin } }, { product: { vendedor_id: 3, vendedor: 'Digital', exige_entrega: false } }] }
   const rules = JSON.stringify([{ vendedor_id: 1, id: 'local', nome: 'Local', valor: 10, ufs: ['SP'], cep_inicio: '01000000', cep_fim: '01999999', dias_min: 1, dias_max: 2 }, { vendedor_id: 2, id: 'gratis', nome: 'Grátis', valor: 0 }])
   const groups = shippingOptions(cart, validateAddress(address).value, rules)
   assert.equal(groups.length, 2)
@@ -44,10 +45,12 @@ test('frete real por vendedor, faixa de CEP, UF e ausência de cobertura', () =>
   assert.throws(() => chooseShipping(groups, [{ vendedor_id: 1, id: 'local' }]), { status: 400 })
   assert.throws(() => chooseShipping(groups, [null, null]), { status: 400 })
   assert.throws(() => chooseShipping(groups, [{ vendedor_id: 1, id: 'inventada' }, { vendedor_id: 2, id: 'gratis' }]), { status: 409 })
-  assert.equal(shippingOptions(cart, { cep: '20000000', uf: 'RJ' }, rules)[0].opcoes.length, 0)
-  assert.equal(shippingOptions(cart, address, '[]')[0].opcoes.length, 0)
-  assert.equal(shippingOptions(cart, address, 'invalid')[0].opcoes.length, 0)
-  assert.equal(shippingOptions(cart, address, '[null]')[0].opcoes.length, 0)
+  for (const [destination, table] of [[{ cep: '20000000', uf: 'RJ' }, rules], [address, '[]'], [address, 'invalid'], [address, '[null]']]) {
+    const option = shippingOptions(cart, destination, table)[0].opcoes[0]
+    assert.equal(option.tipo, 'a_combinar')
+    assert.equal(option.valor, null)
+    assert.match(option.fonte, /Não é frete grátis/)
+  }
   assert.throws(() => requireReady({ confirmed: false }), { status: 409 })
   assert.throws(() => requireReady({ confirmed: true, ready: false }), { status: 409 })
 })

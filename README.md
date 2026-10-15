@@ -54,7 +54,7 @@ Esse seed cria/atualiza 50 contas (`usuario1@gmail.com` a `usuario50@gmail.com`,
 
 - **Frontend:** não precisa de `.env.local` na instalação padrão. Use `.env.example` como referência para mudar `BACKEND_URL` (destino do proxy no servidor). `NEXT_PUBLIC_API_URL` substitui `/api` no navegador; mantenha vazio para o mesmo domínio. Nunca use `NEXT_PUBLIC_*` para segredos.
 - **E-mail:** configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASS` no backend. Sem SMTP, a recuperação de senha não envia o link.
-- **IA:** vem desativada. A análise de compatibilidade por regras funciona sem chave ou API externa. Para explicações opcionais, consulte [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md).
+- **IA:** a tela de compatibilidade analisa a seleção somente com IA; exige um provedor configurado. O catálogo público funciona sem chave e sem banco. Consulte [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md) e [CATALOGO_COMPONENTES.md](docs/CATALOGO_COMPONENTES.md).
 - **PostgreSQL/Neon:** configure `DATABASE_URL` no ambiente do backend e um `API_SEGREDO` exclusivo. O caminho local e a integração automatizada deste guia usam MySQL/MariaDB; veja [DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md) para as limitações do adaptador.
 
 ## Publicar na Vercel
@@ -76,9 +76,11 @@ GEMINI_API_KEY=sua-chave-privada
 COMPAT_AI_TIMEOUT_MS=25000
 ```
 
-5. Faça um novo deploy e abra `/api/health`. A primeira chamada inicializa as tabelas. Cadastre uma conta e promova-a no banco para acessar `/admin`.
+5. Deixe `NEXT_PUBLIC_API_URL` vazio para usar `/api` pelo mesmo domínio (inclusive no celular). Nunca aponte o deploy para localhost ou IP da sua rede. Faça um novo deploy após alterar variáveis. Confira `/api/componentes/catalogo/status` e `/api/componentes/ia/status`; essas consultas não dependem do Neon. `/api/health` confere o banco e a primeira chamada inicializa as tabelas. Cadastre uma conta e promova-a no banco para acessar `/admin`.
 
 No deploy, fotos de anúncios e perfis vão para o Blob e recebem URL pública persistente. A aplicação limita cada imagem a 4 MB e envia fotos de anúncio uma a uma para respeitar o limite de requisição da Vercel. Não configure `BLOB_READ_WRITE_TOKEN`, `GEMINI_API_KEY`, `DATABASE_URL` ou `API_SEGREDO` com o prefixo `NEXT_PUBLIC_` e nunca os versione.
+
+O nome usado pelo upload é `BLOB_READ_WRITE_TOKEN`; outras chaves do Blob não o substituem. Para diagnóstico de conexão, Neon, IA e Chrome no celular, veja [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md#vercel-e-celular). O catálogo inclui 42.920 registros de uma fonte comunitária de julho de 2025, não todos os componentes existentes; sua atualização é explícita e não altera o banco.
 
 ## Comandos e verificações
 

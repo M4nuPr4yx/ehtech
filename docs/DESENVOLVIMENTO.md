@@ -50,6 +50,9 @@ Para uma revisão transversal, rode `npm run check` e integração. Para altera�
 ## Referências por assunto
 
 - Escopo/priorização: [ROADMAP_DIFERENCIAIS.md](ROADMAP_DIFERENCIAIS.md).
+- Inspeção de usados, compra por missão e combos: [DIFERENCIAIS_IMPLEMENTADOS.md](DIFERENCIAIS_IMPLEMENTADOS.md).
+- Origem de envio, endereços reutilizáveis e filtros: [ORIGEM_E_FILTROS.md](ORIGEM_E_FILTROS.md).
+- Busca de pessoas e conversas diretas: [MENSAGENS_E_BUSCA.md](MENSAGENS_E_BUSCA.md).
 - Compatibilidade técnica: [COMPATIBILIDADE.md](COMPATIBILIDADE.md); IA opcional: [IA_COMPATIBILIDADE.md](IA_COMPATIBILIDADE.md).
 - Temas e assets: [INTERFACE_E_TEMAS.md](INTERFACE_E_TEMAS.md), [RECURSOS_VISUAIS.md](RECURSOS_VISUAIS.md).
 - Rede e carga: [TESTE_CARGA_E_REDE.md](TESTE_CARGA_E_REDE.md).

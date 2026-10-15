@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { getApiUrl } from '../../../lib/api';
 import { getMainImage } from '../../complements/imageHelper';
 import TechnicalComponentPicker from '../../complements/TechnicalComponentPicker';
+import OriginSelector from '../../complements/OriginSelector';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -33,6 +34,9 @@ export default function EditarProduto() {
   const [preco, setPreco] = useState('');
   const [categoria, setCategoria] = useState('');
   const [componenteId, setComponenteId] = useState(null);
+  const [origin, setOrigin] = useState(null);
+  const [currentRegion, setCurrentRegion] = useState(null);
+  const [requiresShipping, setRequiresShipping] = useState(true);
   const [estoque, setEstoque] = useState('');
   const [imagemUrl, setImagemUrl] = useState('');
   const [imagemPreview, setImagemPreview] = useState('');
@@ -83,6 +87,8 @@ export default function EditarProduto() {
         setPreco(data.preco || '');
         setCategoria(data.categoria || '');
         setComponenteId(data.componente_id || null);
+        setCurrentRegion(data);
+        setRequiresShipping(Boolean(data.exige_entrega));
         setEstoque(data.estoque || 0);
         setImagemUrl(data.imagem || '');
         setImagemPreview(getMainImage(data.imagem));
@@ -220,6 +226,8 @@ export default function EditarProduto() {
           estoque: parseInt(estoque) || 0,
           categoria,
           componente_id: componenteId,
+          exige_entrega: requiresShipping,
+          ...(origin ? { origem_endereco_id: origin.id, origem_versao: origin.versao } : {}),
           imagem: imagemUrl || null
         })
       });
@@ -306,6 +314,7 @@ export default function EditarProduto() {
             <h1 className="text-3xl font-bold text-accent">Editar Produto</h1>
           </div>
 
+          <OriginSelector value={origin} onChange={setOrigin} requiresShipping={requiresShipping} onShippingChange={setRequiresShipping} currentRegion={currentRegion} />
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Nome */}
             <div>

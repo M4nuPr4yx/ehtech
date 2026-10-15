@@ -6,7 +6,7 @@ class AssistantError extends Error {
 const failure = (code, message, status) => new AssistantError(code, message, status)
 
 function configuration(env) {
-  const provider = env.COMPAT_AI_PROVIDER || 'disabled'
+  const provider = env.COMPAT_AI_PROVIDER || (env.GEMINI_API_KEY ? 'gemini' : env.GROQ_API_KEY ? 'groq' : 'disabled')
   const model = provider === 'gemini' ? env.GEMINI_MODEL || 'gemini-3.1-flash-lite' : provider === 'groq' ? env.GROQ_MODEL || 'openai/gpt-oss-20b' : env.OLLAMA_MODEL || 'qwen3:4b'
   if (!['disabled', 'ollama', 'groq', 'gemini'].includes(provider) || !/^[a-zA-Z0-9_.:/-]{1,100}$/.test(model) || /cloud/i.test(model) || (provider === 'gemini' && !/^gemini-[a-zA-Z0-9.-]{1,80}$/.test(model))) return { provider: 'disabled', model: null }
   let origin = 'http://127.0.0.1:11434'
@@ -96,8 +96,9 @@ async function readJson(response, maxBytes = 65536) {
   } finally { reader.releaseLock() }
 }
 
-function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThis.fetch, now = Date.now } = {}) {
+function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThis.fetch, now = Date.now, assessment = false } = {}) {
   const config = configuration(env)
+  const assessmentMode = assessment ? require('./ai-assessment') : null
   const cache = new Map()
   let running = 0, health = null, healthAt = 0
   const providerName = config.provider === 'gemini' ? 'Gemini' : 'Groq'
@@ -117,9 +118,9 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
     return health
   }
   async function explain(analysis, { signal } = {}) {
-    if (config.provider === 'disabled' || (config.external && !config.key)) throw failure('nao_configurada', 'A IA ainda não está configurada. O resultado técnico funciona normalmente.')
+    if (config.provider === 'disabled' || (config.external && !config.key)) throw failure('nao_configurada', assessment ? 'A IA ainda não está configurada. Confira o provedor e a chave no ambiente privado do servidor.' : 'A IA ainda não está configurada. O resultado técnico funciona normalmente.')
     if (!analysis.componentes.length) throw failure('sem_componentes', 'Selecione pelo menos uma peça do catálogo antes de pedir uma explicação.', 400)
-    const context = contextFor(analysis)
+    const context = assessment ? analysis : contextFor(analysis)
     const key = crypto.createHash('sha256').update(JSON.stringify([config.provider, config.model, context])).digest('hex')
     const saved = cache.get(key)
     if (saved && now() - saved.time < 600000) return { ...structuredClone(saved.value), em_cache: true }
@@ -127,12 +128,13 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
     running++
     const timeout = AbortSignal.timeout(config.timeout)
     const combined = signal ? AbortSignal.any([signal, timeout]) : timeout
-    const schema = schemaFor(context)
-    const messages = [{ role: 'system', content: SYSTEM }, { role: 'user', content: JSON.stringify({ dados_tecnicos: context, formato_json: schema }) }]
+    const schema = assessment ? assessmentMode.schemaFor(context) : schemaFor(context)
+    const system = assessment ? assessmentMode.SYSTEM : SYSTEM
+    const messages = [{ role: 'system', content: system }, { role: 'user', content: JSON.stringify({ dados_tecnicos: context, formato_json: schema }) }]
     const local = config.provider === 'ollama'
     const gemini = config.provider === 'gemini'
     const body = local ? { model: config.model, messages, stream: false, think: false, format: schema, options: { temperature: 0, num_ctx: 4096, num_predict: 900 }, keep_alive: '5m' } : gemini ? {
-      systemInstruction: { parts: [{ text: SYSTEM }] },
+      systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify({ dados_tecnicos: context }) }] }],
       generationConfig: {
         temperature: 0, candidateCount: 1, maxOutputTokens: 2200,
@@ -176,17 +178,24 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
       const raw = local ? data.message?.content : gemini ? validGemini ? parts.map(part => part.text).join('') : null : data.choices?.[0]?.message?.content
       if (typeof raw !== 'string' || (local ? !data.done || data.done_reason === 'length' : gemini ? !validGemini : data.choices?.[0]?.finish_reason !== 'stop')) throw failure('resposta_invalida', 'A IA não concluiu a explicação. Consulte o resultado técnico.', 502)
       if (config.external && raw.includes(config.key)) throw failure('resposta_invalida', 'A IA retornou conteúdo que não pode ser exibido. Consulte o resultado técnico.', 502)
-      const answer = validateAnswer(raw, context)
+      let answer
+      try { answer = assessment ? assessmentMode.validateAnswer(raw, context) : validateAnswer(raw, context) } catch (error) {
+        if (error instanceof AssistantError) throw error
+        throw failure('resposta_invalida', 'A IA retornou uma avaliação incompleta ou incoerente. Tente novamente.', 502)
+      }
       const value = { ...answer, provedor: config.provider, modelo: config.model, gerado_em: new Date(now()).toISOString(), em_cache: false }
       cache.delete(key)
       if (cache.size >= 50) cache.delete(cache.keys().next().value)
       cache.set(key, { time: now(), value })
       return structuredClone(value)
     } catch (error) {
-      if (error instanceof AssistantError) throw error
+      if (error instanceof AssistantError) {
+        if (assessment) error.message = error.message.replace(/ O resultado técnico (?:continua disponível|funciona normalmente)\./gi, '').replace(/; o resultado técnico continua disponível/gi, '').replace(/ Consulte o resultado técnico\./gi, '')
+        throw error
+      }
       if (signal?.aborted) throw failure('cancelada', 'A solicitação de explicação foi cancelada.', 499)
-      if (timeout.aborted) throw failure('tempo_excedido', 'A IA demorou mais que o esperado. Tente novamente; o resultado técnico continua disponível.', 504)
-      throw failure('provedor_indisponivel', local ? 'Não foi possível conversar com o Ollama. Confira se ele está aberto.' : `Não foi possível conversar com o ${providerName} agora. O resultado técnico continua disponível.`)
+      if (timeout.aborted) throw failure('tempo_excedido', assessment ? 'A IA demorou mais que o esperado. Tente novamente.' : 'A IA demorou mais que o esperado. Tente novamente; o resultado técnico continua disponível.', 504)
+      throw failure('provedor_indisponivel', local ? 'Não foi possível conversar com o Ollama. Confira se ele está aberto.' : `Não foi possível conversar com o ${providerName} agora.${assessment ? ' Tente novamente em instantes.' : ' O resultado técnico continua disponível.'}`)
     } finally { running-- }
   }
   return { status, explain }

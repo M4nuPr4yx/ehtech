@@ -1,6 +1,7 @@
 const crypto = require('crypto')
 const { integer } = require('./validation')
 const { problem, validateAddress, addressSnapshot } = require('./addresses')
+const { productOrigin } = require('./product-origins')
 
 function normalizeItems(items) {
   if (!Array.isArray(items) || !items.length || items.length > 20) throw problem(400, 'O pedido deve conter entre 1 e 20 produtos.')
@@ -15,7 +16,7 @@ const parse = value => typeof value === 'string' ? JSON.parse(value) : value
 
 async function loadCart(connection, userId, requestedItems, lock = false) {
   const normalized = normalizeItems(requestedItems)
-  const [products] = await connection.execute(`SELECT id_produto, nome, preco, estoque, imagem, vendedor_id, vendedor, exige_entrega FROM produtos WHERE id_produto IN (${normalized.map(() => '?').join(', ')}) AND status_aprovacao = 'aprovado'${lock ? ' FOR UPDATE' : ''}`, normalized.map(item => item.produto_id))
+  const [products] = await connection.execute(`SELECT id_produto, nome, preco, estoque, imagem, vendedor_id, vendedor, exige_entrega, origem_endereco_id, origem_snapshot FROM produtos WHERE id_produto IN (${normalized.map(() => '?').join(', ')}) AND status_aprovacao = 'aprovado'${lock ? ' FOR UPDATE' : ''}`, normalized.map(item => item.produto_id))
   if (products.length !== normalized.length) throw problem(409, 'Um dos produtos não está mais disponível.')
   const byId = new Map(products.map(product => [Number(product.id_produto), product]))
   const items = normalized.map(item => ({ ...item, product: byId.get(item.produto_id) }))
@@ -25,7 +26,7 @@ async function loadCart(connection, userId, requestedItems, lock = false) {
     if (!(Number(item.product.preco) > 0)) throw problem(409, 'Preço inválido. Entre em contato com o vendedor.')
   }
   const subtotal = items.reduce((sum, item) => sum + Math.round(Number(item.product.preco) * 100) * item.quantidade, 0) / 100
-  const fingerprint = hash(items.map(item => [item.produto_id, item.quantidade, Number(item.product.preco), Number(item.product.vendedor_id), Boolean(item.product.exige_entrega)]))
+  const fingerprint = hash(items.map(item => [item.produto_id, item.quantidade, Number(item.product.preco), Number(item.product.vendedor_id), Boolean(item.product.exige_entrega), item.product.origem_snapshot]))
   return { items, subtotal, fingerprint, exige_entrega: items.some(item => Boolean(item.product.exige_entrega)) }
 }
 
@@ -33,28 +34,56 @@ function shippingOptions(cart, address, rulesText = process.env.SHIPPING_RULES_J
   let rules
   try { rules = JSON.parse(rulesText) } catch { rules = [] }
   if (!Array.isArray(rules)) rules = []
-  const sellers = new Map(cart.items.filter(item => Boolean(item.product.exige_entrega)).map(item => [Number(item.product.vendedor_id), item.product.vendedor]))
-  return [...sellers].map(([sellerId, seller]) => {
-    const options = rules.filter(rule => rule && typeof rule === 'object' && Number(rule.vendedor_id) === sellerId
+  const groups = new Map()
+  for (const item of cart.items.filter(item => Boolean(item.product.exige_entrega))) {
+    const origin = productOrigin(item.product)
+    const key = `${Number(item.product.vendedor_id)}:${origin ? hash([origin.uf, origin.cidade, origin.cep, origin.bairro, origin.logradouro, origin.numero, origin.sem_numero, origin.complemento]) : 'sem-origem'}`
+    if (!groups.has(key)) groups.set(key, { grupo_id: `${Number(item.product.vendedor_id)}:${groups.size + 1}`, vendedor_id: Number(item.product.vendedor_id), vendedor: item.product.vendedor, origin, produtos: [] })
+    groups.get(key).produtos.push({ produto_id: item.produto_id, nome: item.product.nome })
+  }
+  return [...groups.values()].map(group => {
+    const origin = group.origin
+    const options = origin ? rules.filter(rule => rule && typeof rule === 'object' && Number(rule.vendedor_id) === group.vendedor_id
       && typeof rule.id === 'string' && /^[\w-]{1,60}$/.test(rule.id)
       && typeof rule.nome === 'string' && rule.nome.length > 0 && rule.nome.length <= 120
       && Number.isFinite(rule.valor) && rule.valor >= 0 && rule.valor <= 100000
       && (!rule.ufs || (Array.isArray(rule.ufs) && rule.ufs.includes(address.uf)))
       && (!rule.cep_inicio || (/^\d{8}$/.test(rule.cep_inicio) && address.cep >= rule.cep_inicio))
       && (!rule.cep_fim || (/^\d{8}$/.test(rule.cep_fim) && address.cep <= rule.cep_fim))
+      && (!rule.origem_ufs || (Array.isArray(rule.origem_ufs) && rule.origem_ufs.includes(origin.uf)))
+      && (!rule.origem_cep_inicio || (/^\d{8}$/.test(rule.origem_cep_inicio) && origin.cep >= rule.origem_cep_inicio))
+      && (!rule.origem_cep_fim || (/^\d{8}$/.test(rule.origem_cep_fim) && origin.cep <= rule.origem_cep_fim))
     ).map(rule => ({ id: rule.id, nome: rule.nome, valor: Math.round(rule.valor * 100) / 100,
-      prazo: Number.isInteger(rule.dias_min) && Number.isInteger(rule.dias_max) && rule.dias_min >= 0 && rule.dias_max >= rule.dias_min ? `${rule.dias_min} a ${rule.dias_max} dias úteis` : 'Prazo a combinar com o vendedor', fonte: 'Tabela de entrega configurada pelo vendedor' }))
-    return { vendedor_id: sellerId, vendedor: seller, opcoes: options }
+      prazo: Number.isInteger(rule.dias_min) && Number.isInteger(rule.dias_max) && rule.dias_min >= 0 && rule.dias_max >= rule.dias_min ? `${rule.dias_min} a ${rule.dias_max} dias úteis` : 'Prazo a combinar com o vendedor', fonte: 'Tabela de entrega configurada pelo vendedor' })) : []
+    if (origin && !options.length) options.push({ id: 'a-combinar', tipo: 'a_combinar', nome: 'Entrega e frete a combinar', valor: null, prazo: 'Disponibilidade, prazo e valor dependem de acordo com o vendedor', fonte: 'Solicitação de entrega, sem cotação ou atendimento confirmado. Não é frete grátis.' })
+    return { grupo_id: group.grupo_id, vendedor_id: group.vendedor_id, vendedor: group.vendedor, produtos: group.produtos, origem: origin ? { uf: origin.uf, cidade: origin.cidade } : null, motivo: origin ? null : 'O vendedor precisa cadastrar a origem de envio deste anúncio.', opcoes: options }
   })
 }
 
+function freightSummary(delivery) {
+  const pending = delivery.some(option => option.tipo === 'a_combinar' && option.valor === null)
+  const known = delivery.reduce((sum, option) => sum + (option.valor === null ? 0 : Math.round(option.valor * 100)), 0) / 100
+  return { pending, known }
+}
+
+function orderView(order) {
+  const delivery = order.entrega ? parse(order.entrega) : []
+  const { pending } = freightSummary(delivery)
+  const partial = Number(order.total), known = Number(order.frete || 0)
+  return { ...order, entrega: delivery, total: pending ? null : partial, total_parcial: partial, frete: pending ? null : known, frete_conhecido: known, frete_pendente: pending }
+}
+
 function chooseShipping(groups, selected) {
-  if (!Array.isArray(selected) || selected.some(option => !option || typeof option !== 'object' || !Number.isSafeInteger(Number(option.vendedor_id)) || typeof option.id !== 'string') || selected.length !== groups.length || new Set(selected.map(option => Number(option.vendedor_id))).size !== selected.length) throw problem(400, 'Escolha uma modalidade de entrega para cada vendedor.')
+  if (!Array.isArray(selected) || selected.some(option => !option || typeof option !== 'object' || !Number.isSafeInteger(Number(option.vendedor_id)) || typeof option.id !== 'string') || selected.length !== groups.length) throw problem(400, 'Escolha uma modalidade para cada vendedor e origem.')
+  const used = new Set()
   return groups.map(group => {
-    const requested = selected.find(option => Number(option.vendedor_id) === group.vendedor_id)
+    const matches = selected.filter(option => Number(option.vendedor_id) === group.vendedor_id && (option.grupo_id === group.grupo_id || (option.grupo_id === undefined && groups.filter(entry => entry.vendedor_id === group.vendedor_id).length === 1)))
+    if (matches.length !== 1 || used.has(matches[0])) throw problem(400, 'Selecione cada origem de envio exatamente uma vez.')
+    const requested = matches[0]
+    used.add(requested)
     const option = group.opcoes.find(entry => entry.id === requested?.id)
     if (!option) throw problem(409, 'Entrega indisponível para esta região. Selecione outro endereço ou modalidade.')
-    return { ...option, vendedor_id: group.vendedor_id, vendedor: group.vendedor }
+    return { ...option, grupo_id: group.grupo_id, vendedor_id: group.vendedor_id, vendedor: group.vendedor, origem: group.origem }
   })
 }
 
@@ -84,8 +113,8 @@ async function inspectCheckout(connection, session, userId, lock = false) {
       ready = hash(delivery) === hash(parse(session.entrega))
     } catch { ready = false }
   }
-  const freight = ready ? delivery.reduce((sum, option) => sum + Math.round(option.valor * 100), 0) / 100 : 0
-  return { cart, address, confirmed, groups, delivery, ready, freight }
+  const summary = freightSummary(ready ? delivery : [])
+  return { cart, address, confirmed, groups, delivery, ready, freight: summary.known, pendingFreight: ready && summary.pending }
 }
 
 function requireReady(state) {
@@ -94,13 +123,15 @@ function requireReady(state) {
 }
 
 function checkoutView(session, state) {
+  const partial = Math.round((state.cart.subtotal + state.freight) * 100) / 100
   return { id: session.id, pedido_id: session.pedido_id, exige_entrega: state.cart.exige_entrega,
     itens: state.cart.items.map(item => ({ produto_id: item.produto_id, quantidade: item.quantidade, nome: item.product.nome, preco: Number(item.product.preco), vendedor: item.product.vendedor })),
-    subtotal: state.cart.subtotal, frete: state.ready ? state.freight : null,
-    total: Math.round((state.cart.subtotal + state.freight) * 100) / 100,
+    subtotal: state.cart.subtotal, frete: state.ready && !state.pendingFreight ? state.freight : null,
+    frete_pendente: Boolean(state.pendingFreight), frete_conhecido: state.freight,
+    total: state.pendingFreight ? null : partial, total_parcial: partial,
     endereco: state.address ? { ...addressSnapshot(state.address), id: state.address.id, versao: state.address.versao } : null,
     endereco_confirmado: state.confirmed, modalidades: state.groups, entrega: state.ready ? state.delivery : [],
     pronto: state.ready, pagamento_online: false, expires_at: session.expires_at }
 }
 
-module.exports = { normalizeItems, loadCart, shippingOptions, chooseShipping, getSession, inspectCheckout, requireReady, checkoutView, parse }
+module.exports = { normalizeItems, loadCart, shippingOptions, chooseShipping, getSession, inspectCheckout, requireReady, checkoutView, parse, freightSummary, orderView }

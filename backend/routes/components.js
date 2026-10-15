@@ -4,8 +4,9 @@ const { TYPES, normalizeInput, decode } = require('../components/catalog')
 const { normalizeSelection, verify } = require('../components/check')
 const rateLimit = require('express-rate-limit')
 const { createCompatibilityAssistant, AssistantError } = require('../components/ai')
+const { metadata, searchCatalog, assessmentContext } = require('../components/expanded-catalog')
 
-function createComponentsRouter(pool, verifyAdmin = require('../middleware/auth').verifyAdmin, { assistant = createCompatibilityAssistant() } = {}) {
+function createComponentsRouter(pool, verifyAdmin = require('../middleware/auth').verifyAdmin, { assistant = createCompatibilityAssistant(), evaluator = createCompatibilityAssistant({ assessment: true }) } = {}) {
   const router = express.Router()
   const route = handler => async (req, res) => {
     try { await handler(req, res) } catch (error) {
@@ -49,6 +50,23 @@ function createComponentsRouter(pool, verifyAdmin = require('../middleware/auth'
     res.set('Cache-Control', 'no-store').json(await assistant.status())
   }))
   const aiLimiter = rateLimit({ windowMs: 10 * 60 * 1000, limit: 8, standardHeaders: true, legacyHeaders: false, message: { mensagem: 'Limite de explicações por IA atingido. Aguarde alguns minutos.', codigo: 'limite_ia' } })
+  router.get('/catalogo/status', route(async (req, res) => {
+    res.set('Cache-Control', 'public, max-age=3600').json(metadata)
+  }))
+  router.get('/catalogo', route(async (req, res) => {
+    res.set('Cache-Control', 'public, max-age=300').json(searchCatalog(req.query))
+  }))
+  router.post('/ia/analisar', aiLimiter, route(async (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    const context = assessmentContext(req.body)
+    const controller = new AbortController()
+    const disconnect = () => { if (!res.writableEnded) controller.abort() }
+    res.on('close', disconnect)
+    try {
+      const ia = await evaluator.explain(context, { signal: controller.signal })
+      if (!res.destroyed) res.json({ ia, componentes: context.componentes, catalogo: context.catalogo, limites: context.limitacoes })
+    } finally { res.removeListener('close', disconnect) }
+  }))
   router.post('/ia/explicar', aiLimiter, route(async (req, res) => {
     res.set('Cache-Control', 'no-store')
     if (!req.body || Object.keys(req.body).some(key => !['processador_id', 'placa_mae_id', 'bios', 'memorias'].includes(key)) || Buffer.byteLength(JSON.stringify(req.body)) > 4096) throw new AssistantError('selecao_invalida', 'Envie somente a seleção de peças e a BIOS. A análise é calculada pelo servidor.', 400)

@@ -41,6 +41,12 @@ async function main() {
     const image = '/uploads/img-1-preview.png'
     fs.copyFileSync(path.join(__dirname, '../public/ehtech-logo.png'), path.join(uploads, 'img-1-preview.png'))
     await pool.execute("INSERT INTO produtos (nome,descricao,preco,estoque,categoria,imagem,vendedor,vendedor_id,status_aprovacao) VALUES ('Notebook de demonstração','Produto fictício para verificar as páginas do projeto.',1500,5,'notebooks',?,'preview_seller',1,'aprovado')", [JSON.stringify([image, image])])
+    const { ADDRESS_FIELDS, validateAddress, addressFingerprint, addressSnapshot } = require('../backend/addresses')
+    const address = validateAddress({ destinatario: 'Pessoa Demonstração', telefone: '11999991234', identificacao: 'Depósito de teste', cep: '01001000', uf: 'SP', cidade: 'São Paulo', bairro: 'Sé', logradouro: 'Praça da Sé', numero: '10', salvar: true, principal: true }).value
+    for (const userId of [1, 2, 3]) {
+      const [saved] = await pool.execute(`INSERT INTO enderecos (usuario_id, ${ADDRESS_FIELDS.join(', ')}, fingerprint, confirmado_em) VALUES (${Array(ADDRESS_FIELDS.length + 2).fill('?').join(', ')}, CURRENT_TIMESTAMP)`, [userId, ...ADDRESS_FIELDS.map(field => address[field]), addressFingerprint(address)])
+      if (userId === 1) await pool.execute('UPDATE produtos SET origem_endereco_id = ?, origem_snapshot = ?, origem_uf = ?, origem_cidade = ?, data_criacao = CURRENT_TIMESTAMP WHERE vendedor_id = ?', [saved.insertId, JSON.stringify(addressSnapshot(address)), address.uf, address.cidade, userId])
+    }
     await require('../backend/database/init').initializeDatabase(pool)
     server = await app.startServer({ port: 3002 })
     console.log('Prévia de teste pronta em 127.0.0.1:3002. Dados fictícios; envie stop para limpar.')

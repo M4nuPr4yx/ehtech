@@ -33,7 +33,8 @@ if (isPostgres) {
         connectionString: connectionUri,
         ssl: { rejectUnauthorized: false },
         max: poolSize,
-        idleTimeoutMillis: 10000
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 10000
       })
     : new Pool({
         host: process.env.DB_HOST || process.env.PGHOST || 'localhost',
@@ -43,7 +44,8 @@ if (isPostgres) {
         port: parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10),
         ssl: { rejectUnauthorized: false },
         max: poolSize,
-        idleTimeoutMillis: 10000
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 10000
       });
 
   // Tradutor de queries MySQL -> PostgreSQL (placeholders ?, DDL, RETURNING)

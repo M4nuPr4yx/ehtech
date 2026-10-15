@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl } from '../../lib/api';
 import TechnicalComponentPicker from '../complements/TechnicalComponentPicker';
+import OriginSelector from '../complements/OriginSelector';
 
 export default function Anunciar() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export default function Anunciar() {
   const [estoque, setEstoque] = useState('1');
   const [categoria, setCategoria] = useState('');
   const [componenteId, setComponenteId] = useState(null);
+  const [origin, setOrigin] = useState(null);
+  const [requiresShipping, setRequiresShipping] = useState(true);
   const [imagens, setImagens] = useState([]); // Array de URLs das fotos
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -142,6 +145,11 @@ export default function Anunciar() {
       return;
     }
 
+    if (requiresShipping && !origin) {
+      setMessage('Selecione e confirme o endereço de origem do envio.');
+      setMessageType('error');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -159,6 +167,9 @@ export default function Anunciar() {
           estoque: parseInt(estoque, 10) || 0,
           categoria,
           componente_id: componenteId,
+          exige_entrega: requiresShipping,
+          origem_endereco_id: origin?.id,
+          origem_versao: origin?.versao,
           imagem: imagens.length > 0 ? imagens : null
         })
       });
@@ -236,6 +247,7 @@ export default function Anunciar() {
             </p>
           </div>
 
+          <OriginSelector value={origin} onChange={setOrigin} requiresShipping={requiresShipping} onShippingChange={setRequiresShipping} />
           <form onSubmit={handleSubmit} className="space-y-6">
             <h2 className="text-lg font-semibold">Informações do produto</h2>
             {/* Nome do Produto */}

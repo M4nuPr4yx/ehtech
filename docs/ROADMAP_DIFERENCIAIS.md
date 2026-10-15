@@ -8,7 +8,7 @@ Transformar a EHtech em um marketplace que não apenas vende tecnologia, mas aco
 
 ## Backlog inicial
 
-- [ ] Combos de produto com instalação ou configuração.
+- [x] Combos de produto com instalação ou configuração.
 - [x] Orçamento estruturado para serviços.
 - [x] Acompanhamento: solicitado, orçamento enviado, aceito, em execução e concluído.
 - [x] Garantia registrada para o serviço executado.
@@ -30,7 +30,7 @@ Cada computador ou dispositivo recebe um perfil permanente, opcionalmente acess�
 
 **MVP:** cadastro manual de componentes, registros de serviço e transferência do passaporte na venda.
 
-**Implementado:** área “Meus Equipamentos” em `/passaportes`, com cadastro e edição de componentes, histórico manual, vínculo de contratações concluídas na EHtech, exportação JSON, consulta compartilhada revogável e transferência aceita pela conta destinatária com convite de 24 horas. O vínculo do serviço ao equipamento é declarado pelo proprietário; não é um laudo técnico. O passaporte nasce privado e a transferência revoga o link público anterior. QR Code, notas fiscais e certificação técnica ficam para uma evolução posterior.
+**Implementado:** área “Meus Equipamentos” em `/passaportes`, com cadastro e edição de componentes, histórico manual, vínculo de contratações concluídas na EHtech, exportação JSON, consulta compartilhada revogável e transferência aceita pela conta destinatária com convite de 24 horas. O vínculo do serviço ao equipamento é declarado pelo proprietário; não é um laudo técnico. O passaporte nasce privado e a transferência revoga o link público anterior. A inspeção técnica de usados possui fluxo separado em `/certificados`; QR Code, notas fiscais e certificação oficial continuam adiados.
 
 ### 2. Gêmeo digital do setup
 
@@ -43,6 +43,8 @@ Uma representação viva do ambiente tecnológico do cliente: computador, perif�
 Em vez de procurar uma peça, o cliente informa o resultado desejado: “jogar em 1440p”, “editar vídeos 4K”, “montar um laboratório com dez máquinas” ou “melhorar o Wi-Fi da casa”. A plataforma monta uma solução completa com produtos, serviços, consumo estimado e alternativas por orçamento.
 
 **MVP:** missões predefinidas com regras transparentes e três faixas de investimento.
+
+**Implementado em 15/10/2026:** `/missoes` oferece estudar/trabalhar, home office e melhorar Wi-Fi. Consulta anúncios aprovados com estoque por categoria e serviços ativos, monta três faixas por preço e informa itens ausentes. Não infere desempenho, compatibilidade ou consumo pelo nome/preço; consumo permanece não estimado sem fichas suficientes. Faixas podem repetir produtos em catálogos pequenos. Frete e proposta final de serviço não estão incluídos. Regras e limites em [DIFERENCIAIS_IMPLEMENTADOS.md](DIFERENCIAIS_IMPLEMENTADOS.md).
 
 ### 4. Contratação com prova de resultado
 
@@ -118,6 +120,8 @@ Antes de anunciar um usado, um técnico verifica funcionamento, temperaturas, ar
 
 **MVP:** checklist padronizado, validade do certificado e selo no anúncio.
 
+**Implementado em 15/10/2026:** `/certificados` permite ao dono solicitar inspeção para anúncio aprovado e passaporte próprio, usando atendimento concluído e vinculado. Somente o prestador desse atendimento pode responder o checklist. Reprovação impede selo; aprovação gera laudo com validade de 90 dias e registro no passaporte. Expiração, revogação, alteração da ficha/anúncio/propriedade ou remoção do passaporte retiram o selo da consulta. É uma inspeção declarada pelo prestador, não certificação oficial ou verificação de credenciais profissionais. A aprovação administrativa do anúncio continua independente.
+
 ## Priorização recomendada
 
 ### Fase 1 — Confiança e operação
@@ -156,16 +160,18 @@ Objetivo: construir uma versão completa para demonstração e primeiros usuári
 
 ### Ordem de implementação
 
-1. Orçamentos e etapas da contratação.
-2. Avaliações e garantia dos serviços.
-3. Passaporte digital do equipamento.
-4. Certificado de produto usado.
-5. Verificador de compatibilidade baseado em regras.
-6. Compra por missão.
-7. Combos de produto com instalação.
-8. Prova de resultado antes/depois.
-9. Upgrade circular.
-10. Gêmeo digital do setup.
+1. [x] Orçamentos e etapas da contratação.
+2. [x] Avaliações e garantia dos serviços.
+3. [x] Passaporte digital do equipamento.
+4. [x] Certificado de produto usado (inspeção declarada, não certificação oficial).
+5. [x] Verificador de compatibilidade baseado em regras.
+6. [x] Compra por missão (MVP por categorias/preço, sem estimar consumo).
+7. [x] Combos de produto com instalação (MVP de oferta e orçamento vinculado).
+8. [ ] Prova de resultado antes/depois.
+9. [ ] Upgrade circular.
+10. [ ] Gêmeo digital do setup.
+
+**Combos implementados em 15/10/2026:** `/combos` associa anúncio aprovado e serviço ativo do mesmo anunciante. Mostra produto, serviço, região/modalidade e total de referência. A contratação registra um snapshot da oferta e segue o fluxo existente de orçamento/aceite/execução/garantia somente para o serviço. A compra do produto é separada; não há reserva conjunta, desconto automático, cobrança adicional ou promessa de compatibilidade. Anúncio reprovado/sem estoque ou serviço desativado retira a oferta pública; contratos anteriores são preservados.
 
 ### Soluções gratuitas iniciais
 

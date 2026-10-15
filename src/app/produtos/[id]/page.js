@@ -5,6 +5,7 @@ import Link from 'next/link';
 import ImageWithFallback from '../../complements/ImageWithFallback';
 import { getProductImages, isValidImageUrl } from '../../complements/imageHelper';
 import { getApiUrl } from '../../../lib/api';
+import { ProductExtras } from '../../complements/DifferentialsUI';
 
 // ImageGallery Component - galeria interativa com miniaturas
 function ImageGallery({ images }) {
@@ -396,6 +397,9 @@ export default function ProdutoDetalhes() {
                   {formatPrice(produto.preco)}
                 </p>
                 <p className="text-muted mb-6">{produto.descricao}</p>
+                <p className="mb-3 text-sm text-muted">{produto.exige_entrega ? produto.origem_uf ? `Origem do envio: ${produto.origem_cidade}/${produto.origem_uf}` : 'Origem do envio ainda não cadastrada pelo vendedor.' : 'Produto sem entrega física.'}{produto.data_criacao && ` · Publicado em ${new Date(produto.data_criacao).toLocaleDateString('pt-BR')}`}</p>
+                {isOwner && <Link href={`/editar-produto/${produto.id_produto}`} className="mb-4 block text-sm text-accent underline">Editar endereço de origem e dados do anúncio</Link>}
+                <ProductExtras productId={produto.id_produto} />
                 
                 {/* Seller info */}
                 <div className="bg-surface border border-line rounded-xl p-4 mb-6 flex items-center justify-between gap-4">

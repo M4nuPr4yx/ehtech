@@ -24,7 +24,17 @@ Configure `SHIPPING_RULES_JSON` no ambiente do backend com as condições comerc
 ]
 ```
 
-`vendedor_id`, `id`, `nome` e `valor` são obrigatórios. `ufs`, limites inclusivos de CEP e dias úteis são opcionais. Sem prazo configurado, exibe “Prazo a combinar com o vendedor”. Valor zero representa uma modalidade gratuita explicitamente configurada. Sem uma modalidade compatível para cada vendedor físico, a compra fica bloqueada na entrega. Trocar endereço ou condições de entrega exige nova seleção; custos e itens são recalculados no servidor.
+`vendedor_id`, `id`, `nome` e `valor` são obrigatórios. `ufs`, limites inclusivos de CEP e dias úteis são opcionais. Sem prazo configurado, exibe “Prazo a combinar com o vendedor”. Valor zero representa uma modalidade gratuita explicitamente configurada. Trocar endereço ou condições de entrega exige nova seleção; custos e itens são recalculados no servidor.
+
+### Entrega e frete a combinar
+
+Sem tarifa aplicável ao vendedor/origem/destino, o sistema agora oferece **Entrega e frete a combinar** (`id: a-combinar`, `tipo: a_combinar`, `valor: null`). O comprador precisa selecionar essa opção e revisar antes de registrar o pedido. Endereços próximos ou na mesma cidade não definem preço nem confirmam atendimento: disponibilidade, prazo e valor serão combinados pelo chat. A origem válida do anúncio e a confirmação do endereço próprio continuam obrigatórias.
+
+Tarifas configuradas aplicáveis são preservadas: a negociação só aparece nos grupos sem cotação. Em carrinhos mistos, fretes conhecidos permanecem somados separadamente; nunca substituímos frete pendente por R$ 0,00 na tela ou API. Checkout, revisão, confirmação e histórico identificam a pendência e oferecem contato com o vendedor. A notificação do vendedor informa a necessidade de acordo. Alterar a tabela depois da seleção exige nova revisão do checkout.
+
+Na API, `frete_pendente=true`, `frete=null` e `total=null` indicam que não há valor final. `frete_conhecido` soma somente tarifas definidas; `total_parcial` soma produtos e tarifas conhecidas. O pedido segue `registrado` e `status_pagamento=nao_iniciado`; a seleção não confirma entrega nem gera cobrança. O snapshot mantém `valor:null` e `tipo:a_combinar`, inclusive ao repetir o pedido ou consultar o histórico depois. Não há definição automática de tarifa após uma conversa.
+
+A opção inicial a combinar não exige alteração nos campos de preço: por compatibilidade do schema, `pedidos_produto.total/frete` guardam **somente os valores conhecidos**, não confirmação de pagamento. O acompanhamento posterior utiliza as novas tabelas idempotentes `pedido_entregas` e `pedido_entrega_eventos`; o snapshot inicial não é reescrito. As respostas atuais consideram os acordos aceitos e as propostas ainda pendentes. Consumidores diretos do banco não devem tratar `total` isoladamente como preço final, aceite ou pagamento; consulte também o acompanhamento em [ACORDOS_E_ENTREGAS.md](ACORDOS_E_ENTREGAS.md).
 
 ## Pagamento
 

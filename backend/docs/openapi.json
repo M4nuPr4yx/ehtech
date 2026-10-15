@@ -112,7 +112,7 @@
         "tags": ["Produtos"],
         "operationId": "listarProdutos",
         "summary": "Vitrine completa — cenário de maior volume",
-        "description": "SELECT * de todos os produtos aprovados, ordenados por id decrescente. Não há paginação nem filtros nesta rota legada. O corpo cresce com a quantidade de anúncios e o tamanho do campo imagem. Compare bytes, p50/p95, vazão e erros com o catálogo paginado.",
+        "description": "Todos os produtos aprovados, ordenados por id decrescente. Não há paginação nem filtros nesta rota legada. Origem pública contém somente cidade/UF; origem_snapshot e origem_endereco_id são removidos. O corpo cresce com a quantidade de anúncios e o tamanho do campo imagem.",
         "responses": {
           "200": {
             "description": "Lista completa; [] se não houver anúncios aprovados.",
@@ -170,7 +170,7 @@
         "tags": ["Produtos"],
         "operationId": "cadastrarProduto",
         "summary": "Cadastrar produto — requer autenticação JWT",
-        "description": "Cria um novo anúncio de produto com status **pendente**, aguardando aprovação de um administrador. Requer token JWT válido obtido em `POST /login`. Para teste de carga: faça login uma única vez, copie o token e reutilize-o em todas as requisições (válido por 8 horas). **Atenção:** o rate limit padrão de 300 req/IP em 15 min se aplica e não pode ser ampliado via `LOAD_TEST_PRODUCTS_MAX` (essa variável afeta apenas GET /produtos e GET /produtos/catalogo).",
+        "description": "Cria anúncio pendente para aprovação. Produtos físicos (exige_entrega omitido ou true) exigem origem_endereco_id e origem_versao de endereço salvo, próprio e confirmado. Copia a origem para o anúncio; editar/excluir a agenda não altera essa cópia. Somente cidade/UF são públicos. exige_entrega=false dispensa origem apenas para itens sem envio físico. Requer JWT e mantém rate limit padrão de 300 req/IP em 15 min.",
         "security": [
           { "bearerAuth": [] }
         ],
@@ -185,7 +185,9 @@
                 "preco": 349.90,
                 "estoque": 10,
                 "categoria": "perifericos",
-                "imagem": null
+                "imagem": null,
+                "origem_endereco_id": 1,
+                "origem_versao": 1
               }
             }
           }
@@ -209,8 +211,10 @@
               }
             }
           },
+          "404": { "description": "Origem não encontrada entre os endereços salvos da conta.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } },
+          "409": { "description": "Origem alterada ou ainda não confirmada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } },
           "400": {
-            "description": "Dados do produto inválidos ou ausentes.",
+            "description": "Dados do produto inválidos ou ausentes, incluindo origem obrigatória para produto físico.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Erro" },
@@ -290,7 +294,7 @@
         "tags": ["Produtos"],
         "operationId": "consultarCatalogo",
         "summary": "Catálogo paginado — cenário de uso habitual",
-        "description": "Produtos aprovados com estoque aparecem primeiro; a ordenação selecionada é aplicada dentro desses grupos. Executa contagem e seleção em paralelo. Busca usa LIKE '%termo%'. Categoria ignora capitalização; 'audio' também aceita 'áudio' e 'fones de ouvido'. Parâmetros numéricos são normalizados conforme descrito.",
+        "description": "Produtos aprovados com estoque primeiro. Busca literal sem distinguir maiúsculas em nome/descrição. Filtra cidade exata/UF de origem e datas inclusivas de publicação; campos privados de origem nunca são retornados. Relevância: nome exato, prefixo, trecho do nome, descrição, desempatando por data/ID. Sem busca, relevância usa recentes. Datas desconhecidas de anúncios antigos ficam por último e não entram no filtro por data. Categoria ignora capitalização; audio aceita áudio/fones de ouvido.",
         "parameters": [
           {
             "name": "page",
@@ -348,10 +352,14 @@
             "description": "Ausente ou desconhecida usa recentes. Empates usam id decrescente.",
             "schema": {
               "type": "string",
-              "enum": ["recentes", "menor-preco", "maior-preco"],
+              "enum": ["recentes", "antigos", "relevancia", "menor-preco", "maior-preco"],
               "default": "recentes"
             }
-          }
+          },
+          { "name": "uf", "in": "query", "description": "UF de origem do envio; inválida retorna 400.", "schema": { "type": "string", "minLength": 2, "maxLength": 2 } },
+          { "name": "cidade", "in": "query", "description": "Cidade exata de origem, sem distinguir maiúsculas.", "schema": { "type": "string", "maxLength": 100 } },
+          { "name": "dataInicio", "in": "query", "description": "Data inicial inclusiva da publicação.", "schema": { "type": "string", "format": "date" } },
+          { "name": "dataFim", "in": "query", "description": "Data final inclusiva. Datas inexistentes ou intervalo invertido retornam 400.", "schema": { "type": "string", "format": "date" } }
         ],
         "responses": {
           "200": {
@@ -778,6 +786,9 @@
         "type": "object",
         "required": ["nome", "descricao", "preco", "categoria"],
         "properties": {
+          "exige_entrega": { "type": "boolean", "default": true },
+          "origem_endereco_id": { "type": "integer", "minimum": 1, "description": "Endereço salvo da conta; obrigatório quando exige_entrega=true ou omitido." },
+          "origem_versao": { "type": "integer", "minimum": 1, "description": "Versão confirmada do endereço selecionado." },
           "componente_id": { "type": "integer", "minimum": 1, "nullable": true, "description": "Modelo técnico ativo e verificado do catálogo; associação opcional e informada pelo vendedor." },
           "nome": {
             "type": "string",
@@ -827,6 +838,10 @@
         "type": "object",
         "required": ["id_produto", "nome", "descricao", "preco", "estoque", "categoria", "imagem"],
         "properties": {
+          "origem_uf": { "type": "string", "nullable": true },
+          "origem_cidade": { "type": "string", "nullable": true },
+          "data_criacao": { "type": "string", "format": "date-time", "nullable": true },
+          "exige_entrega": { "oneOf": [{ "type": "boolean" }, { "type": "integer", "enum": [0, 1] }] },
           "componente_id": { "type": "integer", "minimum": 1, "nullable": true },
           "id_produto": { "type": "integer", "minimum": 1 },
           "nome": { "type": "string" },
@@ -859,7 +874,7 @@
                 "type": "string",
                 "enum": ["aprovado"]
               },
-              "data_criacao": { "type": "string", "format": "date-time" }
+              "data_criacao": { "type": "string", "format": "date-time", "nullable": true }
             }
           }
         ]

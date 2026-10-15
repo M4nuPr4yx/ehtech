@@ -215,6 +215,7 @@ export default function ContractsPage() {
                   )}
 
                   <div className={styles.requestGrid}>
+                    {contract.combo_snapshot && <div className={styles.description}><span>Combo solicitado: {contract.combo_snapshot.titulo}</span><p><Link href={`/produtos/${contract.combo_snapshot.produto_id}`}>{contract.combo_snapshot.produto_nome}</Link> · produto na solicitação: {currency(contract.combo_snapshot.produto_preco)}. Referência do conjunto: {currency(contract.combo_snapshot.total_estimado)}. O orçamento e a garantia desta contratação cobrem apenas o serviço; a compra do produto é separada.</p></div>}
                     <div className={styles.description}><span>Necessidade informada</span><p>{contract.descricao_problema}</p></div>
                     <dl><div><dt>Modalidade</dt><dd>{contract.modalidade}</dd></div><div><dt>Urgência</dt><dd>{contract.urgencia}</dd></div><div><dt>Limite do cliente</dt><dd>{currency(contract.orcamento_max)}</dd></div><div><dt>Disponibilidade</dt><dd>{contract.disponibilidade}</dd></div></dl>
                   </div>

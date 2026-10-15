@@ -33,6 +33,9 @@ test('documenta todos os endpoints de negócio Express, sem inventar rotas', () 
     ['routes/addresses.js', '/enderecos', 'router'],
     ['routes/checkout.js', '/checkout', 'router'],
     ['routes/passports.js', '/passaportes', 'router'],
+    ['routes/certificates.js', '/certificados', 'router'],
+    ['routes/combos.js', '/combos', 'router'],
+    ['routes/missions.js', '/missoes', 'router'],
     ['routes/components.js', '/componentes', 'router'],
     ['routes/upload.js', '/upload', 'router']
   ]) {

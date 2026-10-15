@@ -2,6 +2,7 @@ const express = require('express')
 const crypto = require('crypto')
 const { autenticarToken } = require('../middleware/auth')
 const { integer } = require('../validation')
+const { findCombo } = require('../differentials')
 
 const MODALITIES = new Set(['presencial', 'remoto', 'hibrido'])
 const URGENCIES = new Set(['flexivel', 'normal', 'urgente'])
@@ -19,7 +20,7 @@ const contractFields = `c.id_contratacao, c.servico_id, c.cliente_id, c.prestado
   c.status, c.valor_proposto, c.escopo_proposto, c.prazo_proposto, c.garantia_dias,
   c.observacoes_prestador, c.garantia_codigo, c.garantia_inicio_em, c.garantia_fim_em,
   c.orcamento_enviado_em, c.aceito_em, c.iniciado_em,
-  c.concluido_em, c.cancelado_em, c.created_at, c.updated_at,
+  c.concluido_em, c.cancelado_em, c.created_at, c.updated_at, c.combo_snapshot,
   s.slug, s.titulo AS servico_titulo, s.categoria,
   COALESCE(cliente.nome, cliente.username, 'Cliente') AS cliente_nome,
   COALESCE(prestador.nome, prestador.username, 'Prestador') AS prestador_nome,
@@ -39,6 +40,7 @@ function moneyValue(value, { required = false } = {}) {
 function normalizeContract(row, userId) {
   return {
     ...row,
+    combo_snapshot: row.combo_snapshot ? JSON.parse(row.combo_snapshot) : null,
     orcamento_max: row.orcamento_max === null ? null : Number(row.orcamento_max),
     valor_proposto: row.valor_proposto === null ? null : Number(row.valor_proposto),
     garantia_dias: row.garantia_dias === null ? null : Number(row.garantia_dias),
@@ -76,6 +78,12 @@ function createServiceContractsRouter(pool) {
     if (availability.length < 5) return res.status(400).json({ mensagem: 'Informe sua disponibilidade para o atendimento.' })
 
     try {
+      let combo = null
+      if (req.body.combo_id !== undefined) {
+        combo = await findCombo(pool, req.body.combo_id)
+        if (Number(combo.servico_id) !== serviceId) return res.status(400).json({ mensagem: 'O serviço não pertence ao combo selecionado.' })
+        if (Number(combo.criador_id) === Number(req.user.id)) return res.status(400).json({ mensagem: 'Você não pode solicitar seu próprio combo.' })
+      }
       const [services] = await pool.execute(
         "SELECT id_servico, titulo, prestador_id FROM servicos WHERE id_servico = ? AND status = 'ativo' LIMIT 1",
         [serviceId]
@@ -95,13 +103,14 @@ function createServiceContractsRouter(pool) {
 
       const [result] = await pool.execute(
         `INSERT INTO contratacoes_servico
-          (servico_id, cliente_id, prestador_id, descricao_problema, modalidade, urgencia, orcamento_max, disponibilidade)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [serviceId, req.user.id, service.prestador_id, description, modality, urgency, maximumBudget, availability]
+          (servico_id, cliente_id, prestador_id, descricao_problema, modalidade, urgencia, orcamento_max, disponibilidade, combo_snapshot)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [serviceId, req.user.id, service.prestador_id, description, modality, urgency, maximumBudget, availability, combo ? JSON.stringify({ id: combo.id, titulo: combo.titulo, produto_id: combo.produto_id, produto_nome: combo.produto_nome, produto_preco: combo.produto_preco, servico_preco_base: combo.preco_base, total_estimado: combo.total_estimado }) : null]
       )
       await notify(pool, service.prestador_id, 'servico_solicitado', `Nova solicitação de orçamento para “${service.titulo}”.`)
       return res.status(201).json({ id: result.insertId, status: 'solicitado', mensagem: 'Solicitação enviada ao prestador.' })
     } catch (error) {
+      if (error.status) return res.status(error.status).json({ mensagem: error.message })
       console.error('[contratacoes/criar] Erro:', error.message)
       return res.status(500).json({ mensagem: 'Não foi possível enviar a solicitação.' })
     }

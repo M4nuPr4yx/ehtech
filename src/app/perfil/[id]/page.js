@@ -187,7 +187,7 @@ export default function SellerProfile() {
 
               {!isSelf && (
                 <Link
-                  href={`/mensagens?vendedor=${seller.id_usuario || params.id}`}
+                  href={`/mensagens?usuario=${seller.id_usuario || params.id}`}
                   className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl shadow-lg hover:shadow-transparent transition-all text-center text-sm"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

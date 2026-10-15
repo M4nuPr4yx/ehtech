@@ -14,6 +14,26 @@ function loadAdapter(env, dependencies) {
   return context.module.exports
 }
 
+test('PostgreSQL/Neon limita espera por conexão e tamanho do pool serverless', () => {
+  let options
+  class Pool { constructor(config) { options = config } }
+  loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test', VERCEL: '1' }, { pg: { Pool }, 'mysql2/promise': {} })
+  assert.equal(options.connectionTimeoutMillis, 10000)
+  assert.equal(options.max, 3)
+})
+
+test('migração de acordos de entrega traduz chaves e preserva idempotência no PostgreSQL', async () => {
+  const queries = []
+  class Pool { async query(sql) { queries.push(sql); return { rows: [], rowCount: 0 } } }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  const { initializeOrderDeliveries } = require('../backend/database/order-deliveries')
+  await initializeOrderDeliveries(pool); await initializeOrderDeliveries(pool)
+  assert.equal(queries.length, 4)
+  for (const sql of queries) { assert.match(sql, /CREATE TABLE IF NOT EXISTS/); assert.match(sql, /id SERIAL PRIMARY KEY/); assert.doesNotMatch(sql, /AUTO_INCREMENT|UNIQUE KEY/) }
+  assert.match(queries[0], /UNIQUE \(pedido_id, grupo_id\)/)
+  assert.match(queries[1], /REFERENCES pedido_entregas\(id\) ON DELETE CASCADE/)
+})
+
 test('PostgreSQL traduz migração de endereços e checkout com booleanos e snapshots', async () => {
   const queries = []
   class Pool {
@@ -27,6 +47,37 @@ test('PostgreSQL traduz migração de endereços e checkout com booleanos e snap
   assert.match(queries[1], /id VARCHAR\(36\) PRIMARY KEY/)
   assert.match(queries[1], /endereco_versao INT/)
   assert.match(queries[2], /exige_entrega BOOLEAN NOT NULL DEFAULT TRUE/)
+  for (const sql of queries) assert.doesNotMatch(sql, /AUTO_INCREMENT|INDEX idx_/)
+})
+
+test('PostgreSQL aceita a migração de origens sem inventar data para anúncios antigos', async () => {
+  const queries = []
+  class Pool { async query(sql) { queries.push(sql); return { rows: [], rowCount: 0 } } }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  await require('../backend/database/product-origins').initializeProductOrigins(pool)
+  assert.equal(queries.length, 6)
+  assert.match(queries[4], /data_criacao TIMESTAMP NULL DEFAULT NULL/)
+  assert.match(queries[5], /origem_envio TEXT NULL/)
+})
+
+test('migração de diferenciais é idempotente e traduz certificados/combos para PostgreSQL', async () => {
+  const queries = []
+  class Pool {
+    async query(sql) {
+      queries.push(sql)
+      if (sql.startsWith('ALTER') && queries.filter(item => item.startsWith('ALTER')).length > 1) throw Object.assign(new Error('duplicate column'), { code: '42701' })
+      return { rows: [], rowCount: 0 }
+    }
+  }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  const { initializeDifferentials } = require('../backend/database/differentials')
+  await initializeDifferentials(pool)
+  await initializeDifferentials(pool)
+  assert.equal(queries.length, 6)
+  assert.match(queries[0], /id SERIAL PRIMARY KEY/)
+  assert.match(queries[0], /expira_em TIMESTAMP/)
+  assert.match(queries[0], /REFERENCES passaportes\(id\) ON DELETE CASCADE/)
+  assert.match(queries[1], /ativo BOOLEAN NOT NULL DEFAULT TRUE/)
   for (const sql of queries) assert.doesNotMatch(sql, /AUTO_INCREMENT|INDEX idx_/)
 })
 

@@ -6,6 +6,8 @@ import { getApiUrl } from '../../lib/api';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
 import AddressBook, { AddressDetails } from '../complements/AddressBook';
+import { freightLabel } from '../../lib/shipping';
+import { orderStatus } from '../../lib/order-status';
 
 const CONTRACT_STATUS = {
   solicitado: 'Solicitado', orcamento_enviado: 'Orçamento enviado', aceito: 'Aceito',
@@ -660,17 +662,19 @@ const handleChangeEmail = async (e) => {
                   </section>
 
                   <section>
-                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-foreground">Pedidos de produtos</h3><p className="text-xs text-muted">Registro dos itens solicitados aos vendedores</p></div><span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">{productOrders.length}</span></div>
+                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-foreground">Pedidos de produtos</h3><Link href="/pedidos" className="text-sm font-bold text-accent underline">Acompanhar compras e vendas →</Link></div><span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">{productOrders.length}</span></div>
                     {productOrders.length ? <div className="space-y-4">{productOrders.map((order) => (
                       <article key={order.id_pedido} className="overflow-hidden rounded-2xl border border-line bg-surface-raised">
-                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><span className="text-xs uppercase tracking-wider text-muted">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-muted">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-info-soft px-2.5 py-1 text-xs font-bold text-info">Pedido registrado</span><strong className="mt-1 block text-lg text-accent">{formatCurrency(order.total)}</strong></div></header>
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><span className="text-xs uppercase tracking-wider text-muted">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-muted">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-info-soft px-2.5 py-1 text-xs font-bold text-info">{orderStatus[order.status] || order.status}{order.frete_pendente ? ' · Frete pendente' : ''}</span><strong className="mt-1 block text-lg text-accent">{order.frete_pendente || order.acordo_pendente ? 'Parcial / referência: ' : ''}{formatCurrency(order.total_parcial ?? order.total)}</strong></div></header>
                         <div className="divide-y divide-line">{order.itens.map((item) => (
                           <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><Link href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-foreground hover:text-accent">{item.nome_produto}</Link><p className="truncate text-xs text-muted">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-muted">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-muted">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
                         ))}</div>
                         <footer className="space-y-3 border-t border-line bg-surface px-5 py-4 text-xs text-muted">
+                          <Link href={`/pedidos/${order.id_pedido}`} className="inline-block text-sm font-bold text-accent underline">Ver pedido, propostas e entrega →</Link>
                           {order.endereco_entrega && <div><p className="mb-2 font-bold">Endereço registrado neste pedido</p><AddressDetails address={order.endereco_entrega} /></div>}
-                          {order.entrega?.map(option => <p key={option.vendedor_id}>{option.vendedor}: {option.nome} · {formatCurrency(option.valor)} · {option.prazo}</p>)}
-                          <p>Frete: {formatCurrency(order.frete || 0)} · Pagamento: {order.status_pagamento === 'pago' ? 'Pago' : 'Não iniciado'}. Nenhuma cobrança online realizada pelo registro do pedido.</p>
+                          {order.entrega?.map(option => <div key={option.grupo_id || option.vendedor_id}><p>{option.vendedor}{option.origem ? ` (${option.origem.cidade}/${option.origem.uf})` : ''}: {option.nome} · {freightLabel(option)} · {option.prazo}</p>{option.tipo === 'a_combinar' && <Link href={`/mensagens?usuario=${option.vendedor_id}`} className="font-bold text-accent underline">Combinar entrega e frete com o vendedor →</Link>}</div>)}
+                          <p>Frete: {order.frete_pendente ? 'A combinar (não incluído no subtotal)' : formatCurrency(order.frete || 0)}{order.frete_pendente && order.frete_conhecido > 0 ? ` · Fretes já definidos: ${formatCurrency(order.frete_conhecido)}` : ''} · Pagamento: {order.status_pagamento === 'pago' ? 'Pago' : 'Não iniciado'}. Nenhuma cobrança online realizada pelo registro do pedido.</p>
+                          {order.frete_pendente && <p className="text-warning">O subtotal inclui os itens e fretes já definidos, mas não os fretes pendentes. O valor final, a disponibilidade de entrega e o prazo dependem de acordo pelo chat.</p>}
                         </footer>
                       </article>
                     ))}</div> : <div className="rounded-2xl border border-dashed border-line p-8 text-center"><p className="text-sm text-muted">Nenhum pedido de produto foi registrado.</p><Link href="/produtos" className="mt-2 inline-block text-sm font-bold text-accent hover:underline">Explorar produtos →</Link></div>}

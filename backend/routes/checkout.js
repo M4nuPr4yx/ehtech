@@ -4,6 +4,7 @@ const { autenticarToken } = require('../middleware/auth')
 const { integer } = require('../validation')
 const { transaction, problem, validateAddress } = require('../addresses')
 const { normalizeItems, loadCart, getSession, inspectCheckout, requireReady, checkoutView, chooseShipping } = require('../checkout')
+const { readOrder } = require('../order-deliveries')
 
 module.exports = function createCheckoutRouter(pool) {
   const router = express.Router()
@@ -22,7 +23,10 @@ module.exports = function createCheckoutRouter(pool) {
   }))
   router.get('/:id', action(async req => {
     const session = await getSession(pool, req.params.id, req.user.id)
-    if (session.pedido_id) return { id: session.id, pedido_id: session.pedido_id }
+    if (session.pedido_id) {
+      const { view } = await readOrder(pool, session.pedido_id, req.user.id)
+      return { id: session.id, pedido_id: session.pedido_id, frete_pendente: view.frete_pendente, status: view.status }
+    }
     return checkoutView(session, await inspectCheckout(pool, session, req.user.id))
   }))
   router.put('/:id/endereco', action(req => transaction(pool, async connection => {

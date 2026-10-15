@@ -20,6 +20,8 @@ const createServiceContractsRouter = require('./routes/serviceContracts')
 const createOrdersRouter = require('./routes/orders')
 const createPassportsRouter = require('./routes/passports')
 const createComponentsRouter = require('./routes/components')
+const { selectOrigin, publicProduct } = require('./product-origins')
+const { catalogQuery } = require('./product-catalog')
 const { findComponent } = require('./components/catalog')
 const { initializeDatabase } = require('./database/init')
 const { createDocsRouter } = require('./docs/router')
@@ -45,6 +47,9 @@ app.use(cors({
 
 // Suporte automático para requisições com prefixo /api (ex: /api/produtos ou /produtos)
 app.use((req, res, next) => {
+  if (req.url.startsWith('/api/_backend/') || req.url === '/api/_backend') {
+    req.url = req.url.replace(/^\/api\/_backend/, '') || '/'
+  }
   if (req.url.startsWith('/api/') || req.url === '/api') {
     req.url = req.url.replace(/^\/api/, '') || '/'
   }
@@ -147,6 +152,9 @@ app.use('/pedidos', createOrdersRouter(pool))
 app.use('/enderecos', require('./routes/addresses')(pool))
 app.use('/checkout', require('./routes/checkout')(pool))
 app.use('/passaportes', createPassportsRouter(pool))
+app.use('/certificados', require('./routes/certificates')(pool))
+app.use('/combos', require('./routes/combos')(pool))
+app.use('/missoes', require('./routes/missions')(pool))
 app.use('/componentes', createComponentsRouter(pool))
 
 const { getApiSecret } = require('./middleware/auth')
@@ -525,7 +533,7 @@ app.put("/notificacoes/lidas", autenticarToken, async (req, res) => {
 app.get("/produtos", async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT * FROM produtos WHERE status_aprovacao = 'aprovado' ORDER BY id_produto DESC")
-    return res.json(rows)
+    return res.json(rows.map(publicProduct))
   } catch (error) {
     console.error('[produtos] Erro ao listar vitrine:', error.message)
     return res.status(500).json({ mensagem: "Erro ao listar produtos" })
@@ -536,72 +544,22 @@ app.get("/produtos", async (req, res) => {
 // (por exemplo, a vitrine da página inicial), mas evita montar e transferir
 // todo o catálogo quando o usuário abre a tela de busca.
 app.get("/produtos/catalogo", async (req, res) => {
-  const requestedPage = Number.parseInt(req.query.page, 10)
-  const requestedLimit = Number.parseInt(req.query.limit, 10)
-  const page = Number.isInteger(requestedPage) && requestedPage > 0
-    ? Math.min(requestedPage, 100000)
-    : 1
-  const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
-    ? Math.min(requestedLimit, 24)
-    : 12
-
-  const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : ''
-  const category = typeof req.query.categoria === 'string' ? req.query.categoria.trim().slice(0, 60) : ''
-  const minPrice = Number.parseFloat(req.query.precoMin)
-  const maxPrice = Number.parseFloat(req.query.precoMax)
-  const hasMinPrice = Number.isFinite(minPrice) && minPrice >= 0
-  const hasMaxPrice = Number.isFinite(maxPrice) && maxPrice >= 0
-  const sort = ['recentes', 'menor-preco', 'maior-preco'].includes(req.query.ordenacao)
-    ? req.query.ordenacao
-    : 'recentes'
-
-  if (hasMinPrice && hasMaxPrice && minPrice > maxPrice) {
-    return res.status(400).json({ mensagem: 'O preço mínimo não pode ser maior que o máximo' })
-  }
-
-  const filters = ["status_aprovacao = 'aprovado'"]
-  const params = []
-
-  if (search) {
-    filters.push('nome LIKE ?')
-    params.push(`%${search}%`)
-  }
-  if (category) {
-    // Mantém os filtros compatíveis com registros antigos que salvaram a
-    // categoria com capitalização diferente da usada pelo formulário.
-    const aliases = category.toLowerCase() === 'audio'
-      ? ['audio', 'áudio', 'fones de ouvido']
-      : [category.toLowerCase()]
-    filters.push(`LOWER(categoria) IN (${aliases.map(() => '?').join(',')})`)
-    params.push(...aliases)
-  }
-  if (hasMinPrice) {
-    filters.push('preco >= ?')
-    params.push(minPrice)
-  }
-  if (hasMaxPrice) {
-    filters.push('preco <= ?')
-    params.push(maxPrice)
-  }
-
-  const where = filters.join(' AND ')
-  const orderBy = {
-    recentes: 'id_produto DESC',
-    'menor-preco': 'preco ASC, id_produto DESC',
-    'maior-preco': 'preco DESC, id_produto DESC'
-  }[sort]
+  let options
+  try { options = catalogQuery(req.query) }
+  catch (error) { return res.status(400).json({ mensagem: error.message }) }
+  const { page, limit, where, params, order, orderParams } = options
   const offset = (page - 1) * limit
 
   try {
     const [[[countResult]], [items]] = await Promise.all([
       pool.execute(`SELECT COUNT(*) AS total FROM produtos WHERE ${where}`, params),
       pool.execute(
-        `SELECT id_produto, nome, descricao, preco, estoque, categoria, imagem, componente_id
+        `SELECT id_produto, nome, descricao, preco, estoque, categoria, imagem, componente_id, origem_uf, origem_cidade, data_criacao
          FROM produtos
          WHERE ${where}
-         ORDER BY (estoque <= 0) ASC, ${orderBy}
+         ORDER BY ${order}
          LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
+        [...params, ...orderParams, limit, offset]
       )
     ])
 
@@ -646,7 +604,7 @@ app.get("/produtos/:id", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado" })
     }
 
-    return res.json(rows[0])
+    return res.json(publicProduct(rows[0]))
   } catch (error) {
     console.error('[produtos/:id] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao buscar produto" })
@@ -702,9 +660,12 @@ app.post("/produtos", autenticarToken, async (req, res) => {
       if (!component) return res.status(400).json({ mensagem: 'Selecione um modelo técnico ativo e revisado.' })
       componentId = component.id
     }
+    const requiresShipping = req.body.exige_entrega !== false
+    if (req.body.exige_entrega !== undefined && typeof req.body.exige_entrega !== 'boolean') return res.status(400).json({ mensagem: 'Informe se o produto exige entrega física.' })
+    const origin = requiresShipping ? await selectOrigin(pool, vendedorId, req.body.origem_endereco_id, req.body.origem_versao) : null
     const result = await pool.execute(
-      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao, componente_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?)",
-      [cleanNome, cleanDescricao, parsedPreco, cleanEstoque, cleanCategoria, cleanImagem, vendedorName, vendedorId, componentId]
+      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao, componente_id, exige_entrega, origem_endereco_id, origem_snapshot, origem_uf, origem_cidade, data_criacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+      [cleanNome, cleanDescricao, parsedPreco, cleanEstoque, cleanCategoria, cleanImagem, vendedorName, vendedorId, componentId, requiresShipping, origin?.id ?? null, origin?.snapshot ?? null, origin?.uf ?? null, origin?.cidade ?? null]
     )
 
     await criarNotificacao({
@@ -716,6 +677,7 @@ app.post("/produtos", autenticarToken, async (req, res) => {
 
     return res.status(201).json({ mensagem: "Produto cadastrado com sucesso! Aguardando aprovação.", id: result[0].insertId })
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ mensagem: error.message })
     console.error('[produtos/post] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao cadastrar produto" })
   }
@@ -731,7 +693,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
 
   try {
-    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao, componente_id FROM produtos WHERE id_produto = ?', [numericId])
+    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao, componente_id, exige_entrega, origem_endereco_id, origem_snapshot, origem_uf, origem_cidade FROM produtos WHERE id_produto = ?', [numericId])
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Produto não encontrado" })
     }
@@ -782,8 +744,15 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
       }
     }
     if (!isAdmin && Number(componentId || 0) !== Number(rows[0].componente_id || 0)) statusAprovacao = 'pendente'
+    if (req.body.exige_entrega !== undefined && typeof req.body.exige_entrega !== 'boolean') return res.status(400).json({ mensagem: 'Informe se o produto exige entrega física.' })
+    const requiresShipping = req.body.exige_entrega ?? Boolean(rows[0].exige_entrega)
+    let origin = { id: rows[0].origem_endereco_id, snapshot: rows[0].origem_snapshot, uf: rows[0].origem_uf, cidade: rows[0].origem_cidade }
+    if (!requiresShipping) origin = null
+    else if (req.body.origem_endereco_id !== undefined) origin = await selectOrigin(pool, rows[0].vendedor_id, req.body.origem_endereco_id, req.body.origem_versao)
+    else if (!origin.snapshot) return res.status(400).json({ mensagem: 'Selecione um endereço de origem para este anúncio antigo.' })
+    if (!isAdmin && (origin?.snapshot !== rows[0].origem_snapshot || requiresShipping !== Boolean(rows[0].exige_entrega))) statusAprovacao = 'pendente'
     await pool.execute(
-      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ?, status_aprovacao = ?, componente_id = ? WHERE id_produto = ?',
+      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ?, status_aprovacao = ?, componente_id = ?, exige_entrega = ?, origem_endereco_id = ?, origem_snapshot = ?, origem_uf = ?, origem_cidade = ? WHERE id_produto = ?',
       [
         cleanNome,
         cleanDescricao,
@@ -793,6 +762,11 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
         imagemValue,
         statusAprovacao,
         componentId,
+        requiresShipping,
+        origin?.id ?? null,
+        origin?.snapshot ?? null,
+        origin?.uf ?? null,
+        origin?.cidade ?? null,
         numericId
       ]
     )
@@ -808,6 +782,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
 
     return res.json({ mensagem: "Produto atualizado com sucesso" })
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ mensagem: error.message })
     console.error('[produtos/update] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao atualizar produto" })
   }
@@ -971,6 +946,21 @@ app.get("/perfil", autenticarToken, async (req, res) => {
 })
 
 // Perfil público do vendedor (sem expor email/hash)
+app.get('/usuarios/busca', autenticarToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const { page, limit, where, params, order, orderParams } = require('./user-search').userSearch(req.query, req.user.id)
+    const [[[count]], [items]] = await Promise.all([
+      pool.execute(`SELECT COUNT(*) AS total FROM usuarios WHERE ${where}`, params),
+      pool.execute(`SELECT id_usuario, username, nome, foto FROM usuarios WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, ...orderParams, limit, (page - 1) * limit])
+    ])
+    res.json({ items, total: Number(count.total), page, limit, totalPages: Math.min(100, Math.max(1, Math.ceil(Number(count.total) / limit))) })
+  } catch (error) {
+    if (!error.status) console.error('[usuarios/busca] Falha ao buscar usuários.')
+    res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível buscar usuários. Tente novamente.' })
+  }
+})
+
 app.get("/usuarios/:id/publico", async (req, res) => {
   const numericId = parseInt(req.params.id, 10)
   if (isNaN(numericId)) {

@@ -20,7 +20,7 @@ export function AddressDetails({ address }) {
   </div>;
 }
 
-export default function AddressBook({ onConfirm, initialAddress, checkout = false }) {
+export default function AddressBook({ onConfirm, initialAddress, checkout = false, purpose = 'delivery' }) {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -97,16 +97,16 @@ export default function AddressBook({ onConfirm, initialAddress, checkout = fals
   </div>;
 
   return <section className="space-y-5" aria-label="Meus Endereços">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold text-foreground">⌖ {checkout ? 'Endereço de entrega' : 'Meus Endereços'}</h2><button className={secondary} disabled={busy} onClick={() => edit(EMPTY)}>+ Novo endereço</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold text-foreground">⌖ {purpose === 'origin' ? 'Endereço de origem do envio' : checkout ? 'Endereço de entrega' : 'Meus Endereços'}</h2><button className={secondary} disabled={busy} onClick={() => edit(EMPTY)}>+ Novo endereço</button></div>
     {message && <p role="status" className="rounded-xl bg-success-soft p-3 text-sm text-success">{message}</p>}
     {error && <div role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{error} {!draft && !review && <button className="ml-2 underline" onClick={reload}>Tentar novamente</button>}</div>}
     {loading ? <p role="status" className="text-muted">Carregando endereços…</p> : !draft && !review && <>
-      {addresses.length === 0 && <p className="text-sm text-muted">Para continuar sua compra, é necessário cadastrar e confirmar seu endereço de entrega.</p>}
+      {addresses.length === 0 && <p className="text-sm text-muted">{purpose === 'origin' ? 'Cadastre e confirme um endereço de origem. Ele ficará salvo na conta para próximos anúncios e compras.' : 'Salve seus endereços aqui para reutilizar em compras e anúncios, sem preencher tudo novamente.'}</p>}
       {(initialAddress && !addresses.some(address => address.id === initialAddress.id) ? [initialAddress, ...addresses] : addresses).map(address => <article key={address.id} className="rounded-xl border border-line bg-surface-raised p-4">
         <div className="mb-2 flex flex-wrap gap-2 text-xs text-muted">{Boolean(address.principal) && <span className="font-bold text-accent">Principal</span>}<span>{address.confirmado_em ? 'Dados revisados' : 'Revisão necessária'}</span></div>
         <AddressDetails address={address} />
         <div className="mt-4 flex flex-wrap gap-2">
-          <button className={secondary} disabled={busy} onClick={() => { setReview(address); setMessage(''); }}>{checkout ? 'Selecionar e revisar' : 'Revisar endereço'}</button>
+          <button className={secondary} disabled={busy} onClick={() => { setReview(address); setMessage(''); }}>{checkout || purpose === 'origin' ? 'Selecionar e revisar' : 'Revisar endereço'}</button>
           <button className={secondary} disabled={busy} onClick={() => edit(address)}>Editar</button>
           {!address.principal && <button className={secondary} disabled={busy} onClick={() => action(`/enderecos/${address.id}/principal`)}>Definir principal</button>}
           <button className="px-2 text-sm text-danger" disabled={busy} onClick={() => { if (window.confirm('Excluir este endereço? Pedidos anteriores serão preservados.')) action(`/enderecos/${address.id}`, 'DELETE'); }}>Excluir</button>
@@ -133,10 +133,10 @@ export default function AddressBook({ onConfirm, initialAddress, checkout = fals
         {field('referencia', 'Ponto de referência', false, { maxLength: 200 })}
         {field('instrucoes', 'Instruções para entrega', false, { maxLength: 500 })}
       </div>
-      {checkout && <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={Boolean(draft.salvar)} onChange={event => change('salvar', event.target.checked)} />Salvar para futuras compras</label>}
+      {checkout && <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={Boolean(draft.salvar)} onChange={event => change('salvar', event.target.checked)} />Salvar para futuras compras e anúncios</label>}
       <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={Boolean(draft.principal)} disabled={!draft.salvar} onChange={event => change('principal', event.target.checked)} />Marcar como principal</label>
       <div className="flex flex-wrap gap-3"><button className={button} disabled={busy || cepLoading}>{busy ? 'Salvando…' : 'Salvar e revisar'}</button><button type="button" className={secondary} disabled={busy} onClick={() => setDraft(null)}>Cancelar</button></div>
     </form>}
-    {review && <div className="space-y-4 rounded-2xl border border-accent bg-surface p-5"><h3 className="text-lg font-bold text-foreground">Confirme seu endereço de entrega</h3><AddressDetails address={review} /><p className="text-xs text-muted">Ao confirmar, você declara que revisou os dados. Isso não comprova residência ou localização.</p><div className="flex flex-wrap gap-3"><button className={button} disabled={busy} onClick={confirm}>{busy ? 'Confirmando…' : 'Confirmar endereço'}</button><button className={secondary} disabled={busy} onClick={() => edit(review)}>Editar endereço</button><button className={secondary} disabled={busy} onClick={() => setReview(null)}>Voltar</button></div></div>}
+    {review && <div className="space-y-4 rounded-2xl border border-accent bg-surface p-5"><h3 className="text-lg font-bold text-foreground">{purpose === 'origin' ? 'Confirme a origem do envio' : checkout ? 'Confirme seu endereço de entrega' : 'Confirme seu endereço'}</h3><AddressDetails address={review} /><p className="text-xs text-muted">Ao confirmar, você declara que revisou os dados. Isso não comprova residência ou localização.</p><div className="flex flex-wrap gap-3"><button className={button} disabled={busy} onClick={confirm}>{busy ? 'Confirmando…' : 'Confirmar endereço'}</button><button className={secondary} disabled={busy} onClick={() => edit(review)}>Editar endereço</button><button className={secondary} disabled={busy} onClick={() => setReview(null)}>Voltar</button></div></div>}
   </section>;
 }

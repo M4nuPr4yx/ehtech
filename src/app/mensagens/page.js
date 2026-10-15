@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getApiUrl } from '../../lib/api';
+import UserSearch from '../complements/UserSearch';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -33,13 +34,14 @@ function formatMessageTime(dateString) {
 export default function MensagensPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlVendedorId = searchParams.get('vendedor');
+  const urlVendedorId = searchParams.get('usuario') || searchParams.get('vendedor');
   const urlProdutoId = searchParams.get('produto');
 
   const [currentUser, setCurrentUser] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [findingPeople, setFindingPeople] = useState(false);
 
   const [activePartner, setActivePartner] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -51,6 +53,20 @@ export default function MensagensPage() {
   const [referencedProduct, setReferencedProduct] = useState(null);
   const [mobileView, setMobileView] = useState('list'); // 'list' or 'chat'
   const messagesEndRef = useRef(null);
+  const activePartnerRef = useRef(null);
+  const messagesRequestRef = useRef(0);
+  const partnerRevisionRef = useRef(0);
+
+  function openConversation(user) {
+    const id = Number(user.id_usuario);
+    activePartnerRef.current = id;
+    partnerRevisionRef.current += 1;
+    messagesRequestRef.current += 1;
+    setActivePartner({ ...user, id_usuario: id });
+    setMessages([]); setNewMessage(''); setMessageFeedback(''); setReferencedProduct(null);
+    setFindingPeople(false); setMobileView('chat'); setLoadingMessages(true);
+    router.replace(`/mensagens?usuario=${id}`, { scroll: false });
+  }
 
   // 1. Verificar autenticação
   useEffect(() => {
@@ -101,38 +117,43 @@ export default function MensagensPage() {
   useEffect(() => {
     if (!currentUser || !urlVendedorId) return;
 
-    const targetVendedorId = parseInt(urlVendedorId, 10);
-    if (isNaN(targetVendedorId) || targetVendedorId === Number(currentUser.id)) return;
+    const targetVendedorId = Number(urlVendedorId);
+    if (!Number.isSafeInteger(targetVendedorId) || targetVendedorId <= 0 || targetVendedorId === Number(currentUser.id)) return;
+    if (activePartnerRef.current === targetVendedorId && !urlProdutoId) return;
+    const controller = new AbortController();
 
     const setupPartnerFromUrl = async () => {
+      const revision = ++partnerRevisionRef.current;
+      activePartnerRef.current = targetVendedorId;
+      messagesRequestRef.current += 1;
+      setActivePartner(null); setMessages([]); setReferencedProduct(null); setNewMessage(''); setMessageFeedback('');
       try {
-        const res = await fetch(getApiUrl(`/usuarios/${targetVendedorId}/publico`));
+        const res = await fetch(getApiUrl(`/usuarios/${targetVendedorId}/publico`), { signal: controller.signal });
+        if (!res.ok) throw new Error('Usuário não encontrado. Busque outra pessoa para conversar.');
         if (res.ok) {
           const userData = await res.json();
+          if (controller.signal.aborted || activePartnerRef.current !== targetVendedorId || partnerRevisionRef.current !== revision) return;
           setActivePartner({
             id_usuario: userData.id_usuario,
             username: userData.username,
             nome: userData.nome,
             foto: userData.foto,
           });
-          setMobileView('chat');
+          setMobileView('chat'); setFindingPeople(false);
+          if (urlProdutoId) {
+            const productResponse = await fetch(getApiUrl(`/produtos/${urlProdutoId}`), { signal: controller.signal });
+            const product = productResponse.ok ? await productResponse.json() : null;
+            if (!controller.signal.aborted && activePartnerRef.current === targetVendedorId && partnerRevisionRef.current === revision && Number(product?.vendedor_id) === targetVendedorId) setReferencedProduct(product);
+          }
         }
       } catch (err) {
-        console.error('Erro ao obter vendedor da URL:', err);
+        if (!controller.signal.aborted && activePartnerRef.current === targetVendedorId && partnerRevisionRef.current === revision) setMessageFeedback(err.message);
       }
     };
 
     setupPartnerFromUrl();
 
-    // Se houver produto na URL, buscar detalhes para o banner
-    if (urlProdutoId) {
-      fetch(getApiUrl(`/produtos/${urlProdutoId}`))
-        .then((res) => (res.ok ? res.json() : null))
-        .then((prod) => {
-          if (prod) setReferencedProduct(prod);
-        })
-        .catch(() => {});
-    }
+    return () => controller.abort();
   }, [currentUser, urlVendedorId, urlProdutoId]);
 
   // 4. Carregar mensagens da conversa ativa
@@ -141,20 +162,19 @@ export default function MensagensPage() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    const requestId = ++messagesRequestRef.current;
     if (!silent) setLoadingMessages(true);
     try {
       const res = await fetch(getApiUrl(`/mensagens/${partnerId}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const data = await res.json();
+      if (activePartnerRef.current !== Number(partnerId) || requestId !== messagesRequestRef.current) return;
       if (res.ok) {
-        const data = await res.json();
         setMessages(Array.isArray(data.mensagens) ? data.mensagens : []);
-        if (data.parceiro && !activePartner?.username) {
-          setActivePartner(data.parceiro);
-        }
 
         // Marcar como lida
-        fetch(getApiUrl(`/mensagens/${partnerId}/lidas`), {
+        if (data.mensagens?.some(message => !message.lida && Number(message.remetente_id) === Number(partnerId))) fetch(getApiUrl(`/mensagens/${partnerId}/lidas`), {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` },
         }).then(() => {
@@ -162,14 +182,14 @@ export default function MensagensPage() {
           setConversations((prev) =>
             prev.map((c) => (c.partner_id === partnerId ? { ...c, unread_count: 0 } : c))
           );
-        });
-      }
+        }).catch(() => {});
+      } else setMessageFeedback(data.mensagem || 'Não foi possível carregar esta conversa.');
     } catch (err) {
-      console.error('Erro ao buscar mensagens:', err);
+      if (activePartnerRef.current === Number(partnerId) && requestId === messagesRequestRef.current) setMessageFeedback('Não foi possível carregar as mensagens. Tente novamente.');
     } finally {
-      if (!silent) setLoadingMessages(false);
+      if (activePartnerRef.current === Number(partnerId) && requestId === messagesRequestRef.current) setLoadingMessages(false);
     }
-  }, [activePartner?.username]);
+  }, []);
 
   useEffect(() => {
     if (activePartner?.id_usuario || activePartner?.partner_id) {
@@ -227,22 +247,24 @@ export default function MensagensPage() {
 
       if (res.ok) {
         // Atualiza imediatamente histórico
-        await fetchMessages(partnerId, true);
+        if (activePartnerRef.current === Number(partnerId)) await fetchMessages(partnerId, true);
         await fetchConversations(true);
       } else {
         const errData = await res.json();
-        setMessageFeedback(errData.mensagem || 'Erro ao enviar mensagem');
+        throw new Error(errData.mensagem || 'Erro ao enviar mensagem');
       }
     } catch (err) {
-      console.error('Erro no envio:', err);
-      setMessageFeedback('Erro de conexão ao enviar mensagem');
+      if (activePartnerRef.current === Number(partnerId)) {
+        setMessageFeedback(err.message || 'Erro de conexão ao enviar mensagem');
+        setNewMessage(current => current || textToSend);
+      }
     } finally {
       setSending(false);
     }
   };
 
   const filteredConversations = conversations.filter((c) => {
-    const name = (c.partner_nome || c.partner_username || '').toLowerCase();
+    const name = `${c.partner_nome || ''} ${c.partner_username || ''}`.toLowerCase();
     return name.includes(searchQuery.toLowerCase());
   });
 
@@ -261,7 +283,7 @@ export default function MensagensPage() {
             <h1 className="text-3xl font-extrabold text-foreground">
               Mensagens
             </h1>
-            <p className="text-muted text-sm mt-1">Converse em tempo real com compradores e vendedores.</p>
+            <p className="text-muted text-sm mt-1">Encontre pessoas e converse, com ou sem anúncio.</p>
           </div>
           <Link
             href="/produtos"
@@ -281,10 +303,12 @@ export default function MensagensPage() {
           >
             {/* Barra de Busca */}
             <div className="p-4 border-b border-line">
-              <div className="relative">
+              <button type="button" disabled={!currentUser} onClick={() => { setFindingPeople(value => !value); setMobileView('list'); }} className="mb-3 w-full rounded-xl bg-accent-fill px-4 py-3 text-sm font-bold text-accent-contrast disabled:opacity-50">{findingPeople ? '← Minhas conversas' : '+ Nova conversa'}</button>
+              {!findingPeople && <div className="relative">
                 <input
                   type="text"
                   placeholder="Buscar conversa..."
+                  aria-label="Filtrar minhas conversas"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-surface-raised border border-line rounded-2xl text-sm text-foreground placeholder-muted focus:outline-none focus:border-accent transition-all"
@@ -298,17 +322,17 @@ export default function MensagensPage() {
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </div>
+              </div>}
             </div>
 
             {/* Lista de Conversas */}
-            <div className="flex-1 overflow-y-auto divide-y divide-line">
+            {findingPeople ? <UserSearch onSelect={openConversation} /> : <div className="min-h-0 flex-1 overflow-y-auto divide-y divide-line">
               {loadingConversations && conversations.length === 0 ? (
                 <div className="p-8 text-center text-muted text-sm animate-pulse">Carregando conversas...</div>
               ) : filteredConversations.length === 0 ? (
                 <div className="p-8 text-center text-muted">
                   <p className="text-base font-semibold text-muted mb-1">Nenhuma conversa encontrada</p>
-                  <p className="text-xs">Inicie um bate-papo através do perfil de um vendedor ou anúncio.</p>
+                  <p className="text-xs">Clique em “Nova conversa” para buscar qualquer pessoa por nome ou @usuário.</p>
                 </div>
               ) : (
                 filteredConversations.map((conv) => {
@@ -319,13 +343,12 @@ export default function MensagensPage() {
                     <button
                       key={partnerId}
                       onClick={() => {
-                        setActivePartner({
+                        openConversation({
                           id_usuario: conv.partner_id,
                           username: conv.partner_username,
                           nome: conv.partner_nome,
                           foto: conv.partner_foto,
                         });
-                        setMobileView('chat');
                       }}
                       className={`w-full p-4 flex items-center gap-3 text-left transition-all hover:bg-surface-raised ${
                         isActive ? 'bg-accent-soft border-l-4 border-accent' : ''
@@ -369,7 +392,7 @@ export default function MensagensPage() {
                   );
                 })
               )}
-            </div>
+            </div>}
           </div>
 
           {/* COLUNA DIREITA: JANELA DO CHAT */}
@@ -386,6 +409,7 @@ export default function MensagensPage() {
                     {/* Botão de voltar (mobile) */}
                     <button
                       onClick={() => setMobileView('list')}
+                      aria-label="Voltar para conversas e busca de pessoas"
                       className="md:hidden p-2 text-muted hover:text-foreground rounded-lg hover:bg-surface-raised"
                     >
                       ←
@@ -519,6 +543,8 @@ export default function MensagensPage() {
                   <input
                     type="text"
                     placeholder="Digite sua mensagem..."
+                    aria-label="Digite sua mensagem"
+                    maxLength={2000}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     disabled={sending}
@@ -547,14 +573,16 @@ export default function MensagensPage() {
                 </div>
                 <h2 className="text-xl font-bold text-foreground mb-2">Suas Conversas</h2>
                 <p className="text-sm text-muted max-w-md mb-6">
-                  Selecione uma conversa na lista à esquerda ou visite um produto para falar com o vendedor.
+                  Selecione uma conversa ou clique em “Nova conversa” para procurar pessoas por nome ou @usuário. Você não precisa de um anúncio para conversar.
                 </p>
-                <Link
-                  href="/produtos"
+                <button
+                  type="button"
+                  disabled={!currentUser}
+                  onClick={() => { setFindingPeople(true); setMobileView('list'); }}
                   className="px-6 py-3 bg-accent-fill text-accent-contrast font-bold rounded-xl hover:brightness-110 transition-all shadow-lg text-sm"
                 >
-                  Explorar Vitrine
-                </Link>
+                  Procurar pessoas
+                </button>
               </div>
             )}
           </div>

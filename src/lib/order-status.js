@@ -1,0 +1,3 @@
+export const orderStatus = { registrado: 'Pedido registrado', em_negociacao: 'Em negociação', acordo_confirmado: 'Acordo confirmado', em_entrega: 'Envio / retirada em andamento', concluido: 'Pedido concluído' }
+export const deliveryStatus = { aguardando_proposta: 'Aguardando proposta do vendedor', proposta_enviada: 'Proposta aguardando aceite', acordo_confirmado: 'Acordo confirmado', enviado: 'Produto enviado', pronto_retirada: 'Pronto para retirada', recebido: 'Recebimento confirmado' }
+export const actionStatus = { propor: 'Proposta enviada', aceitar: 'Proposta aceita', recusar: 'Proposta recusada', despachar: 'Envio / retirada informado', receber: 'Recebimento confirmado' }

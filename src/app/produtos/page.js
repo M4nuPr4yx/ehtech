@@ -16,7 +16,8 @@ const categories = [
   ['tablets', 'Tablets'], ['acessorios', 'Acessórios'], ['gadgets', 'Gadgets'],
   ['redes', 'Redes e internet'], ['outros', 'Outros'],
 ];
-const emptyFilters = { search: '', categoria: '', precoMin: '', precoMax: '', ordenacao: 'recentes' };
+const STATES = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
+const emptyFilters = { search: '', categoria: '', precoMin: '', precoMax: '', uf: '', cidade: '', dataInicio: '', dataFim: '', ordenacao: 'recentes' };
 
 function Icon({ type = 'search', ...props }) {
   const paths = {
@@ -46,7 +47,9 @@ function Catalog({ initialFilters }) {
   const draftKey = JSON.stringify(draft);
   const { page, ...appliedFilters } = query;
   const pendingFilters = draftKey !== JSON.stringify(appliedFilters);
-  const invalidRange = draft.precoMin !== '' && draft.precoMax !== '' && Number(draft.precoMin) > Number(draft.precoMax);
+  const invalidPrice = draft.precoMin !== '' && draft.precoMax !== '' && Number(draft.precoMin) > Number(draft.precoMax);
+  const invalidDates = draft.dataInicio && draft.dataFim && draft.dataInicio > draft.dataFim;
+  const invalidRange = invalidPrice || invalidDates;
 
   useEffect(() => {
     // Native disclosure stays compact on phones; controls remain usable without JS.
@@ -99,7 +102,7 @@ function Catalog({ initialFilters }) {
     resultsRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
     resultsRef.current?.focus({ preventScroll: true });
   }
-  const hasFilters = draft.search || draft.categoria || draft.precoMin || draft.precoMax;
+  const hasFilters = Object.entries(draft).some(([key, value]) => key !== 'ordenacao' && value !== '');
   const busy = loading || pendingFilters;
   const categoryName = categories.find(([value]) => value === draft.categoria)?.[1] || draft.categoria;
   const rangeStart = result?.total ? (query.page - 1) * PAGE_SIZE + 1 : 0;
@@ -114,7 +117,7 @@ function Catalog({ initialFilters }) {
         </header>
         <div className={styles.searchRow}>
           <div className={styles.search}><Icon /><label htmlFor="catalog-search" className={styles.srOnly}>Buscar produtos</label><input id="catalog-search" type="search" placeholder="O que você está procurando?" value={draft.search} maxLength={100} onChange={(e) => change('search', e.target.value)} autoComplete="off" /></div>
-          <span className={styles.searchHint}>Busque pelo nome ou modelo</span>
+          <span className={styles.searchHint}>Busque pelo nome, modelo ou descrição</span>
         </div>
         <nav className={styles.chips} aria-label="Categorias rápidas">
           {categories.slice(0, 8).map(([value, label]) => <button key={value} type="button" aria-pressed={draft.categoria === value} onClick={() => change('categoria', value)}>{label}</button>)}
@@ -129,7 +132,9 @@ function Catalog({ initialFilters }) {
                 <fieldset><legend>Faixa de preço</legend><div className={styles.prices}>
                   <div><label htmlFor="catalog-min">De R$</label><input id="catalog-min" type="number" min="0" step="0.01" placeholder="0" value={draft.precoMin} onChange={(e) => change('precoMin', e.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? 'price-error' : undefined} /></div>
                   <div><label htmlFor="catalog-max">Até R$</label><input id="catalog-max" type="number" min="0" step="0.01" placeholder="Sem limite" value={draft.precoMax} onChange={(e) => change('precoMax', e.target.value)} aria-invalid={invalidRange} aria-describedby={invalidRange ? 'price-error' : undefined} /></div>
-                </div>{invalidRange && <p id="price-error" className={styles.fieldError}>O valor mínimo deve ser menor ou igual ao máximo.</p>}</fieldset>
+                </div>{invalidPrice && <p id="price-error" className={styles.fieldError}>O valor mínimo deve ser menor ou igual ao máximo.</p>}</fieldset>
+                <fieldset><legend>Região de origem do envio</legend><label htmlFor="catalog-uf">Estado (UF)</label><select id="catalog-uf" value={draft.uf} onChange={event => change('uf', event.target.value)}><option value="">Todos os estados</option>{STATES.map(uf => <option key={uf}>{uf}</option>)}</select><label htmlFor="catalog-city">Cidade</label><input id="catalog-city" maxLength={100} placeholder="Ex.: São Paulo" value={draft.cidade} onChange={event => change('cidade', event.target.value)} /></fieldset>
+                <fieldset><legend>Data de publicação</legend><label htmlFor="catalog-start">A partir de</label><input id="catalog-start" type="date" value={draft.dataInicio} onChange={event => change('dataInicio', event.target.value)} aria-invalid={Boolean(invalidDates)} aria-describedby={invalidDates ? 'date-error' : undefined} /><label htmlFor="catalog-end">Até</label><input id="catalog-end" type="date" value={draft.dataFim} onChange={event => change('dataFim', event.target.value)} aria-invalid={Boolean(invalidDates)} aria-describedby={invalidDates ? 'date-error' : undefined} />{invalidDates && <p id="date-error" className={styles.fieldError}>A data inicial deve ser anterior ou igual à final.</p>}</fieldset>
                 {hasFilters && <button type="button" className={styles.clear} onClick={clear}>Limpar filtros <span>×</span></button>}
                 <div className={styles.tip}><Icon type="box" /><p>Um novo destino para a tecnologia.<span>Descubra o que a comunidade está anunciando.</span></p></div>
               </div>
@@ -138,9 +143,10 @@ function Catalog({ initialFilters }) {
           <section className={styles.results} ref={resultsRef} tabIndex={-1} aria-label="Resultados do catálogo">
             <div className={styles.toolbar}>
               <div><h2>{draft.categoria ? categoryName : 'Explore o catálogo'}</h2><p role="status" aria-live="polite">{busy && !invalidRange ? 'Atualizando resultados…' : result ? `${result.total} produtos encontrados` : 'Busque seu próximo equipamento'}</p></div>
-              <div className={styles.sort}><label htmlFor="catalog-sort">Ordenar por</label><select id="catalog-sort" value={draft.ordenacao} onChange={(e) => change('ordenacao', e.target.value)}><option value="recentes">Mais recentes</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option></select></div>
+              <div className={styles.sort}><label htmlFor="catalog-sort">Ordenar por</label><select id="catalog-sort" value={draft.ordenacao} onChange={(e) => change('ordenacao', e.target.value)}><option value="relevancia">Relevância</option><option value="recentes">Mais recentes</option><option value="antigos">Mais antigos</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option></select></div>
             </div>
-            {hasFilters && <div className={styles.activeFilters}>{draft.search && <span>Busca: “{draft.search}”</span>}{draft.categoria && <span>{categoryName}</span>}{(draft.precoMin || draft.precoMax) && <span>{draft.precoMin ? money.format(draft.precoMin) : 'R$ 0'} — {draft.precoMax ? money.format(draft.precoMax) : 'sem limite'}</span>}</div>}
+            {hasFilters && <div className={styles.activeFilters}>{draft.search && <span>Busca: “{draft.search}”</span>}{draft.categoria && <span>{categoryName}</span>}{(draft.precoMin || draft.precoMax) && <span>{draft.precoMin ? money.format(draft.precoMin) : 'R$ 0'} — {draft.precoMax ? money.format(draft.precoMax) : 'sem limite'}</span>}{(draft.uf || draft.cidade) && <span>Origem: {[draft.cidade, draft.uf].filter(Boolean).join('/')}</span>}{(draft.dataInicio || draft.dataFim) && <span>Publicação: {draft.dataInicio || 'início'} até {draft.dataFim || 'hoje'}</span>}</div>}
+            {draft.ordenacao === 'relevancia' && <p className={styles.subtitle}>Relevância prioriza nome exato, início do nome, trecho do nome e descrição. Empates usam a data; sem busca, mostra recentes. Itens com estoque aparecem primeiro.</p>}
             {error && <div className={styles.error} role="alert"><p>{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)}>Tentar novamente</button></div>}
             <div aria-busy={loading}>
               {!result && loading ? <Skeletons /> : result?.items.length ? (
@@ -151,7 +157,7 @@ function Catalog({ initialFilters }) {
                         <ImageWithFallback src={getMainImage(product.imagem)} alt={product.nome} className={styles.productImage} sizes="(max-width: 479px) 90vw, (max-width: 759px) 45vw, (max-width: 1099px) 35vw, 20vw" />
                         {Number(product.estoque) <= 0 && <span className={styles.soldOut}>Esgotado</span>}
                       </div>
-                      <div className={styles.cardBody}><span className={styles.category}>{product.categoria}</span><h3>{product.nome}</h3><p className={styles.description}>{product.descricao}</p><div className={styles.cardBottom}><div><span className={styles.priceLabel}>Valor do anúncio</span><strong>{money.format(Number(product.preco) || 0)}</strong></div><span className={styles.cardArrow}><Icon type="arrow" /></span></div></div>
+                      <div className={styles.cardBody}><span className={styles.category}>{product.categoria}</span><h3>{product.nome}</h3><p className={styles.description}>{product.descricao}</p><p className={styles.location}>{product.origem_uf ? `${product.origem_cidade}/${product.origem_uf}` : 'Origem não informada'} · {product.data_criacao ? new Date(product.data_criacao).toLocaleDateString('pt-BR') : 'Data não informada'}</p><div className={styles.cardBottom}><div><span className={styles.priceLabel}>Valor do anúncio</span><strong>{money.format(Number(product.preco) || 0)}</strong></div><span className={styles.cardArrow}><Icon type="arrow" /></span></div></div>
                     </Link>
                   ))}
                 </div>
@@ -170,9 +176,8 @@ function Catalog({ initialFilters }) {
 
 function CatalogFromUrl() {
   const params = useSearchParams();
-  const search = params.get('search') || '';
-  const categoria = params.get('categoria') || '';
-  return <Catalog key={JSON.stringify([search, categoria])} initialFilters={{ ...emptyFilters, search, categoria }} />;
+  const initial = Object.fromEntries(Object.entries(emptyFilters).map(([key, fallback]) => [key, params.get(key) || fallback]));
+  return <Catalog key={JSON.stringify(initial)} initialFilters={initial} />;
 }
 
 export default function Produtos() {

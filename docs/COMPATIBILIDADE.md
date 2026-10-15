@@ -1,8 +1,10 @@
-# Verificador de compatibilidade
+# Compatibilidade e catálogo revisado
 
-Implementação inicial em 06/10/2026, sem IA ou dependência de serviço externo. A tela pública está em `/compatibilidade`; a revisão de fichas exige uma sessão administrativa em `/admin/componentes`.
+A tela pública `/compatibilidade` agora usa o catálogo ampliado e apresenta **somente avaliação por IA**, sem executar ou exibir o motor manual. Veja [CATALOGO_COMPONENTES.md](CATALOGO_COMPONENTES.md) e [IA_COMPATIBILIDADE.md](IA_COMPATIBILIDADE.md). A revisão de fichas para associação em anúncios/passaportes continua exigindo sessão administrativa em `/admin/componentes`.
 
-## Uso
+## Motor anterior (API legada, fora da tela)
+
+As regras descritas nesta seção e suas seis fichas revisadas foram preservadas por compatibilidade das integrações e referências históricas. As instruções abaixo descrevem esse fluxo anterior, não a interface atual.
 
 Selecione o modelo exato do processador, placa-mãe e kit de memória. Cada peça usa um único campo com busca e lista: digitar “AMD”, por exemplo, filtra os modelos disponíveis; clicar em uma opção confirma a seleção. A seta abre a lista sem precisar digitar. Também é possível usar as setas do teclado e Enter para selecionar, e Escape para fechar. Texto digitado sem seleção não identifica uma peça; editar o texto de um modelo selecionado limpa sua associação e o resultado anterior. Informe a BIOS que foi conferida no equipamento. A quantidade corresponde a kits: um kit de 2 × 8 GB ocupa dois slots e soma 16 GB. Trocar a placa-mãe limpa a BIOS; mudar qualquer peça limpa o resultado anterior.
 

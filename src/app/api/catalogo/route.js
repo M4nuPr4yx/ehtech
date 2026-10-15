@@ -2,6 +2,6 @@ import { proxyBackendGet } from '../_lib/backend'
 
 export function GET(request) {
   return proxyBackendGet(request, '/produtos/catalogo', [
-    'page', 'limit', 'search', 'categoria', 'precoMin', 'precoMax', 'ordenacao'
+    'page', 'limit', 'search', 'categoria', 'precoMin', 'precoMax', 'ordenacao', 'uf', 'cidade', 'dataInicio', 'dataFim'
   ])
 }

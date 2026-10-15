@@ -7,11 +7,11 @@ const crypto = require('node:crypto')
 
 test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1', timeout: 120000 }, async t => {
   const mysql = require('mysql2/promise')
-  const config = require('dotenv').parse(fs.readFileSync(path.join(__dirname, '../backend/.env')))
+  const config = require('./helpers/mysql-config.cjs').mysqlTestConfig()
   const database = `ehtech_test_${process.pid}_${Date.now()}`
   assert.match(database, /^ehtech_test_\d+_\d+$/)
   const uploads = fs.mkdtempSync(path.join(os.tmpdir(), 'ehtech-test-uploads-'))
-  const adminConnection = await mysql.createConnection({ host: '127.0.0.1', port: Number(config.DB_PORT || config.DB_PORTA) || 3306, user: config.DB_USER || 'root', password: config.DB_PASSWORD || '' })
+  const adminConnection = await mysql.createConnection(config)
   let pool, server
   const deliveries = []
   const nodemailer = require(require.resolve('nodemailer', { paths: [path.join(__dirname, '../backend')] }))
@@ -28,7 +28,8 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
   try {
     await adminConnection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`)
     for (const key of ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRESQL_URL', 'MYSQL_URL', 'CLEARDB_DATABASE_URL', 'PGHOST', 'VERCEL']) delete process.env[key]
-    Object.assign(process.env, { NODE_ENV: 'test', DB_HOST: '127.0.0.1', DB_PORT: String(Number(config.DB_PORT || config.DB_PORTA) || 3306), DB_USER: config.DB_USER || 'root', DB_PASSWORD: config.DB_PASSWORD || '', DB_DATABASE: database, DB_SSL: 'false', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, SMTP_HOST: 'test.invalid', SMTP_USER: 'test@example.invalid', FRONTEND_URL: 'http://localhost:3001' })
+    Object.assign(process.env, { NODE_ENV: 'test', DB_HOST: config.host, DB_PORT: String(config.port), DB_USER: config.user, DB_PASSWORD: config.password, DB_DATABASE: database, DB_SSL: 'false', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, SMTP_HOST: 'test.invalid', SMTP_USER: 'test@example.invalid', FRONTEND_URL: 'http://localhost:3001' })
+    process.env.COMPAT_AI_PROVIDER = 'disabled'
     const app = require('../backend/index')
     pool = require('../backend/db')
     await t.test('importação não abre porta; inicialização migra bancos antigos', async () => {
@@ -38,6 +39,7 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       assert.equal(await app.startServer({ port: 0 }), server)
       const [columns] = await pool.query('SHOW COLUMNS FROM produtos')
       assert.ok(columns.some(column => column.Field === 'status_aprovacao'))
+      assert.ok(columns.some(column => column.Field === 'componente_id'))
     })
     assert.ok(server?.listening, 'Servidor de teste deve iniciar')
     const origin = `http://127.0.0.1:${server.address().port}`
@@ -100,8 +102,36 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       await request('PUT', `/admin/users/${users.other.id}/senha`, { token: users.admin.token, body: { novaSenha: password } })
     })
 
+    let components
+    await t.test('catálogo, análise, revisão administrativa e desativação de modelos', async () => {
+      components = (await request('GET', '/componentes')).items
+      assert.equal(components.length, 6)
+      const model = slug => components.find(item => item.slug === slug)
+      const selection = { processador_id: model('amd-ryzen-5-5600').id, placa_mae_id: model('asus-prime-b550m-a').id, memorias: [{ componente_id: model('kingston-kf432c16bbk2-16').id, quantidade: 1 }], bios: '2423' }
+      assert.equal((await request('GET', '/api/componentes?tipo=memoria&busca=kingston')).items.length, 2)
+      assert.equal((await request('GET', '/componentes/admin', { token: users.admin.token })).length, 6)
+      await request('GET', '/componentes/admin', { token: users.buyer.token, expected: 403 })
+      assert.equal((await request('POST', '/componentes/verificar', { body: selection })).status, 'compativel')
+      assert.equal((await request('GET', '/componentes/ia/status')).disponivel, false)
+      await request('POST', '/componentes/ia/explicar', { body: selection, expected: 503 })
+      await request('POST', '/componentes/ia/explicar', { body: { ...selection, status: 'compativel' }, expected: 400 })
+      await request('POST', '/componentes/verificar', { body: { ...selection, processador_id: selection.placa_mae_id }, expected: 400 })
+      await request('POST', '/componentes/verificar', { body: { ...selection, bios: 'not-a-bios' }, expected: 400 })
+      const draft = { ...model('amd-ryzen-5-5600'), slug: 'test-only-cpu', modelo: 'CPU de teste', status: 'rascunho' }
+      const { id } = await request('POST', '/componentes/admin', { token: users.admin.token, body: draft, expected: 201 })
+      const unknown = await request('POST', '/componentes/verificar', { body: { ...selection, processador_id: id } })
+      assert.equal(unknown.status, 'nao_verificado')
+      assert.ok(!unknown.componentes.some(item => item.id === id))
+      const published = { ...draft, status: 'verificado', revisao: 1 }
+      await request('PUT', `/componentes/admin/${id}`, { token: users.admin.token, body: published })
+      await request('PUT', `/componentes/admin/${id}`, { token: users.admin.token, body: published, expected: 409 })
+      assert.ok((await request('GET', '/componentes?busca=CPU%20de%20teste')).items.some(item => item.id === id && item.revisao === 2))
+      await request('PUT', `/componentes/admin/${id}`, { token: users.admin.token, body: { ...published, ativo: false, revisao: 2 } })
+      assert.equal((await request('POST', '/componentes/verificar', { body: { ...selection, processador_id: id } })).status, 'nao_verificado')
+    })
+
     let productId
-    const product = { nome: 'Notebook de teste', descricao: 'Produto criado apenas para testes automáticos.', preco: 1234.56, estoque: 5, categoria: 'notebooks', imagem: '' }
+    const product = { nome: 'Notebook de teste', descricao: 'Produto criado apenas para testes automáticos.', preco: 1234.56, estoque: 5, categoria: 'notebooks', imagem: '', componente_id: components.find(item => item.tipo === 'processador').id }
     await t.test('produto: criar, aprovar, filtrar, editar parcialmente e proteger contra outro usuário', async () => {
       productId = (await request('POST', '/produtos', { token: users.seller.token, body: product, expected: 201 })).id
       assert.ok(productId)
@@ -113,12 +143,20 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       const catalog = await request('GET', '/produtos/catalogo?search=Notebook&categoria=notebooks&precoMin=100&precoMax=2000&ordenacao=menor-preco')
       assert.equal(catalog.total, 1)
       assert.equal(Number(catalog.items[0].preco), product.preco)
+      assert.equal(catalog.items[0].componente_id, product.componente_id)
       await request('GET', '/produtos/catalogo?precoMin=2000&precoMax=100', { expected: 400 })
       await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { nome: 'Notebook atualizado' } })
       const updated = await request('GET', `/produtos/${productId}`)
       assert.equal(updated.nome, 'Notebook atualizado')
       assert.equal(updated.descricao, product.descricao)
       assert.equal(Number(updated.preco), product.preco)
+      assert.equal(updated.componente_id, product.componente_id, 'Edição parcial preserva referência técnica')
+      await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { componente_id: 999999 }, expected: 400 })
+      await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { componente_id: null } })
+      const [pending] = await pool.execute('SELECT status_aprovacao, componente_id FROM produtos WHERE id_produto = ?', [productId])
+      assert.equal(pending[0].componente_id, null)
+      assert.equal(pending[0].status_aprovacao, 'pendente')
+      await request('PUT', `/admin/produtos/${productId}/aprovacao`, { token: users.admin.token, body: { status: 'aprovado' } })
       await request('PUT', `/produtos/${productId}`, { token: users.buyer.token, body: product, expected: 403 })
       await request('DELETE', `/produtos/${productId}`, { token: users.buyer.token, expected: 403 })
       await request('GET', '/produtos/999999', { expected: 404 })
@@ -200,6 +238,64 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       const reputation = await request('GET', `/servicos/reputacao/prestador/${users.seller.id}`)
       assert.equal(reputation.total, 1)
       assert.equal(reputation.media, 5)
+    })
+
+    await t.test('passaporte: privacidade, histórico, serviço, convites e transferência atômica', async () => {
+      const owner = users.buyer.token
+      const recipient = users.other.token
+      const cpuId = components.find(item => item.slug === 'amd-ryzen-5-5600').id
+      const equipment = { nome: 'PC de teste', tipo: 'Computador', modelo: 'Montagem própria', componentes: [{ tipo: 'Memória', modelo: 'DDR4 16 GB' }, { componente_id: cpuId }] }
+      await request('GET', '/passaportes', { expected: 401 })
+      await request('POST', '/passaportes', { token: owner, body: { ...equipment, componentes: [{}] }, expected: 400 })
+      await request('POST', '/passaportes', { token: owner, body: { ...equipment, componentes: [{ componente_id: 999999 }] }, expected: 400 })
+      const { id } = await request('POST', '/passaportes', { token: owner, body: equipment, expected: 201 })
+      assert.ok((await request('GET', '/passaportes', { token: owner })).some(item => item.id === id))
+      assert.equal((await request('GET', '/passaportes', { token: recipient })).length, 0)
+      for (const method of ['GET', 'PUT', 'DELETE']) await request(method, `/passaportes/${id}`, { token: recipient, ...(method === 'PUT' ? { body: equipment } : {}), expected: 404 })
+      await request('PUT', `/passaportes/${id}`, { token: owner, body: { ...equipment, modelo: 'Modelo atualizado' } })
+      await request('POST', `/passaportes/${id}/registros`, { token: owner, body: { tipo: 'upgrade', titulo: 'Memória ampliada para 16 GB', data: '2026-02-01' }, expected: 201 })
+      for (const data of ['2026-02-30', '2099-01-01']) await request('POST', `/passaportes/${id}/registros`, { token: owner, body: { tipo: 'reparo', titulo: 'Data inválida de manutenção', data }, expected: 400 })
+      const [completed] = await pool.execute("SELECT id_contratacao FROM contratacoes_servico WHERE cliente_id = ? AND status = 'concluido'", [users.buyer.id])
+      const service = { contratacao_id: completed[0].id_contratacao }
+      await request('POST', `/passaportes/${id}/servicos`, { token: recipient, body: service, expected: 404 })
+      await request('POST', `/passaportes/${id}/servicos`, { token: owner, body: service, expected: 201 })
+      await request('POST', `/passaportes/${id}/servicos`, { token: owner, body: service, expected: 409 })
+      const detail = await request('GET', `/passaportes/${id}`, { token: owner })
+      assert.equal(detail.publico_codigo, null)
+      assert.equal(detail.componentes[1].componente_id, cpuId)
+      assert.equal(detail.componentes[1].modelo, 'AMD Ryzen 5 5600', 'Nome técnico é normalizado no backend')
+      assert.equal(detail.registros.length, 3)
+      assert.ok(detail.registros.some(item => item.origem === 'ehtech' && item.garantia_fim_em))
+      const first = await request('POST', `/passaportes/${id}/compartilhamento`, { token: owner })
+      const visible = await request('GET', `/passaportes/publico/${first.codigo}`)
+      for (const key of ['proprietario_id', 'email', 'transferencia_hash', 'publico_codigo', 'destinatario_id']) assert.ok(!(key in visible), key)
+      assert.ok(visible.registros.every(item => !('contratacao_id' in item)))
+      await request('DELETE', `/passaportes/${id}/compartilhamento`, { token: owner })
+      await request('GET', `/passaportes/publico/${first.codigo}`, { expected: 404 })
+      await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_buyer' }, expected: 400 })
+      const invite = await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_other' } })
+      const [stored] = await pool.execute('SELECT transferencia_hash FROM passaportes WHERE id = ?', [id])
+      assert.notEqual(stored[0].transferencia_hash, invite.codigo)
+      await request('POST', '/passaportes/receber', { token: users.seller.token, body: { codigo: invite.codigo }, expected: 404 })
+      await request('DELETE', `/passaportes/${id}/transferencia`, { token: owner })
+      await request('POST', '/passaportes/receber', { token: recipient, body: { codigo: invite.codigo }, expected: 404 })
+      const expired = await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_other' } })
+      await pool.execute("UPDATE passaportes SET transferencia_expira_em = '2000-01-01 00:00:00' WHERE id = ?", [id])
+      await request('POST', '/passaportes/receber', { token: recipient, body: { codigo: expired.codigo }, expected: 404 })
+      const replacement = await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_other' } })
+      const publicLink = await request('POST', `/passaportes/${id}/compartilhamento`, { token: owner })
+      const responses = await Promise.all([1, 2].map(() => fetch(origin + '/passaportes/receber', { method: 'POST', headers: { Authorization: `Bearer ${recipient}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: replacement.codigo }) })))
+      assert.deepEqual(responses.map(item => item.status).sort(), [200, 404])
+      await request('GET', `/passaportes/publico/${publicLink.codigo}`, { expected: 404 })
+      await request('GET', `/passaportes/${id}`, { token: owner, expected: 404 })
+      await request('POST', `/passaportes/${id}/registros`, { token: owner, body: { tipo: 'reparo', titulo: 'Acesso anterior revogado', data: '2026-02-01' }, expected: 404 })
+      const received = await request('GET', `/passaportes/${id}`, { token: recipient })
+      assert.equal(received.registros.filter(item => item.tipo === 'transferencia').length, 1)
+      assert.equal(received.componentes[0].modelo, 'DDR4 16 GB')
+      assert.equal(received.transferencia_expira_em, null)
+      await request('DELETE', `/passaportes/${id}`, { token: recipient })
+      const [records] = await pool.execute('SELECT id FROM passaporte_registros WHERE passaporte_id = ?', [id])
+      assert.equal(records.length, 0)
     })
 
     await t.test('uploads: imagem, múltiplas, base64, URL, conteúdo inválido e propriedade', async () => {

@@ -14,11 +14,11 @@ Transformar a EHtech em um marketplace que não apenas vende tecnologia, mas aco
 - [x] Garantia registrada para o serviço executado.
 - [x] Reputação separada para vendedores e prestadores.
 - [ ] Perfis profissionais verificados, com especialidades e certificações.
-- [ ] Verificador de compatibilidade de componentes.
+- [x] Verificador inicial de compatibilidade: processador, placa-mãe e memória.
 - [ ] Diagnóstico guiado por sintomas.
 - [ ] Comparador “consertar ou trocar”.
 - [ ] Assistente “Monte seu PC”.
-- [ ] Histórico digital de manutenção e upgrades.
+- [x] Histórico digital de manutenção e upgrades.
 - [ ] Atendimento remoto com consentimento e orientações de segurança.
 - [ ] Área de recondicionamento, doação e descarte responsável.
 
@@ -29,6 +29,8 @@ Transformar a EHtech em um marketplace que não apenas vende tecnologia, mas aco
 Cada computador ou dispositivo recebe um perfil permanente, opcionalmente acessível por QR Code, contendo componentes, notas fiscais, garantias, manutenções, testes e trocas de proprietário. Na revenda, o comprador recebe um histórico verificável sem expor dados pessoais anteriores.
 
 **MVP:** cadastro manual de componentes, registros de serviço e transferência do passaporte na venda.
+
+**Implementado:** área “Meus Equipamentos” em `/passaportes`, com cadastro e edição de componentes, histórico manual, vínculo de contratações concluídas na EHtech, exportação JSON, consulta compartilhada revogável e transferência aceita pela conta destinatária com convite de 24 horas. O vínculo do serviço ao equipamento é declarado pelo proprietário; não é um laudo técnico. O passaporte nasce privado e a transferência revoga o link público anterior. QR Code, notas fiscais e certificação técnica ficam para uma evolução posterior.
 
 ### 2. Gêmeo digital do setup
 
@@ -59,6 +61,8 @@ O cliente escolhe uma melhoria e a EHtech coordena quatro partes: avaliação da
 A compatibilidade deixa de ser apenas uma ficha técnica. A plataforma aprende com montagens realmente concluídas, revisões de técnicos e problemas registrados. Cada combinação recebe um nível de confiança e explica a evidência utilizada.
 
 **MVP:** regras oficiais de socket, memória, gabinete e fonte, complementadas pela confirmação do técnico após a montagem.
+
+**Implementado em 06/10/2026:** `/compatibilidade` compara modelos exatos de processador, placa-mãe e kits de memória, com fontes do fabricante, socket, suporte do processador, BIOS informada, DDR, formato, slots e capacidade. Catálogo inicial com seis modelos e revisão administrativa em `/admin/componentes`. Passaportes e anúncios podem guardar a associação técnica sem inferência pelo nome. Dados ausentes não aprovam uma combinação. Fonte, GPU, gabinete, cooler, QVL, estabilidade e confirmação por técnico ficam para etapas posteriores. IA adiada por decisão do usuário. Guia em [COMPATIBILIDADE.md](COMPATIBILIDADE.md).
 
 ### 7. Orçamento reverso comparável
 

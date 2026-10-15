@@ -17,6 +17,9 @@ const uploadRoutes = require('./routes/upload')
 const createServicesRouter = require('./routes/services')
 const createServiceContractsRouter = require('./routes/serviceContracts')
 const createOrdersRouter = require('./routes/orders')
+const createPassportsRouter = require('./routes/passports')
+const createComponentsRouter = require('./routes/components')
+const { findComponent } = require('./components/catalog')
 const { initializeDatabase } = require('./database/init')
 const { createDocsRouter } = require('./docs/router')
 const { createProductLoadPolicy } = require('./middleware/productLoadPolicy')
@@ -138,6 +141,8 @@ app.use('/upload', uploadLimiter, uploadRoutes)
 app.use('/servicos', createServicesRouter(pool))
 app.use('/contratacoes', createServiceContractsRouter(pool))
 app.use('/pedidos', createOrdersRouter(pool))
+app.use('/passaportes', createPassportsRouter(pool))
+app.use('/componentes', createComponentsRouter(pool))
 
 const { getApiSecret } = require('./middleware/auth')
 const api_chave = getApiSecret()
@@ -586,7 +591,7 @@ app.get("/produtos/catalogo", async (req, res) => {
     const [[[countResult]], [items]] = await Promise.all([
       pool.execute(`SELECT COUNT(*) AS total FROM produtos WHERE ${where}`, params),
       pool.execute(
-        `SELECT id_produto, nome, descricao, preco, estoque, categoria, imagem
+        `SELECT id_produto, nome, descricao, preco, estoque, categoria, imagem, componente_id
          FROM produtos
          WHERE ${where}
          ORDER BY (estoque <= 0) ASC, ${orderBy}
@@ -686,9 +691,15 @@ app.post("/produtos", autenticarToken, async (req, res) => {
   const vendedorId = Number(req.user.id) || 0
 
   try {
+    let componentId = null
+    if (req.body.componente_id !== undefined && req.body.componente_id !== null && req.body.componente_id !== '') {
+      const component = await findComponent(pool, req.body.componente_id)
+      if (!component) return res.status(400).json({ mensagem: 'Selecione um modelo técnico ativo e revisado.' })
+      componentId = component.id
+    }
     const result = await pool.execute(
-      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente')",
-      [cleanNome, cleanDescricao, parsedPreco, cleanEstoque, cleanCategoria, cleanImagem, vendedorName, vendedorId]
+      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao, componente_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?)",
+      [cleanNome, cleanDescricao, parsedPreco, cleanEstoque, cleanCategoria, cleanImagem, vendedorName, vendedorId, componentId]
     )
 
     await criarNotificacao({
@@ -715,7 +726,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
 
   try {
-    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao FROM produtos WHERE id_produto = ?', [numericId])
+    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao, componente_id FROM produtos WHERE id_produto = ?', [numericId])
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Produto não encontrado" })
     }
@@ -739,7 +750,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
     }
 
     const statusesValidos = ['aprovado', 'reprovado', 'pendente']
-    const statusAprovacao = (isAdmin && req.body.status_aprovacao && statusesValidos.includes(req.body.status_aprovacao))
+    let statusAprovacao = (isAdmin && req.body.status_aprovacao && statusesValidos.includes(req.body.status_aprovacao))
       ? req.body.status_aprovacao
       : rows[0].status_aprovacao
 
@@ -756,8 +767,18 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
       }
     }
 
+    let componentId = rows[0].componente_id
+    if (req.body.componente_id !== undefined) {
+      if (req.body.componente_id === null || req.body.componente_id === '') componentId = null
+      else {
+        const component = await findComponent(pool, req.body.componente_id)
+        if (!component) return res.status(400).json({ mensagem: 'Selecione um modelo técnico ativo e revisado.' })
+        componentId = component.id
+      }
+    }
+    if (!isAdmin && Number(componentId || 0) !== Number(rows[0].componente_id || 0)) statusAprovacao = 'pendente'
     await pool.execute(
-      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ?, status_aprovacao = ? WHERE id_produto = ?',
+      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ?, status_aprovacao = ?, componente_id = ? WHERE id_produto = ?',
       [
         cleanNome,
         cleanDescricao,
@@ -766,6 +787,7 @@ app.put("/produtos/:id", autenticarToken, async (req, res) => {
         cleanCategoria,
         imagemValue,
         statusAprovacao,
+        componentId,
         numericId
       ]
     )

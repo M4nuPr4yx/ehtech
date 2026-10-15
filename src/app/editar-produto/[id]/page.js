@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getApiUrl } from '../../../lib/api';
 import { getMainImage } from '../../complements/imageHelper';
+import TechnicalComponentPicker from '../../complements/TechnicalComponentPicker';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -31,6 +32,7 @@ export default function EditarProduto() {
   const [descricao, setDescricao] = useState('');
   const [preco, setPreco] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [componenteId, setComponenteId] = useState(null);
   const [estoque, setEstoque] = useState('');
   const [imagemUrl, setImagemUrl] = useState('');
   const [imagemPreview, setImagemPreview] = useState('');
@@ -80,6 +82,7 @@ export default function EditarProduto() {
         setDescricao(data.descricao || '');
         setPreco(data.preco || '');
         setCategoria(data.categoria || '');
+        setComponenteId(data.componente_id || null);
         setEstoque(data.estoque || 0);
         setImagemUrl(data.imagem || '');
         setImagemPreview(getMainImage(data.imagem));
@@ -216,6 +219,7 @@ export default function EditarProduto() {
           preco: parseFloat(preco),
           estoque: parseInt(estoque) || 0,
           categoria,
+          componente_id: componenteId,
           imagem: imagemUrl || null
         })
       });
@@ -256,8 +260,8 @@ export default function EditarProduto() {
 
   if (loading || loadingData) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl">Carregando...</div>
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
+        <div className="text-accent text-xl">Carregando...</div>
       </div>
     );
   }
@@ -265,8 +269,8 @@ export default function EditarProduto() {
   if (loadError) {
     return (
       <div className="site-background min-h-[70vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-2xl font-bold text-white">{loadError}</h1>
-        <button type="button" onClick={() => router.push('/perfil')} className="rounded-xl bg-[#ABDB25] px-5 py-3 font-bold text-black">Voltar ao perfil</button>
+        <h1 className="text-2xl font-bold text-foreground">{loadError}</h1>
+        <button type="button" onClick={() => router.push('/perfil')} className="rounded-xl bg-accent-fill px-5 py-3 font-bold text-accent-contrast">Voltar ao perfil</button>
       </div>
     );
   }
@@ -287,82 +291,83 @@ export default function EditarProduto() {
   ];
 
   return (
-    <div className="site-background min-h-screen text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
       <div className="max-w-2xl mx-auto px-6">
-        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
+        <div className="bg-surface border border-line rounded-2xl p-8 shadow-2xl">
           <div className="flex items-center gap-3 mb-6">
             <button
               onClick={() => router.back()}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-muted hover:text-foreground transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-3xl font-bold text-[#ABDB25]">Editar Produto</h1>
+            <h1 className="text-3xl font-bold text-accent">Editar Produto</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Nome */}
             <div>
-              <label className="block text-white font-medium mb-2">Nome do Produto</label>
+              <label className="block text-foreground font-medium mb-2">Nome do Produto</label>
               <input
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 placeholder="Ex: iPhone 15 Pro Max"
-                className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
               />
             </div>
 
+            <TechnicalComponentPicker value={componenteId} onChange={setComponenteId} />
             {/* Descrição */}
             <div>
-              <label className="block text-white font-medium mb-2">Descrição</label>
+              <label className="block text-foreground font-medium mb-2">Descrição</label>
               <textarea
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 placeholder="Descreva seu produto..."
                 rows={4}
-                className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors resize-none"
+                className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors resize-none"
               />
             </div>
 
             {/* Preço e Estoque */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-white font-medium mb-2">Preço (R$)</label>
+                <label className="block text-foreground font-medium mb-2">Preço (R$)</label>
                 <input
                   type="text"
                   value={preco}
                   onChange={handlePrecoChange}
                   placeholder="0,00"
-                  className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                  className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-white font-medium mb-2">Estoque</label>
+                <label className="block text-foreground font-medium mb-2">Estoque</label>
                 <input
                   type="number"
                   value={estoque}
                   onChange={(e) => setEstoque(e.target.value)}
                   min="0"
                   placeholder="0"
-                  className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                  className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                 />
               </div>
             </div>
 
             {/* Categoria */}
             <div>
-              <label className="block text-white font-medium mb-2">Categoria</label>
+              <label className="block text-foreground font-medium mb-2">Categoria</label>
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
-                className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white focus:border-[#ABDB25] focus:outline-none transition-colors"
+                className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none transition-colors"
               >
-                <option value="" className="bg-gray-800">Selecione uma categoria</option>
+                <option value="" className="bg-surface-raised">Selecione uma categoria</option>
                 {categorias.map((cat) => (
-                  <option key={cat.value} value={cat.value} className="bg-gray-800">
+                  <option key={cat.value} value={cat.value} className="bg-surface-raised">
                     {cat.label}
                   </option>
                 ))}
@@ -371,7 +376,7 @@ export default function EditarProduto() {
 
             {/* Imagem */}
             <div>
-              <label className="block text-white font-medium mb-2">
+              <label className="block text-foreground font-medium mb-2">
                 Imagem do Produto
               </label>
               <input
@@ -387,12 +392,12 @@ export default function EditarProduto() {
                   <img
                     src={imagemPreview}
                     alt="Preview"
-                    className="max-w-full h-48 object-contain rounded-xl border border-gray-600 bg-gray-800/50"
+                    className="max-w-full h-48 object-contain rounded-xl border border-line bg-surface-raised"
                   />
                   <button
                     type="button"
                     onClick={removeImage}
-                    className="absolute top-2 right-2 w-8 h-8 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center transition-colors"
+                    className="absolute top-2 right-2 w-8 h-8 bg-danger-soft hover:bg-danger-soft rounded-full flex items-center justify-center transition-colors"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -400,7 +405,7 @@ export default function EditarProduto() {
                   </button>
                   {uploadingImage && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
-                      <span className="text-[#ABDB25]">Enviando...</span>
+                      <span className="text-accent">Enviando...</span>
                     </div>
                   )}
                 </div>
@@ -409,20 +414,20 @@ export default function EditarProduto() {
                   type="button"
                   onClick={openFilePicker}
                   disabled={uploadingImage}
-                  className="w-full p-8 border-2 border-dashed border-gray-600 rounded-xl text-gray-400 hover:border-[#ABDB25] hover:text-[#ABDB25] transition-colors flex flex-col items-center justify-center disabled:opacity-50"
+                  className="w-full p-8 border-2 border-dashed border-line rounded-xl text-muted hover:border-accent hover:text-accent transition-colors flex flex-col items-center justify-center disabled:opacity-50"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   <span className="text-sm">{uploadingImage ? 'Enviando...' : 'Clique para enviar uma imagem'}</span>
-                  <span className="text-xs text-gray-500 mt-1">PNG, JPG ou WEBP (máx. 5MB)</span>
+                  <span className="text-xs text-muted mt-1">PNG, JPG ou WEBP (máx. 5MB)</span>
                 </button>
               )}
             </div>
 
             {/* Message */}
             {message && (
-              <p className={`p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+              <p className={`p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger-soft text-danger border border-danger'}`}>
                 {message}
               </p>
             )}
@@ -431,7 +436,7 @@ export default function EditarProduto() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
             </button>

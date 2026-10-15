@@ -106,7 +106,7 @@ export default function SellerProfile() {
 
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
-      <span key={i} className={`text-xl ${i < Math.round(rating) ? 'text-[#ABDB25]' : 'text-gray-600'}`}>
+      <span key={i} className={`text-xl ${i < Math.round(rating) ? 'text-accent' : 'text-muted'}`}>
         ★
       </span>
     ));
@@ -114,18 +114,18 @@ export default function SellerProfile() {
 
   if (loading) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl animate-pulse">Carregando perfil...</div>
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
+        <div className="text-accent text-xl animate-pulse">Carregando perfil...</div>
       </div>
     );
   }
 
   if (error || !seller) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-xl mb-4">{error || 'Vendedor não encontrado'}</p>
-          <Link href="/produtos" className="text-[#ABDB25] hover:underline">Voltar aos produtos</Link>
+          <p className="text-danger text-xl mb-4">{error || 'Vendedor não encontrado'}</p>
+          <Link href="/produtos" className="text-accent hover:underline">Voltar aos produtos</Link>
         </div>
       </div>
     );
@@ -134,15 +134,15 @@ export default function SellerProfile() {
   const isSelf = currentUserId && (Number(currentUserId) === Number(seller.id_usuario || params.id));
 
   return (
-    <div className="site-background min-h-screen text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
       <div className="max-w-4xl mx-auto px-6">
         {/* Back button */}
-        <Link href="/produtos" className="inline-flex items-center text-gray-400 hover:text-[#ABDB25] mb-6 transition-colors">
+        <Link href="/produtos" className="inline-flex items-center text-muted hover:text-accent mb-6 transition-colors">
           ← Voltar aos produtos
         </Link>
 
         {/* Seller Info Card */}
-        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 mb-8 shadow-2xl">
+        <div className="bg-surface border border-line rounded-2xl p-8 mb-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Seller Avatar */}
             <div className="relative shrink-0">
@@ -151,10 +151,10 @@ export default function SellerProfile() {
                   src={seller.foto}
                   alt={seller.username || 'Vendedor'}
                   onError={() => setImgError(true)}
-                  className="w-24 h-24 rounded-full object-cover border-2 border-[#ABDB25] shadow-lg shadow-[#ABDB25]/20 bg-gray-800"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-accent shadow-lg shadow-transparent bg-surface-raised"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-[#ABDB25] flex items-center justify-center text-black text-4xl font-bold shadow-lg shadow-[#ABDB25]/20">
+                <div className="w-24 h-24 rounded-full bg-accent-fill flex items-center justify-center text-accent-contrast text-4xl font-bold shadow-lg shadow-transparent">
                   {seller.username?.charAt(0).toUpperCase() || 'U'}
                 </div>
               )}
@@ -162,33 +162,33 @@ export default function SellerProfile() {
             
             {/* Seller Details */}
             <div className="text-center md:text-left flex-1">
-              <h1 className="text-3xl font-bold text-white mb-2">{seller.nome || seller.username}</h1>
-              {seller.nome && <p className="text-gray-400 text-sm mb-2">@{seller.username}</p>}
+              <h1 className="text-3xl font-bold text-foreground mb-2">{seller.nome || seller.username}</h1>
+              {seller.nome && <p className="text-muted text-sm mb-2">@{seller.username}</p>}
               
               {/* Reputações independentes para vendas e serviços */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Vendas de produtos</span>
-                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoes.media))}</div><strong className="text-[#ABDB25]">{avaliacoes.media}</strong><small className="text-gray-500">({avaliacoes.total})</small></div>
+                <div className="rounded-xl border border-line bg-surface-raised px-4 py-3">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1">Vendas de produtos</span>
+                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoes.media))}</div><strong className="text-accent">{avaliacoes.media}</strong><small className="text-muted">({avaliacoes.total})</small></div>
                 </div>
-                <div className="rounded-xl border border-[#ABDB25]/30 bg-[#ABDB25]/5 px-4 py-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Serviços técnicos</span>
-                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoesServicos.media))}</div><strong className="text-[#ABDB25]">{avaliacoesServicos.media}</strong><small className="text-gray-500">({avaliacoesServicos.total})</small></div>
+                <div className="rounded-xl border border-accent bg-accent-soft px-4 py-3">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1">Serviços técnicos</span>
+                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoesServicos.media))}</div><strong className="text-accent">{avaliacoesServicos.media}</strong><small className="text-muted">({avaliacoesServicos.total})</small></div>
                 </div>
               </div>
             </div>
 
             {/* Stats & Actions */}
             <div className="flex flex-col sm:flex-row md:flex-col items-center gap-3">
-              <div className="text-center bg-gray-800/60 border border-gray-700 rounded-xl px-5 py-3 w-full">
-                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Anúncios</p>
-                <p className="text-2xl font-bold text-white">{produtos.length}</p>
+              <div className="text-center bg-surface-raised border border-line rounded-xl px-5 py-3 w-full">
+                <p className="text-muted text-xs uppercase tracking-wider font-semibold">Anúncios</p>
+                <p className="text-2xl font-bold text-foreground">{produtos.length}</p>
               </div>
 
               {!isSelf && (
                 <Link
                   href={`/mensagens?vendedor=${seller.id_usuario || params.id}`}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl shadow-lg hover:shadow-[#ABDB25]/30 transition-all text-center text-sm"
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl shadow-lg hover:shadow-transparent transition-all text-center text-sm"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -202,12 +202,12 @@ export default function SellerProfile() {
 
         {avaliacoesServicos.avaliacoes.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-white mb-4">Avaliações dos serviços técnicos</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Avaliações dos serviços técnicos</h2>
             <div className="grid gap-3">
               {avaliacoesServicos.avaliacoes.slice(0, 6).map((avaliacao, index) => (
-                <article key={`${avaliacao.created_at}-${index}`} className="rounded-2xl border border-gray-700 bg-gray-900/75 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2"><div><strong className="text-white">{avaliacao.avaliador}</strong><span className="ml-2 text-xs text-gray-500">em {avaliacao.servico}</span></div><span className="text-[#ABDB25] tracking-wider">{'★'.repeat(avaliacao.nota)}{'☆'.repeat(5 - avaliacao.nota)}</span></div>
-                  {avaliacao.comentario && <p className="mt-3 text-sm leading-relaxed text-gray-300">{avaliacao.comentario}</p>}
+                <article key={`${avaliacao.created_at}-${index}`} className="rounded-2xl border border-line bg-surface p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><div><strong className="text-foreground">{avaliacao.avaliador}</strong><span className="ml-2 text-xs text-muted">em {avaliacao.servico}</span></div><span className="text-accent tracking-wider">{'★'.repeat(avaliacao.nota)}{'☆'.repeat(5 - avaliacao.nota)}</span></div>
+                  {avaliacao.comentario && <p className="mt-3 text-sm leading-relaxed text-muted">{avaliacao.comentario}</p>}
                 </article>
               ))}
             </div>
@@ -216,17 +216,17 @@ export default function SellerProfile() {
 
         {/* Products Grid */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-white mb-4">Produtos de {seller.username}</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Produtos de {seller.username}</h2>
           
           {produtos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {produtos.map((produto, index) => (
                 <div 
                   key={produto.id_produto || index}
-                  className="bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden hover:border-[#ABDB25] hover:shadow-lg hover:shadow-[#ABDB25]/20 transition-all duration-300 group"
+                  className="bg-surface border border-line rounded-2xl overflow-hidden hover:border-accent hover:shadow-lg hover:shadow-transparent transition-all duration-300 group"
                 >
                   {/* Product Image */}
-                  <div className="aspect-square bg-gray-800 relative overflow-hidden">
+                  <div className="aspect-square bg-surface-raised relative overflow-hidden">
                     {getMainImage(produto.imagem) ? (
                       <img 
                         src={getMainImage(produto.imagem)}
@@ -236,7 +236,7 @@ export default function SellerProfile() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
@@ -246,10 +246,10 @@ export default function SellerProfile() {
                   {/* Product Info */}
                   <div className="p-4">
                     <Link href={`/produtos/${produto.id_produto}`} className="block">
-                      <h3 className="font-bold text-white mb-1 truncate group-hover:text-[#ABDB25] transition-colors">
+                      <h3 className="font-bold text-foreground mb-1 truncate group-hover:text-accent transition-colors">
                         {produto.nome}
                       </h3>
-                      <p className="text-[#ABDB25] text-xl font-bold">
+                      <p className="text-accent text-xl font-bold">
                         {formatPrice(produto.preco)}
                       </p>
                     </Link>
@@ -258,8 +258,8 @@ export default function SellerProfile() {
               ))}
             </div>
           ) : (
-            <div className="bg-gray-900/50 border border-gray-700 rounded-2xl p-8 text-center">
-              <p className="text-gray-400">Este vendedor ainda não tem produtos anunciados.</p>
+            <div className="bg-surface border border-line rounded-2xl p-8 text-center">
+              <p className="text-muted">Este vendedor ainda não tem produtos anunciados.</p>
             </div>
           )}
         </div>

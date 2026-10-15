@@ -1,0 +1,9 @@
+# Arquivos privados locais não devem ser enviados na publicação via CLI.
+.env*
+**/.env*
+*.pem
+**/*.pem
+*.key
+**/*.key
+scratch/
+backend/uploads/

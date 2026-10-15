@@ -1,0 +1,18 @@
+/* Animate.css 3.7.2 — Copyright (c) 2019 Daniel Eden, MIT.
+   Fontes originais e licença: public/licenses/animate-css-3.7.2.txt.
+   fadeInUp adaptado para um deslocamento de 18px. */
+@import './vendor/fadeIn.css';
+@import './vendor/fadeInUp.css';
+
+.motion-rise, .motion-fade {
+  animation-duration: 520ms;
+  animation-delay: var(--motion-delay, 0ms);
+  animation-timing-function: cubic-bezier(.22, .61, .36, 1);
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+}
+.motion-rise { animation-name: fadeInUp; }
+.motion-fade { animation-name: fadeIn; }
+@media (prefers-reduced-motion: reduce) {
+  .motion-rise, .motion-fade { animation: none; }
+}

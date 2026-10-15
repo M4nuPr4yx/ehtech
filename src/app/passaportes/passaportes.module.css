@@ -1,0 +1,52 @@
+.page { min-height: 80vh; padding: 36px 24px 80px; background: var(--background); color: var(--foreground); }
+.shell { max-width: 1180px; margin: auto; }
+.hero { padding: 30px; border: 1px solid var(--line); border-radius: 20px; background: linear-gradient(120deg,var(--surface),var(--surface)); margin-bottom: 24px; }
+.eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+.hero h1 { font-size: clamp(28px,4vw,42px); font-weight: 750; margin: 10px 0; letter-spacing: -.03em; }
+.hero p { color: var(--muted); max-width: 750px; line-height: 1.7; }
+.grid { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 22px; align-items: start; }
+.panel { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); margin-bottom: 18px; min-width: 0; }
+.panel h2 { font-size: 21px; font-weight: 700; margin-bottom: 14px; }
+.panel h3 { font-size: 16px; font-weight: 650; margin-bottom: 10px; }
+.panel p, .muted { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.list { display: grid; gap: 8px; margin: 16px 0; }
+.list button { text-align: left; width: 100%; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.list button[aria-pressed=true] { border-color: var(--line); background: var(--surface); }
+.list strong, .list small { display: block; overflow-wrap: anywhere; }
+.list small { color: var(--muted); margin-top: 4px; }
+.form { display: grid; gap: 14px; }
+.form label { display: grid; gap: 7px; font-size: 13px; color: var(--foreground); }
+.form input, .form select, .code { width: 100%; min-width: 0; padding: 11px 12px; background: var(--surface); color: var(--foreground); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+.form input:focus, .form select:focus, .code:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.component { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: end; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.component > label:first-child { grid-column: 1 / -1; }
+.component input, .component select { min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; }
+.button { padding: 11px 15px; background: var(--accent-fill); color: var(--accent-contrast); border: 1px solid var(--accent-fill); border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.secondary { background: transparent; color: var(--foreground); border-color: var(--line); }
+.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.button:disabled, .list button:disabled { opacity: .5; cursor: wait; }
+.button:focus-visible, .list button:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.notice, .error { border: 1px solid var(--danger); padding: 14px 18px; border-radius: 10px; background: var(--danger-soft); margin-bottom: 18px; overflow-wrap: anywhere; }
+.error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
+.chips span, .badge { border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; color: var(--foreground); font-size: 12px; }
+.timeline { margin-top: 18px; list-style: none; padding: 0; }
+.timeline li { padding: 0 0 22px 20px; border-left: 2px solid var(--line); position: relative; }
+.timeline li::before { content: ''; position: absolute; width: 9px; height: 9px; border-radius: 50%; background: var(--surface); left: -5px; top: 6px; }
+.timeline strong { display: block; overflow-wrap: anywhere; margin: 7px 0; }
+.timeline time { font-size: 12px; color: var(--muted); }
+.timeline small { display: block; color: var(--muted); line-height: 1.6; margin-top: 8px; }
+.badge { display: inline-block; padding: 4px 8px; margin-left: 8px; }
+.verified { color: var(--success); border-color: var(--success); }
+.panel summary { cursor: pointer; font-weight: 650; padding-bottom: 14px; }
+.panel hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
+.public { max-width: 850px; margin: auto; }
+.public a { color: var(--accent); }
+@media (max-width: 850px) { .grid { grid-template-columns: 1fr; } .page { padding: 24px 16px 60px; } .hero, .panel { padding: 20px; } }
+@media (max-width: 500px) { .component { grid-template-columns: 1fr; } }
+.hero { background: var(--surface); box-shadow: var(--shadow); }
+.panel { box-shadow: var(--shadow); }
+.button { min-height: 44px; font-size: 14px; }
+.button:not(.secondary):not(.danger):enabled:hover { filter: brightness(1.08); }
+.secondary:hover { background: var(--surface-raised); }

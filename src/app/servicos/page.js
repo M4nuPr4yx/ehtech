@@ -79,7 +79,7 @@ function ServiceCatalog({ initial }) {
         <div className={styles.heroGlow} />
         <div className={styles.shell}>
           <div className={styles.breadcrumb}><Link href="/">Início</Link><span>/</span><span>Serviços</span></div>
-          <div className={styles.heroGrid}>
+          <div className={styles.heroGrid} data-motion="fade">
             <div>
               <span className={styles.eyebrow}>ESPECIALISTAS EM TECNOLOGIA</span>
               <h1>Soluções de TI,<br /><em>sem complicação.</em></h1>
@@ -119,7 +119,7 @@ function ServiceCatalog({ initial }) {
           {!result && loading ? <Skeletons /> : result?.items?.length ? (
             <div className={styles.grid} data-updating={busy}>
               {result.items.map((service) => (
-                <Link href={`/servicos/${service.slug}`} prefetch={false} className={styles.card} key={service.id_servico}>
+                <Link href={`/servicos/${service.slug}`} prefetch={false} className={styles.card} key={service.id_servico} data-motion="rise">
                   <div className={styles.cardTop}>
                     <span className={styles.icon}><ServiceIcon category={service.categoria} /></span>
                     <span className={styles.mode}>{modalityLabel(service.modalidade)}</span>

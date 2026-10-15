@@ -339,8 +339,12 @@ const handleChangeEmail = async (e) => {
 
   if (loading) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl">Carregando...</div>
+      <div className="site-background min-h-screen text-foreground pt-10 pb-16">
+        <div className="max-w-2xl mx-auto px-6">
+          <div className="flex min-h-[48rem] items-center justify-center rounded-2xl border border-line bg-surface p-8 shadow-2xl">
+            <div className="text-accent text-xl" role="status">Carregando perfil…</div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -356,34 +360,34 @@ const handleChangeEmail = async (e) => {
   }).format(Number(value) || 0);
 
   return (
-    <div className="site-background min-h-screen text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
       <div className={`${activeTab === 'historico' ? 'max-w-5xl' : 'max-w-2xl'} mx-auto px-6 transition-all`}>
-        <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-3xl font-bold text-[#ABDB25] mb-6"> Meu Perfil</h1>
+        <div className="bg-surface border border-line rounded-2xl p-8 shadow-2xl">
+          <h1 className="text-3xl font-bold text-accent mb-6"> Meu Perfil</h1>
           
 {/* Tabs */}
-          <div className="flex mb-6 border-b border-gray-700 overflow-x-auto">
+          <div className="flex mb-6 border-b border-line overflow-x-auto">
             <button
-              onClick={() => { setActiveTab('perfil'); setMessage(''); }}
-              className={`py-3 px-6 font-bold transition-all ${activeTab === 'perfil' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
+              aria-pressed={activeTab === 'perfil'} onClick={() => { setActiveTab('perfil'); setMessage(''); }}
+              className={`py-3 px-4 whitespace-nowrap text-sm font-semibold transition-all ${activeTab === 'perfil' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Perfil
             </button>
             <button
-              onClick={() => { setActiveTab('seguranca'); setMessage(''); }}
-              className={`py-3 px-6 font-bold transition-all ${activeTab === 'seguranca' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
+              aria-pressed={activeTab === 'seguranca'} onClick={() => { setActiveTab('seguranca'); setMessage(''); }}
+              className={`py-3 px-6 font-bold transition-all ${activeTab === 'seguranca' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Segurança
             </button>
             <button
-              onClick={() => { setActiveTab('produtos'); setMessage(''); }}
-              className={`py-3 px-6 font-bold transition-all ${activeTab === 'produtos' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
+              aria-pressed={activeTab === 'produtos'} onClick={() => { setActiveTab('produtos'); setMessage(''); }}
+              className={`py-3 px-6 font-bold transition-all ${activeTab === 'produtos' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Seus Produtos
             </button>
             <button
-              onClick={() => { setActiveTab('historico'); setMessage(''); }}
-              className={`py-3 px-6 whitespace-nowrap font-bold transition-all ${activeTab === 'historico' ? 'text-[#ABDB25] border-b-2 border-[#ABDB25]' : 'text-gray-400 hover:text-white'}`}
+              aria-pressed={activeTab === 'historico'} onClick={() => { setActiveTab('historico'); setMessage(''); }}
+              className={`py-3 px-6 whitespace-nowrap font-bold transition-all ${activeTab === 'historico' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Histórico
             </button>
@@ -399,12 +403,12 @@ const handleChangeEmail = async (e) => {
                     <img 
                       src={perfil.foto} 
                       alt="Foto de perfil" 
-                      className="w-32 h-32 rounded-full object-cover object-center border-4 border-[#ABDB25]"
+                      className="w-32 h-32 rounded-full object-cover object-center border-4 border-accent"
                       onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ) : (
-                    <div className="w-32 h-32 rounded-full bg-gray-700 border-4 border-[#ABDB25] flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-32 h-32 rounded-full bg-surface border-4 border-accent flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
@@ -420,14 +424,14 @@ const handleChangeEmail = async (e) => {
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={openFilePicker}
-                    className="px-4 py-2 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-lg text-sm transition-all"
+                    className="px-4 py-2 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-lg text-sm transition-all"
                   >
                     Alterar Foto
                   </button>
                   {perfil.foto && (
                     <button
                       onClick={handleRemovePhoto}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm transition-all"
+                      className="px-4 py-2 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded-lg text-sm transition-all"
                     >
                       Remover
                     </button>
@@ -435,21 +439,21 @@ const handleChangeEmail = async (e) => {
                 </div>
               </div>
               
-              <div className="bg-gray-800/50 rounded-xl p-4">
-                <label className="text-gray-400 text-sm">E-mail</label>
-                <p className="text-white text-lg font-medium">{perfil.email}</p>
+              <div className="bg-surface-raised rounded-xl p-4">
+                <label className="text-muted text-sm">E-mail</label>
+                <p className="text-foreground text-lg font-medium">{perfil.email}</p>
               </div>
-              <div className="bg-gray-800/50 rounded-xl p-4">
-                <label className="text-gray-400 text-sm">Cargo</label>
-                <p className="text-white text-lg font-medium capitalize">{perfil.role}</p>
+              <div className="bg-surface-raised rounded-xl p-4">
+                <label className="text-muted text-sm">Tipo de conta</label>
+                <p className="text-foreground text-lg font-medium capitalize">{{ admin: 'Administrador', vendedor: 'Vendedor', prestador: 'Prestador', user: 'Usuário' }[perfil.role] || 'Usuário'}</p>
               </div>
-              <div className="bg-gray-800/50 rounded-xl p-4">
-                <label className="text-gray-400 text-sm">Membro desde</label>
-                <p className="text-white text-lg font-medium">{formatDate(perfil.data_criacao)}</p>
+              <div className="bg-surface-raised rounded-xl p-4">
+                <label className="text-muted text-sm">Membro desde</label>
+                <p className="text-foreground text-lg font-medium">{formatDate(perfil.data_criacao)}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full py-4 mt-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all"
+                className="w-full py-4 mt-4 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded-xl transition-all"
               >
                 Sair da Conta
               </button>
@@ -461,36 +465,36 @@ const handleChangeEmail = async (e) => {
             <div className="space-y-8">
               {/* Alterar Senha */}
               <div>
-                <h2 className="text-xl font-bold text-white mb-4">Alterar Senha</h2>
+                <h2 className="text-xl font-bold text-foreground mb-4">Alterar Senha</h2>
                 <form onSubmit={handleChangePassword} className="space-y-4">
-                  <input
+                  <label className="block text-sm font-medium"><span className="block mb-2">Senha atual</span><input
                     type="password"
                     placeholder="Senha atual"
                     value={senhaAtual}
                     onChange={(e) => setSenhaAtual(e.target.value)}
-                    className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                     required
-                  />
-                  <input
+                  /></label>
+                  <label className="block text-sm font-medium"><span className="block mb-2">Nova senha (mínimo 8 caracteres)</span><input
                     type="password"
                     placeholder="Nova senha (mínimo 8 caracteres)"
                     minLength={8}
                     value={novaSenha}
                     onChange={(e) => setNovaSenha(e.target.value)}
-                    className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                     required
-                  />
-                  <input
+                  /></label>
+                  <label className="block text-sm font-medium"><span className="block mb-2">Confirme a nova senha</span><input
                     type="password"
                     placeholder="Confirmar nova senha"
                     value={confirmarSenha}
                     onChange={(e) => setConfirmarSenha(e.target.value)}
-                    className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                     required
-                  />
+                  /></label>
                   <button
                     type="submit"
-                    className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all"
+                    className="w-full py-4 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all"
                   >
                     Alterar Senha
                   </button>
@@ -498,28 +502,28 @@ const handleChangeEmail = async (e) => {
               </div>
 
               {/* Alterar Email */}
-              <div className="pt-6 border-t border-gray-700">
-                <h2 className="text-xl font-bold text-white mb-4">Alterar E-mail</h2>
+              <div className="pt-6 border-t border-line">
+                <h2 className="text-xl font-bold text-foreground mb-4">Alterar E-mail</h2>
                 <form onSubmit={handleChangeEmail} className="space-y-4">
-                  <input
+                  <label className="block text-sm font-medium"><span className="block mb-2">Novo e-mail</span><input
                     type="email"
                     placeholder="Novo e-mail"
                     value={novoEmail}
                     onChange={(e) => setNovoEmail(e.target.value)}
-                    className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                     required
-                  />
-                  <input
+                  /></label>
+                  <label className="block text-sm font-medium"><span className="block mb-2">Senha atual</span><input
                     type="password"
                     placeholder="Confirme sua senha"
                     value={senhaConfimar}
                     onChange={(e) => setSenhaConfirmar(e.target.value)}
-                    className="w-full p-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none transition-colors"
+                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                     required
-                  />
+                  /></label>
                   <button
                     type="submit"
-                    className="w-full py-4 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all"
+                    className="w-full py-4 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all"
                   >
                     Alterar E-mail
                   </button>
@@ -527,7 +531,7 @@ const handleChangeEmail = async (e) => {
               </div>
 
 {message && (
-                <p className={`p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+                <p className={`p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger-soft text-danger border border-danger'}`}>
                   {message}
                 </p>
               )}
@@ -538,43 +542,43 @@ const handleChangeEmail = async (e) => {
           {activeTab === 'produtos' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Seus Produtos</h2>
-                <Link href="/anunciar" className="px-4 py-2 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-lg text-sm transition-all">
+                <h2 className="text-xl font-bold text-foreground">Seus Produtos</h2>
+                <Link href="/anunciar" className="px-4 py-2 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-lg text-sm transition-all">
                   + Novo Produto
                 </Link>
               </div>
 
               {loadingProducts ? (
-                <div className="text-center py-8 text-gray-400">Carregando...</div>
+                <div className="text-center py-8 text-muted">Carregando...</div>
               ) : userProducts.length > 0 ? (
                 <div className="space-y-4">
                   {userProducts.map((produto) => (
-                    <div key={produto.id_produto} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 flex gap-4">
-                      <div className="w-20 h-20 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
+                    <div key={produto.id_produto} className="bg-surface-raised border border-line rounded-xl p-4 flex gap-4">
+                      <div className="w-20 h-20 bg-surface rounded-lg overflow-hidden flex-shrink-0">
                         {isValidImageUrl(produto.imagem) ? (
                           <img src={produto.imagem} alt={produto.nome} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-white truncate">{produto.nome}</h3>
-                        <p className="text-[#ABDB25] font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produto.preco)}</p>
-                        <p className="text-gray-400 text-sm truncate">{produto.descricao}</p>
-                        <p className={`mt-1 text-xs font-bold ${produto.status_aprovacao === 'aprovado' ? 'text-green-400' : produto.status_aprovacao === 'reprovado' ? 'text-red-400' : 'text-yellow-400'}`}>
+                        <h3 className="font-bold text-foreground truncate">{produto.nome}</h3>
+                        <p className="text-accent font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produto.preco)}</p>
+                        <p className="text-muted text-sm truncate">{produto.descricao}</p>
+                        <p className={`mt-1 text-xs font-bold ${produto.status_aprovacao === 'aprovado' ? 'text-success' : produto.status_aprovacao === 'reprovado' ? 'text-danger' : 'text-warning'}`}>
                           {produto.status_aprovacao === 'aprovado' ? 'Aprovado' : produto.status_aprovacao === 'reprovado' ? 'Não aprovado' : 'Aguardando aprovação'}
                         </p>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Link href={`/editar-produto/${produto.id_produto}`} className="px-3 py-1 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded text-sm text-center">
+                        <Link href={`/editar-produto/${produto.id_produto}`} className="px-3 py-1 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded text-sm text-center">
                           Editar
                         </Link>
                         {produto.status_aprovacao === 'aprovado' && (
-                          <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded text-sm text-center">
+                          <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-surface hover:bg-surface text-foreground font-bold rounded text-sm text-center">
                             Ver
                           </Link>
                         )}
@@ -601,7 +605,7 @@ const handleChangeEmail = async (e) => {
                               }
                             }
                           }}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-sm"
+                          className="px-3 py-1 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded text-sm"
                         >
                           Excluir
                         </button>
@@ -611,15 +615,15 @@ const handleChangeEmail = async (e) => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-400 mb-4">Você ainda não tem produtos cadastrados.</p>
-                  <Link href="/anunciar" className="text-[#ABDB25] hover:underline">
+                  <p className="text-muted mb-4">Você ainda não tem produtos cadastrados.</p>
+                  <Link href="/anunciar" className="text-accent hover:underline">
                     Anunciar seu primeiro produto →
                   </Link>
                 </div>
               )}
 
               {message && (
-                <p className={`mt-4 p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+                <p className={`mt-4 p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger-soft text-danger border border-danger'}`}>
                   {message}
                 </p>
               )}
@@ -630,38 +634,38 @@ const handleChangeEmail = async (e) => {
           {activeTab === 'historico' && (
             <div className="space-y-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ABDB25]">Sua jornada EHtech</span><h2 className="mt-1 text-2xl font-bold text-white">Histórico de contratações</h2><p className="mt-1 text-sm text-gray-400">Registros permanecem disponíveis mesmo após a conclusão.</p></div>
-                <button type="button" onClick={fetchHistory} disabled={loadingHistory} className="self-start rounded-xl border border-gray-700 px-4 py-2 text-xs font-bold text-gray-300 hover:border-[#ABDB25] hover:text-[#ABDB25] disabled:opacity-50">↻ Atualizar</button>
+                <div><span className="text-xs font-extrabold uppercase tracking-[0.18em] text-accent">Sua jornada EHtech</span><h2 className="mt-1 text-2xl font-bold text-foreground">Histórico de contratações</h2><p className="mt-1 text-sm text-muted">Registros permanecem disponíveis mesmo após a conclusão.</p></div>
+                <button type="button" onClick={fetchHistory} disabled={loadingHistory} className="self-start rounded-xl border border-line px-4 py-2 text-xs font-bold text-muted hover:border-accent hover:text-accent disabled:opacity-50">↻ Atualizar</button>
               </div>
 
-              {message && <div className={`rounded-xl border px-4 py-3 text-sm ${messageType === 'success' ? 'border-green-500/30 bg-green-500/10 text-green-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>{message}</div>}
-              {historyError && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300" role="alert">{historyError}</div>}
+              {message && <div className={`rounded-xl border px-4 py-3 text-sm ${messageType === 'success' ? 'border-success bg-success-soft text-success' : 'border-danger bg-danger-soft text-danger'}`}>{message}</div>}
+              {historyError && <div className="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">{historyError}</div>}
 
-              {loadingHistory ? <div className="py-16 text-center text-gray-400">Carregando seu histórico…</div> : (
+              {loadingHistory ? <div className="py-16 text-center text-muted">Carregando seu histórico…</div> : (
                 <>
                   <section>
-                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-white">Serviços</h3><p className="text-xs text-gray-500">Como cliente ou prestador</p></div><span className="rounded-full bg-[#ABDB25]/10 px-3 py-1 text-xs font-bold text-[#ABDB25]">{serviceHistory.length}</span></div>
+                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-foreground">Serviços</h3><p className="text-xs text-muted">Como cliente ou prestador</p></div><span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">{serviceHistory.length}</span></div>
                     {serviceHistory.length ? <div className="grid gap-3 md:grid-cols-2">{serviceHistory.map((contract) => (
-                      <article key={contract.id_contratacao} className="flex flex-col rounded-2xl border border-gray-700 bg-gray-800/45 p-5">
-                        <div className="flex items-start justify-between gap-3"><div><span className="text-[9px] font-bold uppercase tracking-wider text-[#ABDB25]">{contract.papel === 'prestador' ? 'Você prestou' : 'Você contratou'}</span><h4 className="mt-1 font-bold text-white">{contract.servico_titulo}</h4><p className="mt-1 text-xs text-gray-500">Com {contract.papel === 'prestador' ? contract.cliente_nome : contract.prestador_nome} · #{contract.id_contratacao}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold ${contract.status === 'concluido' ? 'bg-green-500/15 text-green-300' : contract.status === 'cancelado' ? 'bg-red-500/15 text-red-300' : 'bg-blue-500/15 text-blue-300'}`}>{CONTRACT_STATUS[contract.status] || contract.status}</span></div>
-                        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-700/70 pt-4"><div><span className="block text-[9px] uppercase text-gray-500">Valor acordado</span><strong className="text-sm text-gray-200">{contract.valor_proposto == null ? 'Aguardando proposta' : formatCurrency(contract.valor_proposto)}</strong></div><div><span className="block text-[9px] uppercase text-gray-500">Última atualização</span><strong className="text-sm text-gray-200">{formatDate(contract.updated_at)}</strong></div></div>
-                        {contract.garantia_codigo && <div className="mt-3 rounded-xl border border-[#ABDB25]/25 bg-[#ABDB25]/5 p-3"><span className="block text-[9px] font-bold uppercase text-[#ABDB25]">Garantia registrada</span><strong className="font-mono text-xs text-gray-200">{contract.garantia_codigo}</strong><p className="mt-1 text-[10px] text-gray-500">Válida até {formatDate(contract.garantia_fim_em)}</p></div>}
-                        <Link href="/contratacoes" className="mt-auto pt-4 text-xs font-bold text-[#ABDB25] hover:underline">Ver detalhes e ações →</Link>
+                      <article key={contract.id_contratacao} className="flex flex-col rounded-2xl border border-line bg-surface-raised p-5">
+                        <div className="flex items-start justify-between gap-3"><div><span className="text-xs font-bold uppercase tracking-wider text-accent">{contract.papel === 'prestador' ? 'Você prestou' : 'Você contratou'}</span><h4 className="mt-1 font-bold text-foreground">{contract.servico_titulo}</h4><p className="mt-1 text-xs text-muted">Com {contract.papel === 'prestador' ? contract.cliente_nome : contract.prestador_nome} · #{contract.id_contratacao}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${contract.status === 'concluido' ? 'bg-success-soft text-success' : contract.status === 'cancelado' ? 'bg-danger-soft text-danger' : 'bg-info-soft text-info'}`}>{CONTRACT_STATUS[contract.status] || contract.status}</span></div>
+                        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4"><div><span className="block text-xs uppercase text-muted">Valor acordado</span><strong className="text-sm text-muted">{contract.valor_proposto == null ? 'Aguardando proposta' : formatCurrency(contract.valor_proposto)}</strong></div><div><span className="block text-xs uppercase text-muted">Última atualização</span><strong className="text-sm text-muted">{formatDate(contract.updated_at)}</strong></div></div>
+                        {contract.garantia_codigo && <div className="mt-3 rounded-xl border border-accent bg-accent-soft p-3"><span className="block text-xs font-bold uppercase text-accent">Garantia registrada</span><strong className="font-mono text-xs text-muted">{contract.garantia_codigo}</strong><p className="mt-1 text-xs text-muted">Válida até {formatDate(contract.garantia_fim_em)}</p></div>}
+                        <Link href="/contratacoes" className="mt-auto pt-4 text-xs font-bold text-accent hover:underline">Ver detalhes e ações →</Link>
                       </article>
-                    ))}</div> : <div className="rounded-2xl border border-dashed border-gray-700 p-8 text-center"><p className="text-sm text-gray-400">Você ainda não possui serviços no histórico.</p><Link href="/servicos" className="mt-2 inline-block text-sm font-bold text-[#ABDB25] hover:underline">Explorar serviços →</Link></div>}
+                    ))}</div> : <div className="rounded-2xl border border-dashed border-line p-8 text-center"><p className="text-sm text-muted">Você ainda não possui serviços no histórico.</p><Link href="/servicos" className="mt-2 inline-block text-sm font-bold text-accent hover:underline">Explorar serviços →</Link></div>}
                   </section>
 
                   <section>
-                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-white">Pedidos de produtos</h3><p className="text-xs text-gray-500">Registro dos itens solicitados aos vendedores</p></div><span className="rounded-full bg-[#ABDB25]/10 px-3 py-1 text-xs font-bold text-[#ABDB25]">{productOrders.length}</span></div>
+                    <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-foreground">Pedidos de produtos</h3><p className="text-xs text-muted">Registro dos itens solicitados aos vendedores</p></div><span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">{productOrders.length}</span></div>
                     {productOrders.length ? <div className="space-y-4">{productOrders.map((order) => (
-                      <article key={order.id_pedido} className="overflow-hidden rounded-2xl border border-gray-700 bg-gray-800/45">
-                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-700 px-5 py-4"><div><span className="text-[9px] uppercase tracking-wider text-gray-500">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-gray-400">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-blue-500/15 px-2.5 py-1 text-[9px] font-bold text-blue-300">Pedido registrado</span><strong className="mt-1 block text-lg text-[#ABDB25]">{formatCurrency(order.total)}</strong></div></header>
-                        <div className="divide-y divide-gray-700/70">{order.itens.map((item) => (
-                          <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-700"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><Link href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-white hover:text-[#ABDB25]">{item.nome_produto}</Link><p className="truncate text-xs text-gray-500">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-gray-500">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-gray-200">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
+                      <article key={order.id_pedido} className="overflow-hidden rounded-2xl border border-line bg-surface-raised">
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><span className="text-xs uppercase tracking-wider text-muted">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-muted">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-info-soft px-2.5 py-1 text-xs font-bold text-info">Pedido registrado</span><strong className="mt-1 block text-lg text-accent">{formatCurrency(order.total)}</strong></div></header>
+                        <div className="divide-y divide-line">{order.itens.map((item) => (
+                          <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><Link href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-foreground hover:text-accent">{item.nome_produto}</Link><p className="truncate text-xs text-muted">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-muted">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-muted">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
                         ))}</div>
-                        <footer className="border-t border-gray-700 bg-gray-900/35 px-5 py-3 text-[10px] text-gray-500">Este registro não representa pagamento. Combine entrega e pagamento diretamente com o vendedor.</footer>
+                        <footer className="border-t border-line bg-surface px-5 py-3 text-xs text-muted">Este registro não representa pagamento. Combine entrega e pagamento diretamente com o vendedor.</footer>
                       </article>
-                    ))}</div> : <div className="rounded-2xl border border-dashed border-gray-700 p-8 text-center"><p className="text-sm text-gray-400">Nenhum pedido de produto foi registrado.</p><Link href="/produtos" className="mt-2 inline-block text-sm font-bold text-[#ABDB25] hover:underline">Explorar produtos →</Link></div>}
+                    ))}</div> : <div className="rounded-2xl border border-dashed border-line p-8 text-center"><p className="text-sm text-muted">Nenhum pedido de produto foi registrado.</p><Link href="/produtos" className="mt-2 inline-block text-sm font-bold text-accent hover:underline">Explorar produtos →</Link></div>}
                   </section>
                 </>
               )}

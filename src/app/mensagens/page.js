@@ -247,51 +247,51 @@ export default function MensagensPage() {
   });
 
   return (
-    <div className="site-background min-h-screen text-white pt-10 pb-16 px-4 md:px-8">
+    <div className="site-background min-h-screen text-foreground pt-10 pb-16 px-4 md:px-8">
       {messageFeedback && (
-        <div className="fixed right-5 top-24 z-50 rounded-xl border border-red-500/40 bg-red-500/20 px-4 py-3 text-sm font-medium text-red-100 shadow-xl" role="alert">
+        <div className="fixed right-5 top-24 z-50 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm font-medium text-danger shadow-xl" role="alert">
           {messageFeedback}
-          <button type="button" onClick={() => setMessageFeedback('')} className="ml-3 hover:text-white" aria-label="Fechar mensagem">×</button>
+          <button type="button" onClick={() => setMessageFeedback('')} className="ml-3 hover:text-foreground" aria-label="Fechar mensagem">×</button>
         </div>
       )}
       <div className="max-w-7xl mx-auto">
         {/* Cabeçalho da página */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#ABDB25] via-white to-gray-300 bg-clip-text text-transparent">
-              Mensagens do Marketplace
+            <h1 className="text-3xl font-extrabold text-foreground">
+              Mensagens
             </h1>
-            <p className="text-gray-400 text-sm mt-1">Converse em tempo real com compradores e vendedores.</p>
+            <p className="text-muted text-sm mt-1">Converse em tempo real com compradores e vendedores.</p>
           </div>
           <Link
             href="/produtos"
-            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-gray-900 border border-gray-700 hover:border-[#ABDB25] rounded-xl text-sm font-semibold text-gray-300 hover:text-[#ABDB25] transition-all"
+            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-surface border border-line hover:border-accent rounded-xl text-sm font-semibold text-muted hover:text-accent transition-all"
           >
-            ← Voltar à Vitrine
+            Explorar produtos
           </Link>
         </div>
 
         {/* Layout do Chat */}
-        <div className="bg-gray-900/90 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl grid grid-cols-1 md:grid-cols-12 h-[750px] max-h-[85vh]">
+        <div className="bg-surface border border-line rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl grid grid-cols-1 md:grid-cols-12 h-[660px] max-h-[78vh]">
           {/* COLUNA ESQUERDA: LISTA DE CONVERSAS */}
           <div
-            className={`md:col-span-4 border-r border-gray-800 flex flex-col h-full bg-[#0a0d0e]/70 ${
+            className={`md:col-span-4 border-r border-line flex flex-col h-full bg-surface ${
               mobileView === 'chat' ? 'hidden md:flex' : 'flex'
             }`}
           >
             {/* Barra de Busca */}
-            <div className="p-4 border-b border-gray-800/80">
+            <div className="p-4 border-b border-line">
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Buscar conversa..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-800/60 border border-gray-700/80 rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25] transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-surface-raised border border-line rounded-2xl text-sm text-foreground placeholder-muted focus:outline-none focus:border-accent transition-all"
                 />
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-gray-400 absolute left-3.5 top-3.5"
+                  className="h-5 w-5 text-muted absolute left-3.5 top-3.5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -302,12 +302,12 @@ export default function MensagensPage() {
             </div>
 
             {/* Lista de Conversas */}
-            <div className="flex-1 overflow-y-auto divide-y divide-gray-800/40">
+            <div className="flex-1 overflow-y-auto divide-y divide-line">
               {loadingConversations && conversations.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 text-sm animate-pulse">Carregando conversas...</div>
+                <div className="p-8 text-center text-muted text-sm animate-pulse">Carregando conversas...</div>
               ) : filteredConversations.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  <p className="text-base font-semibold text-gray-400 mb-1">Nenhuma conversa encontrada</p>
+                <div className="p-8 text-center text-muted">
+                  <p className="text-base font-semibold text-muted mb-1">Nenhuma conversa encontrada</p>
                   <p className="text-xs">Inicie um bate-papo através do perfil de um vendedor ou anúncio.</p>
                 </div>
               ) : (
@@ -327,8 +327,8 @@ export default function MensagensPage() {
                         });
                         setMobileView('chat');
                       }}
-                      className={`w-full p-4 flex items-center gap-3 text-left transition-all hover:bg-gray-800/40 ${
-                        isActive ? 'bg-[#ABDB25]/10 border-l-4 border-[#ABDB25]' : ''
+                      className={`w-full p-4 flex items-center gap-3 text-left transition-all hover:bg-surface-raised ${
+                        isActive ? 'bg-accent-soft border-l-4 border-accent' : ''
                       }`}
                     >
                       {/* Avatar */}
@@ -337,15 +337,15 @@ export default function MensagensPage() {
                           <img
                             src={conv.partner_foto}
                             alt={conv.partner_username}
-                            className="w-12 h-12 rounded-full object-cover border border-gray-700 bg-gray-800"
+                            className="w-12 h-12 rounded-full object-cover border border-line bg-surface-raised"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-[#ABDB25] flex items-center justify-center text-black font-bold text-lg">
+                          <div className="w-12 h-12 rounded-full bg-accent-fill flex items-center justify-center text-accent-contrast font-bold text-lg">
                             {conv.partner_username?.charAt(0).toUpperCase() || 'U'}
                           </div>
                         )}
                         {conv.unread_count > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-[#ABDB25] text-black text-xs font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                          <span className="absolute -top-1 -right-1 bg-accent-fill text-accent-contrast text-xs font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-lg animate-bounce">
                             {conv.unread_count}
                           </span>
                         )}
@@ -354,14 +354,14 @@ export default function MensagensPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-bold text-sm text-white truncate">
+                          <h3 className="font-bold text-sm text-foreground truncate">
                             {conv.partner_nome || conv.partner_username}
                           </h3>
-                          <span className="text-[10px] text-gray-500 shrink-0">
+                          <span className="text-xs text-muted shrink-0">
                             {formatMessageTime(conv.last_message_date)}
                           </span>
                         </div>
-                        <p className={`text-xs truncate mt-0.5 ${conv.unread_count > 0 ? 'text-[#ABDB25] font-semibold' : 'text-gray-400'}`}>
+                        <p className={`text-xs truncate mt-0.5 ${conv.unread_count > 0 ? 'text-accent font-semibold' : 'text-muted'}`}>
                           {conv.last_message}
                         </p>
                       </div>
@@ -374,19 +374,19 @@ export default function MensagensPage() {
 
           {/* COLUNA DIREITA: JANELA DO CHAT */}
           <div
-            className={`md:col-span-8 flex flex-col h-full bg-[#0d1012]/95 ${
+            className={`md:col-span-8 flex flex-col h-full bg-surface ${
               mobileView === 'list' ? 'hidden md:flex' : 'flex'
             }`}
           >
             {activePartner ? (
               <>
                 {/* Header do Chat */}
-                <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gray-900/60 backdrop-blur-md">
+                <div className="p-4 border-b border-line flex items-center justify-between bg-surface backdrop-blur-md">
                   <div className="flex items-center gap-3">
                     {/* Botão de voltar (mobile) */}
                     <button
                       onClick={() => setMobileView('list')}
-                      className="md:hidden p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+                      className="md:hidden p-2 text-muted hover:text-foreground rounded-lg hover:bg-surface-raised"
                     >
                       ←
                     </button>
@@ -396,25 +396,25 @@ export default function MensagensPage() {
                       <img
                         src={activePartner.foto}
                         alt={activePartner.username}
-                        className="w-10 h-10 rounded-full object-cover border border-[#ABDB25]/60 bg-gray-800"
+                        className="w-10 h-10 rounded-full object-cover border border-accent bg-surface-raised"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-[#ABDB25] flex items-center justify-center text-black font-bold text-base">
+                      <div className="w-10 h-10 rounded-full bg-accent-fill flex items-center justify-center text-accent-contrast font-bold text-base">
                         {activePartner.username?.charAt(0).toUpperCase() || 'U'}
                       </div>
                     )}
 
                     <div>
-                      <h2 className="font-bold text-white text-base leading-tight">
+                      <h2 className="font-bold text-foreground text-base leading-tight">
                         {activePartner.nome || activePartner.username}
                       </h2>
-                      <span className="text-xs text-[#ABDB25] font-medium">@{activePartner.username}</span>
+                      <span className="text-xs text-accent font-medium">@{activePartner.username}</span>
                     </div>
                   </div>
 
                   <Link
                     href={`/perfil/${activePartner.id_usuario || activePartner.partner_id}`}
-                    className="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-[#ABDB25] rounded-xl border border-gray-700 transition-colors"
+                    className="text-xs px-3 py-1.5 bg-surface-raised hover:bg-surface text-muted hover:text-accent rounded-xl border border-line transition-colors"
                   >
                     Ver Perfil
                   </Link>
@@ -422,22 +422,22 @@ export default function MensagensPage() {
 
                 {/* Banner de Contexto de Produto (se houver) */}
                 {referencedProduct && (
-                  <div className="px-4 py-2.5 bg-gray-900/80 border-b border-gray-800 flex items-center justify-between gap-3">
+                  <div className="px-4 py-2.5 bg-surface border-b border-line flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       {referencedProduct.imagem && isValidImageUrl(referencedProduct.imagem) && (
                         <img
                           src={referencedProduct.imagem}
                           alt={referencedProduct.nome}
-                          className="w-10 h-10 rounded-lg object-contain bg-gray-800 border border-gray-700 shrink-0"
+                          className="w-10 h-10 rounded-lg object-contain bg-surface-raised border border-line shrink-0"
                         />
                       )}
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-400">Negociando produto:</p>
-                        <p className="text-xs font-bold text-white truncate">{referencedProduct.nome}</p>
+                        <p className="text-xs text-muted">Negociando produto:</p>
+                        <p className="text-xs font-bold text-foreground truncate">{referencedProduct.nome}</p>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-xs font-bold text-[#ABDB25]">
+                      <span className="text-xs font-bold text-accent">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(referencedProduct.preco))}
                       </span>
                     </div>
@@ -447,16 +447,16 @@ export default function MensagensPage() {
                 {/* Área de Mensagens (Scroll) */}
                 <div className="flex-1 p-4 overflow-y-auto space-y-4">
                   {loadingMessages ? (
-                    <div className="h-full flex items-center justify-center text-gray-500 text-sm animate-pulse">
+                    <div className="h-full flex items-center justify-center text-muted text-sm animate-pulse">
                       Carregando mensagens...
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 p-6">
-                      <div className="w-16 h-16 rounded-full bg-gray-800/80 flex items-center justify-center text-3xl mb-3">
+                    <div className="h-full flex flex-col items-center justify-center text-center text-muted p-6">
+                      <div className="w-16 h-16 rounded-full bg-surface-raised flex items-center justify-center text-3xl mb-3">
                         💬
                       </div>
-                      <p className="font-semibold text-gray-300">Inicie a conversa!</p>
-                      <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                      <p className="font-semibold text-muted">Inicie a conversa!</p>
+                      <p className="text-xs text-muted mt-1 max-w-sm">
                         Envie uma mensagem para tirar dúvidas sobre produtos, entregas ou preços.
                       </p>
                     </div>
@@ -468,18 +468,18 @@ export default function MensagensPage() {
                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                           {/* Card de produto anexado (se houver na mensagem) */}
                           {msg.produto_nome && (
-                            <div className="mb-1 max-w-xs text-xs bg-gray-900 border border-gray-700/80 rounded-xl p-2.5 flex items-center gap-2">
+                            <div className="mb-1 max-w-xs text-xs bg-surface border border-line rounded-xl p-2.5 flex items-center gap-2">
                               {msg.produto_imagem && isValidImageUrl(msg.produto_imagem) && (
                                 <img
                                   src={msg.produto_imagem}
                                   alt={msg.produto_nome}
-                                  className="w-8 h-8 rounded object-contain bg-gray-800"
+                                  className="w-8 h-8 rounded object-contain bg-surface-raised"
                                 />
                               )}
                               <div className="min-w-0">
-                                <p className="font-bold text-white truncate">{msg.produto_nome}</p>
+                                <p className="font-bold text-foreground truncate">{msg.produto_nome}</p>
                                 {msg.produto_preco && (
-                                  <p className="text-[#ABDB25] font-semibold">
+                                  <p className="text-accent font-semibold">
                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(msg.produto_preco))}
                                   </p>
                                 )}
@@ -491,8 +491,8 @@ export default function MensagensPage() {
                           <div
                             className={`max-w-[78%] md:max-w-md px-4 py-2.5 rounded-2xl shadow-md text-sm leading-relaxed whitespace-pre-wrap break-words ${
                               isMe
-                                ? 'bg-[#ABDB25] text-black font-medium rounded-br-none'
-                                : 'bg-gray-800/90 text-white border border-gray-700/60 rounded-bl-none'
+                                ? 'bg-accent-fill text-accent-contrast font-medium rounded-br-none'
+                                : 'bg-surface-raised text-foreground border border-line rounded-bl-none'
                             }`}
                           >
                             {msg.conteudo}
@@ -500,9 +500,9 @@ export default function MensagensPage() {
 
                           {/* Hora e Status */}
                           <div className="flex items-center gap-1 mt-1 px-1">
-                            <span className="text-[10px] text-gray-500">{formatMessageTime(msg.created_at)}</span>
+                            <span className="text-xs text-muted">{formatMessageTime(msg.created_at)}</span>
                             {isMe && (
-                              <span className={`text-[10px] font-bold ${msg.lida ? 'text-[#ABDB25]' : 'text-gray-500'}`}>
+                              <span className={`text-xs font-bold ${msg.lida ? 'text-accent' : 'text-muted'}`}>
                                 {msg.lida ? '✓✓' : '✓'}
                               </span>
                             )}
@@ -515,19 +515,20 @@ export default function MensagensPage() {
                 </div>
 
                 {/* Campo de Digitação */}
-                <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-800 bg-gray-900/60 flex items-center gap-3">
+                <form onSubmit={handleSendMessage} className="p-4 border-t border-line bg-surface flex items-center gap-3">
                   <input
                     type="text"
                     placeholder="Digite sua mensagem..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     disabled={sending}
-                    className="flex-1 p-3.5 bg-gray-800/80 border border-gray-700 rounded-2xl text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#ABDB25] transition-all disabled:opacity-50"
+                    className="flex-1 p-3.5 bg-surface-raised border border-line rounded-2xl text-foreground placeholder-muted text-sm focus:outline-none focus:border-accent transition-all disabled:opacity-50"
                   />
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sending}
-                    className="px-6 py-3.5 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-2xl shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+                    className="px-6 py-3.5 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-2xl shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+                    aria-label={sending ? 'Enviando mensagem' : 'Enviar mensagem'}
                   >
                     {sending ? (
                       <span className="text-xs">Enviando...</span>
@@ -540,17 +541,17 @@ export default function MensagensPage() {
                 </form>
               </>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-500">
-                <div className="w-20 h-20 rounded-full bg-gray-800/40 border border-gray-700 flex items-center justify-center text-4xl mb-4">
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted">
+                <div className="w-20 h-20 rounded-full bg-surface-raised border border-line flex items-center justify-center text-4xl mb-4">
                   💬
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Suas Conversas</h3>
-                <p className="text-sm text-gray-400 max-w-md mb-6">
+                <h2 className="text-xl font-bold text-foreground mb-2">Suas Conversas</h2>
+                <p className="text-sm text-muted max-w-md mb-6">
                   Selecione uma conversa na lista à esquerda ou visite um produto para falar com o vendedor.
                 </p>
                 <Link
                   href="/produtos"
-                  className="px-6 py-3 bg-[#ABDB25] text-black font-bold rounded-xl hover:bg-white transition-all shadow-lg text-sm"
+                  className="px-6 py-3 bg-accent-fill text-accent-contrast font-bold rounded-xl hover:brightness-110 transition-all shadow-lg text-sm"
                 >
                   Explorar Vitrine
                 </Link>

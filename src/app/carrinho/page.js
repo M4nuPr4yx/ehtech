@@ -103,8 +103,12 @@ export default function Carrinho() {
 
   if (loading) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl">Carregando...</div>
+      <div className="site-background min-h-screen text-foreground pt-20 pb-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="flex min-h-[23rem] items-center justify-center rounded-2xl border border-line bg-surface">
+            <div className="text-accent text-xl" role="status">Carregando carrinho…</div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -112,30 +116,30 @@ export default function Carrinho() {
   const total = calculateTotal();
 
   return (
-    <div className="site-background min-h-screen text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
       <div className="max-w-4xl mx-auto px-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#ABDB25] mb-2">Carrinho de Compras</h1>
-          <p className="text-gray-400">Gerencie seus produtos antes de finalizar</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-accent mb-2">Seu carrinho</h1>
+          <p className="text-muted">Gerencie seus produtos antes de finalizar</p>
         </div>
 
         {/* Message */}
         {message && (
-          <div className="bg-green-500/20 border border-green-500/30 p-4 rounded-xl text-green-300 mb-6">
+          <div className="bg-success-soft border border-success p-4 rounded-xl text-success mb-6">
             {message}
           </div>
         )}
-        {orderError && <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/20 p-4 text-red-300" role="alert">{orderError}</div>}
+        {orderError && <div className="mb-6 rounded-xl border border-danger bg-danger-soft p-4 text-danger" role="alert">{orderError}</div>}
 
         {/* Empty Cart - Show link to products */}
         {cart.length === 0 ? (
-          <div className="bg-gray-900/50 border border-gray-700 rounded-2xl p-12 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="bg-surface border border-line rounded-2xl p-12 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5m4 8v1a2 2 0 002 2h.01M9 20a2 2 0 104 0M15 20a2 2 0 104 0" />
             </svg>
-            <p className="text-gray-400 text-lg mb-4">Seu carrinho está vazio</p>
-            <Link href="/produtos" className="inline-block px-6 py-3 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl transition-all">
+            <p className="text-muted text-lg mb-4">Seu carrinho está vazio</p>
+            <Link href="/produtos" className="inline-block px-6 py-3 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl transition-all">
               Ver Produtos
             </Link>
           </div>
@@ -146,10 +150,10 @@ export default function Carrinho() {
               {cart.map((item, index) => (
                 <div 
                   key={item.id_produto || index}
-                  className="bg-gray-900/95 border border-gray-700 rounded-2xl p-4 flex flex-col md:flex-row gap-4"
+                  className="bg-surface border border-line rounded-2xl p-4 flex flex-col md:flex-row gap-4"
                 >
                   {/* Product Image */}
-                  <div className="w-full md:w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-gray-800">
+                  <div className="w-full md:w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-surface-raised">
                     {(() => {
                       const mainImg = getMainImage(item.imagem);
                       return isValidImageUrl(mainImg) ? (
@@ -160,7 +164,7 @@ export default function Carrinho() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
@@ -171,12 +175,12 @@ export default function Carrinho() {
                   {/* Product Info */}
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <Link href={`/produtos/${item.id_produto}`} className="text-white hover:text-[#ABDB25] font-bold text-lg">
+                      <Link href={`/produtos/${item.id_produto}`} className="text-foreground hover:text-accent font-bold text-lg">
                         {item.nome}
                       </Link>
-                      <p className="text-gray-400 text-sm line-clamp-1">{item.descricao}</p>
+                      <p className="text-muted text-sm line-clamp-1">{item.descricao}</p>
                     </div>
-                    <div className="text-[#ABDB25] font-bold text-xl">
+                    <div className="text-accent font-bold text-xl">
                       {formatPrice(item.preco)}
                     </div>
                   </div>
@@ -185,7 +189,7 @@ export default function Carrinho() {
                   <div className="flex flex-col items-end justify-between">
                     <button 
                       onClick={() => removeItem(index)}
-                      className="text-red-400 hover:text-red-300 p-2"
+                      className="text-danger hover:text-danger p-2"
                       title="Remover item"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -194,18 +198,18 @@ export default function Carrinho() {
                     </button>
                     
                     {/* Quantity +/- */}
-                    <div className="flex items-center gap-2 bg-gray-800 rounded-xl p-1">
+                    <div className="flex items-center gap-2 bg-surface-raised rounded-xl p-1">
                       <button 
                         onClick={() => updateQuantity(index, item.quantidade - 1)}
                         disabled={item.quantidade <= 1}
-                        className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="w-8 h-8 flex items-center justify-center bg-surface hover:bg-surface rounded-lg text-foreground font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         −
                       </button>
-                      <span className="w-8 text-center text-white font-bold">{item.quantidade}</span>
+                      <span className="w-8 text-center text-foreground font-bold">{item.quantidade}</span>
                       <button 
                         onClick={() => updateQuantity(index, item.quantidade + 1)}
-                        className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-bold transition-colors"
+                        className="w-8 h-8 flex items-center justify-center bg-surface hover:bg-surface rounded-lg text-foreground font-bold transition-colors"
                       >
                         +
                       </button>
@@ -213,8 +217,8 @@ export default function Carrinho() {
 
                     {/* Subtotal for this item */}
                     <div className="text-right">
-                      <p className="text-gray-400 text-xs">Subtotal:</p>
-                      <p className="text-white font-bold">
+                      <p className="text-muted text-xs">Subtotal:</p>
+                      <p className="text-foreground font-bold">
                         {formatPrice((parseFloat(item.preco) || 0) * item.quantidade)}
                       </p>
                     </div>
@@ -224,10 +228,10 @@ export default function Carrinho() {
             </div>
 
             {/* Total Section */}
-            <div className="bg-gray-900/95 border border-gray-700 rounded-2xl p-6">
+            <div className="bg-surface border border-line rounded-2xl p-6">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-gray-400 text-lg">Total ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
-                <span className="text-3xl font-bold text-[#ABDB25]">{formatPrice(total)}</span>
+                <span className="text-muted text-lg">Total ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
+                <span className="text-3xl font-bold text-accent">{formatPrice(total)}</span>
               </div>
 
               {/* Actions */}
@@ -236,18 +240,18 @@ export default function Carrinho() {
                   type="button"
                   onClick={placeOrder}
                   disabled={submittingOrder}
-                  className="w-full py-4 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl shadow-xl disabled:opacity-60 disabled:cursor-wait transition-colors"
+                  className="w-full py-4 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl shadow-xl disabled:opacity-60 disabled:cursor-wait transition-colors"
                 >
                   {submittingOrder ? 'Registrando pedido…' : 'Registrar Pedido'}
                 </button>
-                <p className="text-center text-xs text-gray-400">Sem cobrança online: o pedido fica salvo e os vendedores são notificados.</p>
+                <p className="text-center text-xs text-muted">Sem cobrança online: o pedido fica salvo e os vendedores são notificados.</p>
                 <div className="flex gap-3">
-                  <Link href="/produtos" className="flex-1 py-3 text-center border border-gray-600 text-white rounded-xl hover:bg-gray-800 transition-all">
+                  <Link href="/produtos" className="flex-1 py-3 text-center border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all">
                     Continuar Comprando
                   </Link>
                   <button 
                     onClick={clearCart}
-                    className="flex-1 py-3 text-center border border-red-600 text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+                    className="flex-1 py-3 text-center border border-danger text-danger rounded-xl hover:bg-danger-soft hover:text-danger transition-all"
                   >
                     Limpar Carrinho
                   </button>

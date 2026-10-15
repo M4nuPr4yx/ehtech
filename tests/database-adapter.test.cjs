@@ -53,3 +53,36 @@ test('MySQL com URL conserva opções de conexão e SSL configuradas', () => {
   assert.equal(received.connectionLimit, 10)
   assert.equal(received.enableKeepAlive, true)
 })
+
+test('PostgreSQL traduz tabelas do passaporte e mantém vínculos em cascata', async () => {
+  const calls = []
+  class Pool {
+    async query(sql, params) { calls.push({ sql, params }); return { rows: [], rowCount: 0 } }
+  }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  await require('../backend/database/passports').initializePassports(pool)
+  assert.equal(calls.length, 2)
+  for (const { sql } of calls) {
+    assert.match(sql, /id SERIAL PRIMARY KEY/)
+    assert.match(sql, /FOREIGN KEY.*REFERENCES.*ON DELETE CASCADE/)
+    assert.doesNotMatch(sql, /AUTO_INCREMENT|INDEX idx_/)
+  }
+  await pool.execute('SELECT id FROM passaportes WHERE transferencia_hash = ? AND destinatario_id = ? AND transferencia_expira_em > CURRENT_TIMESTAMP FOR UPDATE', ['test-hash', 7])
+  assert.match(calls[2].sql, /transferencia_hash = \$1 AND destinatario_id = \$2/)
+  assert.match(calls[2].sql, /FOR UPDATE$/)
+})
+
+test('PostgreSQL migra catálogo e preserva revisões existentes ao carregar os modelos iniciais', async () => {
+  const calls = []
+  class Pool { async query(sql, params) { calls.push({ sql, params }); return { rows: [], rowCount: 0 } } }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  await require('../backend/database/components').initializeComponents(pool)
+  assert.match(calls[0].sql, /id SERIAL PRIMARY KEY/)
+  assert.doesNotMatch(calls[0].sql, /AUTO_INCREMENT|INDEX idx_/)
+  assert.match(calls[1].sql, /ALTER TABLE produtos ADD COLUMN componente_id INT NULL/)
+  assert.equal(calls.length, 8)
+  for (const call of calls.slice(2)) {
+    assert.match(call.sql, /ON CONFLICT DO NOTHING/)
+    assert.doesNotMatch(call.sql, /UPDATE|IGNORE/)
+  }
+})

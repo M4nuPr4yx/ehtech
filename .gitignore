@@ -13,7 +13,7 @@
 
 # testing
 /coverage/
-/scratch/audit/
+/scratch/
 
 # runtime-generated content
 /backend/uploads/
@@ -53,6 +53,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !backend/.env.example
+!.env.example
 
 # database backups with personal data
 *-backup-*.sql

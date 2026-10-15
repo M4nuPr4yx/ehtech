@@ -53,8 +53,8 @@ function SimpleBarChart({ categories }) {
                   aria-label={`${c.label}: ${c.value}`}
                 />
               </div>
-              <div className="mt-3 text-xs text-white/70 text-center truncate">{c.label}</div>
-              <div className="mt-1 text-sm text-white font-bold text-center">{c.value}</div>
+              <div className="mt-3 text-xs text-foreground text-center truncate">{c.label}</div>
+              <div className="mt-1 text-sm text-foreground font-bold text-center">{c.value}</div>
             </div>
           );
         })}
@@ -365,16 +365,16 @@ export default function Admin() {
 
   const roleCategories = useMemo(() => {
     return [
-      { label: 'Admin', value: stats.admins, colorClass: 'bg-[#ABDB25]' },
-      { label: 'User', value: stats.regularUsers, colorClass: 'bg-blue-600' },
+      { label: 'Admin', value: stats.admins, colorClass: 'bg-accent-fill' },
+      { label: 'User', value: stats.regularUsers, colorClass: 'bg-info-soft' },
     ];
   }, [stats]);
 
   const productStatusCategories = useMemo(() => {
     return [
-      { label: 'Aprovados', value: stats.approvedProducts, colorClass: 'bg-green-500' },
-      { label: 'Pendentes', value: stats.pendingProducts, colorClass: 'bg-yellow-500' },
-      { label: 'Reprovados', value: stats.rejectedProducts, colorClass: 'bg-red-500' },
+      { label: 'Aprovados', value: stats.approvedProducts, colorClass: 'bg-success-soft' },
+      { label: 'Pendentes', value: stats.pendingProducts, colorClass: 'bg-warning-soft' },
+      { label: 'Reprovados', value: stats.rejectedProducts, colorClass: 'bg-danger-soft' },
     ];
   }, [stats]);
 
@@ -412,15 +412,15 @@ export default function Admin() {
   if (!adminToken) {
     return (
       <div className="site-background min-h-screen flex items-center justify-center p-6">
-        <div className="bg-gray-900/90 backdrop-blur-xl p-8 rounded-3xl border border-[#ABDB25]/30 max-w-md w-full shadow-2xl">
+        <div className="bg-surface backdrop-blur-xl p-8 rounded-3xl border border-accent max-w-md w-full shadow-2xl">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#ABDB25] to-white bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold text-foreground">
               Painel Administrativo
             </h1>
-            <p className="text-gray-400 text-sm mt-1">Acesso restrito a administradores EHtech</p>
+            <p className="text-muted text-sm mt-1">Acesso restrito a administradores EHtech</p>
           </div>
           {feedback && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+            <div className="mb-4 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">
               {feedback}
             </div>
           )}
@@ -433,33 +433,33 @@ export default function Admin() {
             className="space-y-4"
           >
             <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1">E-mail Administrativo</label>
+              <label htmlFor="admin-email" className="block text-sm font-semibold text-muted mb-1">E-mail Administrativo</label>
               <input
                 type="email"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="admin@ehtech.com"
+                id="admin-email" autoComplete="username" placeholder="admin@ehtech.com"
                 required
-                className="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25] transition-all"
+                className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground placeholder-muted focus:outline-none focus:border-accent transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1">Senha</label>
+              <label htmlFor="admin-password" className="block text-sm font-semibold text-muted mb-1">Senha</label>
               <input
                 type="password"
                 value={loginSenha}
                 onChange={(e) => setLoginSenha(e.target.value)}
-                placeholder="••••••••"
+                id="admin-password" autoComplete="current-password" placeholder="••••••••"
                 required
-                className="w-full p-4 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25] transition-all"
+                className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground placeholder-muted focus:outline-none focus:border-accent transition-all"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-4 bg-[#ABDB25] hover:bg-white text-black font-extrabold rounded-2xl shadow-xl hover:shadow-[#ABDB25]/20 transition-all duration-300 mt-4 text-base"
+              className="w-full py-4 bg-accent-fill hover:brightness-110 text-accent-contrast font-extrabold rounded-2xl shadow-xl hover:shadow-transparent transition-all duration-300 mt-4 text-base"
             >
               {isLoggingIn ? 'Autenticando…' : 'Entrar como Administrador'}
             </button>
@@ -470,33 +470,34 @@ export default function Admin() {
   }
 
   return (
-    <div className="site-background min-h-screen text-white p-4 md:p-8">
+    <div className="site-background min-h-screen text-foreground p-4 md:p-8">
       {feedback && (
-        <div className="fixed right-5 top-5 z-[100] rounded-xl border border-[#ABDB25]/40 bg-[#17210d] px-4 py-3 text-sm text-white shadow-xl" role="status">
+        <div className="fixed right-5 top-5 z-[100] rounded-xl border border-accent bg-surface px-4 py-3 text-sm text-foreground shadow-xl" role="status">
           {feedback}
-          <button type="button" onClick={() => setFeedback('')} className="ml-3 text-[#ABDB25] hover:text-white" aria-label="Fechar mensagem">×</button>
+          <button type="button" onClick={() => setFeedback('')} className="ml-3 text-accent hover:text-foreground" aria-label="Fechar mensagem">×</button>
         </div>
       )}
       <div className="max-w-7xl mx-auto">
         {/* Cabeçalho Admin */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-gray-800">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-line">
           <div>
-            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#ABDB25] via-white to-gray-300 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold text-foreground">
               EHtech Admin Portal
             </h1>
-            <p className="text-gray-400 text-sm mt-1">Gerencie produtos, moderação de anúncios e usuários com total controle.</p>
+            <p className="text-muted text-sm mt-1">Gerencie produtos, moderação de anúncios e usuários com total controle.</p>
           </div>
 
           <div className="flex items-center gap-4">
+            <Link href="/admin/componentes" className="px-4 py-2 bg-surface border border-line hover:border-accent text-muted rounded-xl text-sm font-semibold">Catálogo técnico</Link>
             <Link
               href="/"
-              className="px-4 py-2 bg-gray-900 border border-gray-700 hover:border-[#ABDB25] text-gray-300 hover:text-[#ABDB25] rounded-xl text-sm font-semibold transition-all"
+              className="px-4 py-2 bg-surface border border-line hover:border-accent text-muted hover:text-accent rounded-xl text-sm font-semibold transition-all"
             >
               Vitrine Pública
             </Link>
             <button
               onClick={logout}
-              className="px-5 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg"
+              className="px-5 py-2 bg-danger-soft hover:bg-danger-soft text-danger rounded-xl font-bold text-sm transition-all shadow-lg"
             >
               Encerrar Sessão
             </button>
@@ -504,38 +505,38 @@ export default function Admin() {
         </div>
 
         {/* Abas de Navegação */}
-        <div className="flex flex-wrap gap-2 mb-8 bg-gray-900/60 p-1.5 rounded-2xl border border-gray-800 max-w-xl">
+        <div className="flex flex-wrap gap-2 mb-8 bg-surface p-1.5 rounded-2xl border border-line max-w-xl">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            aria-pressed={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')}
             className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
               activeTab === 'dashboard'
-                ? 'bg-[#ABDB25] text-black shadow-lg shadow-[#ABDB25]/20'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-accent-fill text-accent-contrast shadow-lg shadow-transparent'
+                : 'text-muted hover:text-foreground'
             }`}
           >
             📊 Visão Geral
           </button>
           <button
-            onClick={() => setActiveTab('produtos')}
+            aria-pressed={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')}
             className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
               activeTab === 'produtos'
-                ? 'bg-[#ABDB25] text-black shadow-lg shadow-[#ABDB25]/20'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-accent-fill text-accent-contrast shadow-lg shadow-transparent'
+                : 'text-muted hover:text-foreground'
             }`}
           >
             📦 Produtos ({products.length})
             {stats.pendingProducts > 0 && (
-              <span className="bg-yellow-500 text-black text-xs px-1.5 py-0.2 rounded-full font-extrabold">
+              <span className="bg-warning-soft text-warning text-xs px-1.5 py-0.2 rounded-full font-extrabold">
                 {stats.pendingProducts}
               </span>
             )}
           </button>
           <button
-            onClick={() => setActiveTab('usuarios')}
+            aria-pressed={activeTab === 'usuarios'} onClick={() => setActiveTab('usuarios')}
             className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
               activeTab === 'usuarios'
-                ? 'bg-[#ABDB25] text-black shadow-lg shadow-[#ABDB25]/20'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-accent-fill text-accent-contrast shadow-lg shadow-transparent'
+                : 'text-muted hover:text-foreground'
             }`}
           >
             👥 Usuários ({users.length})
@@ -549,94 +550,94 @@ export default function Admin() {
           <div className="space-y-6">
             {/* Cards de Métricas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 shadow-xl">
-                <div className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Total de Produtos</div>
-                <div className="mt-2 text-3xl font-extrabold text-white">{stats.totalProducts}</div>
-                <div className="mt-3 text-xs text-green-400 font-medium">
+              <div className="bg-surface border border-line rounded-3xl p-6 shadow-xl">
+                <div className="text-muted text-xs uppercase tracking-wider font-semibold">Total de Produtos</div>
+                <div className="mt-2 text-3xl font-extrabold text-foreground">{stats.totalProducts}</div>
+                <div className="mt-3 text-xs text-success font-medium">
                   {stats.approvedProducts} aprovados na vitrine
                 </div>
               </div>
 
-              <div className="bg-gray-900/70 border border-yellow-500/30 rounded-3xl p-6 shadow-xl">
-                <div className="text-yellow-400 text-xs uppercase tracking-wider font-semibold">Aguardando Moderação</div>
-                <div className="mt-2 text-3xl font-extrabold text-yellow-400">{stats.pendingProducts}</div>
-                <div className="mt-3 text-xs text-gray-400">Produtos pendentes de aprovação</div>
+              <div className="bg-surface border border-warning rounded-3xl p-6 shadow-xl">
+                <div className="text-warning text-xs uppercase tracking-wider font-semibold">Aguardando Moderação</div>
+                <div className="mt-2 text-3xl font-extrabold text-warning">{stats.pendingProducts}</div>
+                <div className="mt-3 text-xs text-muted">Produtos pendentes de aprovação</div>
               </div>
 
-              <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 shadow-xl">
-                <div className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Usuários Cadastrados</div>
-                <div className="mt-2 text-3xl font-extrabold text-white">{stats.totalUsers}</div>
-                <div className="mt-3 text-xs text-[#ABDB25] font-medium">{stats.admins} administradores</div>
+              <div className="bg-surface border border-line rounded-3xl p-6 shadow-xl">
+                <div className="text-muted text-xs uppercase tracking-wider font-semibold">Usuários Cadastrados</div>
+                <div className="mt-2 text-3xl font-extrabold text-foreground">{stats.totalUsers}</div>
+                <div className="mt-3 text-xs text-accent font-medium">{stats.admins} administradores</div>
               </div>
 
-              <div className="bg-gray-900/70 border border-red-500/20 rounded-3xl p-6 shadow-xl">
-                <div className="text-red-400 text-xs uppercase tracking-wider font-semibold">Anúncios Reprovados</div>
-                <div className="mt-2 text-3xl font-extrabold text-red-400">{stats.rejectedProducts}</div>
-                <div className="mt-3 text-xs text-gray-400">Necessitam de revisão pelo vendedor</div>
+              <div className="bg-surface border border-danger rounded-3xl p-6 shadow-xl">
+                <div className="text-danger text-xs uppercase tracking-wider font-semibold">Anúncios Reprovados</div>
+                <div className="mt-2 text-3xl font-extrabold text-danger">{stats.rejectedProducts}</div>
+                <div className="mt-3 text-xs text-muted">Necessitam de revisão pelo vendedor</div>
               </div>
             </div>
 
             {/* Gráficos e Ações Rápidas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 shadow-xl">
-                <h2 className="text-lg font-bold text-white mb-4">Status dos Anúncios</h2>
+              <div className="bg-surface border border-line rounded-3xl p-6 shadow-xl">
+                <h2 className="text-lg font-bold text-foreground mb-4">Status dos Anúncios</h2>
                 <SimpleBarChart categories={productStatusCategories} />
               </div>
 
-              <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 shadow-xl">
-                <h2 className="text-lg font-bold text-white mb-4">Distribuição de Usuários</h2>
+              <div className="bg-surface border border-line rounded-3xl p-6 shadow-xl">
+                <h2 className="text-lg font-bold text-foreground mb-4">Distribuição de Usuários</h2>
                 <SimpleBarChart categories={roleCategories} />
               </div>
             </div>
 
             {/* Seção de Pendentes Rápidos */}
             {stats.pendingProducts > 0 && (
-              <div className="bg-gray-900/80 border border-yellow-500/30 rounded-3xl p-6 shadow-2xl">
+              <div className="bg-surface border border-warning rounded-3xl p-6 shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-warning flex items-center gap-2">
                     ⚠️ Produtos Pendentes de Aprovação ({stats.pendingProducts})
                   </h2>
                   <button
-                    onClick={() => setActiveTab('produtos')}
-                    className="text-xs text-[#ABDB25] font-bold hover:underline"
+                    aria-pressed={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')}
+                    className="text-xs text-accent font-bold hover:underline"
                   >
                     Ver todos os produtos →
                   </button>
                 </div>
 
-                <div className="divide-y divide-gray-800">
+                <div className="divide-y divide-line">
                   {products
                     .filter((p) => p.status_aprovacao === 'pendente')
                     .map((p) => (
                       <div key={p.id_produto} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           {p.imagem && isValidImageUrl(p.imagem) ? (
-                            <img src={p.imagem} alt={p.nome} className="w-12 h-12 rounded-xl object-contain bg-gray-800" />
+                            <img src={p.imagem} alt={p.nome} className="w-12 h-12 rounded-xl object-contain bg-surface-raised" />
                           ) : (
-                            <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-xs text-gray-500">Sem foto</div>
+                            <div className="w-12 h-12 rounded-xl bg-surface-raised flex items-center justify-center text-xs text-muted">Sem foto</div>
                           )}
                           <div>
-                            <h3 className="font-bold text-white">{p.nome}</h3>
-                            <p className="text-xs text-gray-400">Vendedor: {p.vendedor} · {formatBRL(p.preco)}</p>
+                            <h3 className="font-bold text-foreground">{p.nome}</h3>
+                            <p className="text-xs text-muted">Vendedor: {p.vendedor} · {formatBRL(p.preco)}</p>
                           </div>
                         </div>
 
                         <div className="flex gap-2">
                           <button
                             onClick={() => updateProductApproval(p.id_produto, 'aprovado')}
-                            className="px-4 py-2 bg-[#ABDB25] hover:bg-white text-black font-bold text-xs rounded-xl transition-all"
+                            className="px-4 py-2 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold text-xs rounded-xl transition-all"
                           >
                             Aprovar
                           </button>
                           <button
                             onClick={() => updateProductApproval(p.id_produto, 'reprovado')}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-all"
+                            className="px-4 py-2 bg-danger-soft hover:bg-danger-soft text-danger font-bold text-xs rounded-xl transition-all"
                           >
                             Reprovar
                           </button>
                           <button
                             onClick={() => openEditProduct(p)}
-                            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold rounded-xl border border-gray-700"
+                            className="px-4 py-2 bg-surface-raised hover:bg-surface text-muted text-xs font-semibold rounded-xl border border-line"
                           >
                             Editar
                           </button>
@@ -653,16 +654,16 @@ export default function Admin() {
         {/* ABA 2: GERENCIAMENTO COMPLETO DE PRODUTOS */}
         {/* ======================================================== */}
         {activeTab === 'produtos' && (
-          <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="bg-surface border border-line rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-white">Controle Completo de Produtos</h2>
-                <p className="text-gray-400 text-xs mt-1">Visualize, filtre, edite preços, estoque, fotos e status de qualquer anúncio.</p>
+                <h2 className="text-2xl font-bold text-foreground">Controle Completo de Produtos</h2>
+                <p className="text-muted text-xs mt-1">Visualize, filtre, edite preços, estoque, fotos e status de qualquer anúncio.</p>
               </div>
 
               <button
                 onClick={() => fetchProducts(adminToken)}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold rounded-xl border border-gray-700 transition-all flex items-center gap-2"
+                className="px-4 py-2 bg-surface-raised hover:bg-surface text-foreground text-xs font-bold rounded-xl border border-line transition-all flex items-center gap-2"
               >
                 🔄 Atualizar Lista
               </button>
@@ -675,13 +676,13 @@ export default function Admin() {
                 placeholder="Buscar por nome, vendedor, descrição..."
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                className="p-3.5 bg-gray-800 border border-gray-700 rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25]"
+                className="p-3.5 bg-surface-raised border border-line rounded-2xl text-sm text-foreground placeholder-muted focus:outline-none focus:border-accent"
               />
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="p-3.5 bg-gray-800 border border-gray-700 rounded-2xl text-sm text-white focus:outline-none focus:border-[#ABDB25]"
+                className="p-3.5 bg-surface-raised border border-line rounded-2xl text-sm text-foreground focus:outline-none focus:border-accent"
               >
                 <option value="todos">Todos os Status</option>
                 <option value="aprovado">Apenas Aprovados</option>
@@ -692,7 +693,7 @@ export default function Admin() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="p-3.5 bg-gray-800 border border-gray-700 rounded-2xl text-sm text-white focus:outline-none focus:border-[#ABDB25]"
+                className="p-3.5 bg-surface-raised border border-line rounded-2xl text-sm text-foreground focus:outline-none focus:border-accent"
               >
                 <option value="todas">Todas as Categorias</option>
                 <option value="computadores">Computadores</option>
@@ -705,8 +706,8 @@ export default function Admin() {
 
             {/* Tabela de Produtos */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-300">
-                <thead className="bg-gray-800/80 text-xs uppercase text-[#ABDB25] font-bold">
+              <table className="w-full text-left text-sm text-muted">
+                <thead className="bg-surface-raised text-xs uppercase text-accent font-bold">
                   <tr>
                     <th className="p-4 rounded-l-2xl">Produto</th>
                     <th className="p-4">Vendedor</th>
@@ -717,10 +718,10 @@ export default function Admin() {
                     <th className="p-4 rounded-r-2xl text-center">Ações de Controle</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
+                <tbody className="divide-y divide-line">
                   {filteredProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-gray-500">
+                      <td colSpan={7} className="p-8 text-center text-muted">
                         Nenhum produto corresponde aos filtros aplicados.
                       </td>
                     </tr>
@@ -728,48 +729,48 @@ export default function Admin() {
                     filteredProducts.map((p) => {
                       const statusColor =
                         p.status_aprovacao === 'aprovado'
-                          ? 'bg-green-500/20 text-green-300 border-green-500/30'
+                          ? 'bg-success-soft text-success border-success'
                           : p.status_aprovacao === 'pendente'
-                          ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-                          : 'bg-red-500/20 text-red-300 border-red-500/30';
+                          ? 'bg-warning-soft text-warning border-warning'
+                          : 'bg-danger-soft text-danger border-danger';
 
                       return (
-                        <tr key={p.id_produto} className="hover:bg-gray-800/40 transition-colors">
+                        <tr key={p.id_produto} className="hover:bg-surface-raised transition-colors">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               {p.imagem && isValidImageUrl(p.imagem) ? (
                                 <img
                                   src={p.imagem}
                                   alt={p.nome}
-                                  className="w-12 h-12 rounded-xl object-contain bg-gray-800 border border-gray-700 shrink-0"
+                                  className="w-12 h-12 rounded-xl object-contain bg-surface-raised border border-line shrink-0"
                                 />
                               ) : (
-                                <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-xs text-gray-500 shrink-0">
+                                <div className="w-12 h-12 rounded-xl bg-surface-raised flex items-center justify-center text-xs text-muted shrink-0">
                                   Sem foto
                                 </div>
                               )}
                               <div className="min-w-0 max-w-xs">
-                                <p className="font-bold text-white truncate">{p.nome}</p>
-                                <p className="text-xs text-gray-400 truncate">{p.descricao}</p>
+                                <p className="font-bold text-foreground truncate">{p.nome}</p>
+                                <p className="text-xs text-muted truncate">{p.descricao}</p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="p-4 whitespace-nowrap text-white font-medium">
-                            {p.vendedor} <span className="text-xs text-gray-500">#{p.vendedor_id}</span>
+                          <td className="p-4 whitespace-nowrap text-foreground font-medium">
+                            {p.vendedor} <span className="text-xs text-muted">#{p.vendedor_id}</span>
                           </td>
 
-                          <td className="p-4 whitespace-nowrap font-bold text-[#ABDB25]">
+                          <td className="p-4 whitespace-nowrap font-bold text-accent">
                             {formatBRL(p.preco)}
                           </td>
 
                           <td className="p-4 whitespace-nowrap">
-                            <span className={`font-semibold ${Number(p.estoque) > 0 ? 'text-white' : 'text-red-400'}`}>
+                            <span className={`font-semibold ${Number(p.estoque) > 0 ? 'text-foreground' : 'text-danger'}`}>
                               {p.estoque} un
                             </span>
                           </td>
 
-                          <td className="p-4 whitespace-nowrap capitalize text-gray-400">
+                          <td className="p-4 whitespace-nowrap capitalize text-muted">
                             {p.categoria}
                           </td>
 
@@ -783,7 +784,7 @@ export default function Admin() {
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => openEditProduct(p)}
-                                className="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white font-bold rounded-xl text-xs transition-all shadow"
+                                className="px-3 py-1.5 bg-info-soft hover:bg-info-soft text-info font-bold rounded-xl text-xs transition-all shadow"
                                 title="Editar produto"
                               >
                                 ✏️ Editar
@@ -792,7 +793,7 @@ export default function Admin() {
                               {p.status_aprovacao !== 'aprovado' && (
                                 <button
                                   onClick={() => updateProductApproval(p.id_produto, 'aprovado')}
-                                  className="px-3 py-1.5 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl text-xs transition-all shadow"
+                                  className="px-3 py-1.5 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl text-xs transition-all shadow"
                                   title="Aprovar produto"
                                 >
                                   ✅
@@ -802,7 +803,7 @@ export default function Admin() {
                               {p.status_aprovacao !== 'reprovado' && (
                                 <button
                                   onClick={() => updateProductApproval(p.id_produto, 'reprovado')}
-                                  className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-xl text-xs transition-all shadow"
+                                  className="px-3 py-1.5 bg-warning-soft hover:bg-warning-soft text-warning font-bold rounded-xl text-xs transition-all shadow"
                                   title="Reprovar produto"
                                 >
                                   ⛔
@@ -811,7 +812,7 @@ export default function Admin() {
 
                               <button
                                 onClick={() => deleteProduct(p.id_produto, p.nome)}
-                                className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all shadow"
+                                className="px-3 py-1.5 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded-xl text-xs transition-all shadow"
                                 title="Excluir produto"
                               >
                                 🗑️
@@ -832,16 +833,16 @@ export default function Admin() {
         {/* ABA 3: GERENCIAMENTO DE USUÁRIOS */}
         {/* ======================================================== */}
         {activeTab === 'usuarios' && (
-          <div className="bg-gray-900/70 border border-gray-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="bg-surface border border-line rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-white">Controle de Usuários</h2>
-                <p className="text-gray-400 text-xs mt-1">Gerencie permissões (roles), visualize cadastros e modere contas.</p>
+                <h2 className="text-2xl font-bold text-foreground">Controle de Usuários</h2>
+                <p className="text-muted text-xs mt-1">Gerencie permissões (roles), visualize cadastros e modere contas.</p>
               </div>
 
               <button
                 onClick={() => fetchUsers(adminToken)}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold rounded-xl border border-gray-700 transition-all flex items-center gap-2"
+                className="px-4 py-2 bg-surface-raised hover:bg-surface text-foreground text-xs font-bold rounded-xl border border-line transition-all flex items-center gap-2"
               >
                 🔄 Atualizar Lista
               </button>
@@ -853,13 +854,13 @@ export default function Admin() {
               placeholder="Buscar por email, username ou role..."
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
-              className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-2xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#ABDB25]"
+              className="w-full p-3.5 bg-surface-raised border border-line rounded-2xl text-sm text-foreground placeholder-muted focus:outline-none focus:border-accent"
             />
 
             {/* Tabela de Usuários */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-300">
-                <thead className="bg-gray-800/80 text-xs uppercase text-[#ABDB25] font-bold">
+              <table className="w-full text-left text-sm text-muted">
+                <thead className="bg-surface-raised text-xs uppercase text-accent font-bold">
                   <tr>
                     <th className="p-4 rounded-l-2xl">ID</th>
                     <th className="p-4">Username</th>
@@ -869,31 +870,31 @@ export default function Admin() {
                     <th className="p-4 rounded-r-2xl text-center">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
+                <tbody className="divide-y divide-line">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-gray-500">
+                      <td colSpan={6} className="p-8 text-center text-muted">
                         Nenhum usuário encontrado.
                       </td>
                     </tr>
                   ) : (
                     filteredUsers.map((user) => (
-                      <tr key={user.id_usuario} className="hover:bg-gray-800/40 transition-colors">
-                        <td className="p-4 font-mono text-gray-400">#{user.id_usuario}</td>
-                        <td className="p-4 font-bold text-white">{user.username || '-'}</td>
+                      <tr key={user.id_usuario} className="hover:bg-surface-raised transition-colors">
+                        <td className="p-4 font-mono text-muted">#{user.id_usuario}</td>
+                        <td className="p-4 font-bold text-foreground">{user.username || '-'}</td>
                         <td className="p-4">{user.email}</td>
                         <td className="p-4">
                           <span
                             className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
                               user.role === 'admin'
-                                ? 'bg-[#ABDB25]/20 text-[#ABDB25] border border-[#ABDB25]/40'
-                                : 'bg-gray-800 text-gray-300'
+                                ? 'bg-accent-soft text-accent border border-accent'
+                                : 'bg-surface-raised text-muted'
                             }`}
                           >
                             {user.role || 'user'}
                           </span>
                         </td>
-                        <td className="p-4 text-xs text-gray-500">
+                        <td className="p-4 text-xs text-muted">
                           {user.data_criacao ? new Date(user.data_criacao).toLocaleDateString('pt-BR') : '-'}
                         </td>
                         <td className="p-4 text-center">
@@ -904,13 +905,13 @@ export default function Admin() {
                                 setEditEmail(user.email);
                                 setEditRole(user.role || 'user');
                               }}
-                              className="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white font-bold rounded-xl text-xs transition-all"
+                              className="px-3 py-1.5 bg-info-soft hover:bg-info-soft text-info font-bold rounded-xl text-xs transition-all"
                             >
                               Editar Role
                             </button>
                             <button
                               onClick={() => deleteUser(user.id_usuario, user.email)}
-                              className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white font-bold rounded-xl text-xs transition-all"
+                              className="px-3 py-1.5 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded-xl text-xs transition-all"
                             >
                               Deletar
                             </button>
@@ -930,15 +931,15 @@ export default function Admin() {
         {/* ======================================================== */}
         {editingProduct && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-[#ABDB25]/30 bg-gray-900/95 p-8 shadow-2xl">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-accent bg-surface p-8 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Editar Produto #{editingProduct.id_produto}</h2>
-                  <p className="text-xs text-gray-400">Modifique campos técnicos, moderação e precificação como Administrador.</p>
+                  <h2 className="text-2xl font-bold text-foreground">Editar Produto #{editingProduct.id_produto}</h2>
+                  <p className="text-xs text-muted">Modifique campos técnicos, moderação e precificação como Administrador.</p>
                 </div>
                 <button
                   onClick={() => setEditingProduct(null)}
-                  className="text-gray-400 hover:text-white text-2xl font-bold p-1 rounded-lg"
+                  className="text-muted hover:text-foreground text-2xl font-bold p-1 rounded-lg"
                 >
                   ×
                 </button>
@@ -946,46 +947,46 @@ export default function Admin() {
 
               <form onSubmit={saveProductEdit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Título do Produto</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">Título do Produto</label>
                   <input
                     type="text"
                     value={editProdNome}
                     onChange={(e) => setEditProdNome(e.target.value)}
                     required
-                    className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                    className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1">Preço (R$)</label>
+                    <label className="block text-xs font-semibold text-muted mb-1">Preço (R$)</label>
                     <input
                       type="number"
                       step="0.01"
                       value={editProdPreco}
                       onChange={(e) => setEditProdPreco(e.target.value)}
                       required
-                      className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                      className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1">Estoque</label>
+                    <label className="block text-xs font-semibold text-muted mb-1">Estoque</label>
                     <input
                       type="number"
                       value={editProdEstoque}
                       onChange={(e) => setEditProdEstoque(e.target.value)}
                       required
-                      className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                      className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1">Status de Moderação</label>
+                    <label className="block text-xs font-semibold text-muted mb-1">Status de Moderação</label>
                     <select
                       value={editProdStatus}
                       onChange={(e) => setEditProdStatus(e.target.value)}
-                      className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                      className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                     >
                       <option value="aprovado">Aprovado</option>
                       <option value="pendente">Pendente</option>
@@ -995,12 +996,12 @@ export default function Admin() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Categoria</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">Categoria</label>
                   <select
                     value={editProdCategoria}
                     onChange={(e) => setEditProdCategoria(e.target.value)}
                     required
-                    className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                    className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                   >
                     <option value="computadores">Computadores</option>
                     <option value="celulares">Celulares</option>
@@ -1011,24 +1012,24 @@ export default function Admin() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">URL da Imagem</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">URL da Imagem</label>
                   <input
                     type="text"
                     value={editProdImagem}
                     onChange={(e) => setEditProdImagem(e.target.value)}
                     placeholder="https://... ou /uploads/..."
-                    className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                    className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Descrição</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">Descrição</label>
                   <textarea
                     value={editProdDesc}
                     onChange={(e) => setEditProdDesc(e.target.value)}
                     rows={4}
                     required
-                    className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                    className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                   />
                 </div>
 
@@ -1036,14 +1037,14 @@ export default function Admin() {
                   <button
                     type="submit"
                     disabled={savingProduct}
-                    className="flex-1 py-4 bg-[#ABDB25] hover:bg-white text-black font-extrabold rounded-2xl shadow-xl transition-all disabled:opacity-50"
+                    className="flex-1 py-4 bg-accent-fill hover:brightness-110 text-accent-contrast font-extrabold rounded-2xl shadow-xl transition-all disabled:opacity-50"
                   >
                     {savingProduct ? 'Salvando...' : 'Salvar Alterações'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingProduct(null)}
-                    className="px-6 py-4 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-2xl border border-gray-700"
+                    className="px-6 py-4 bg-surface-raised hover:bg-surface text-foreground font-bold rounded-2xl border border-line"
                   >
                     Cancelar
                   </button>
@@ -1058,27 +1059,27 @@ export default function Admin() {
         {/* ======================================================== */}
         {editingUser && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-900 border border-[#ABDB25]/30 rounded-3xl p-8 max-w-md w-full shadow-2xl">
-              <h2 className="text-2xl font-bold mb-2 text-white">Editar Usuário #{editingUser.id_usuario}</h2>
-              <p className="text-xs text-gray-400 mb-6">Altere e-mail ou nível de acesso.</p>
+            <div className="bg-surface border border-accent rounded-3xl p-8 max-w-md w-full shadow-2xl">
+              <h2 className="text-2xl font-bold mb-2 text-foreground">Editar Usuário #{editingUser.id_usuario}</h2>
+              <p className="text-xs text-muted mb-6">Altere e-mail ou nível de acesso.</p>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">E-mail</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">E-mail</label>
                   <input
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                    className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Nível de Permissão (Role)</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">Nível de Permissão (Role)</label>
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value)}
-                    className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:border-[#ABDB25]"
+                    className="w-full p-3.5 bg-surface-raised border border-line rounded-xl text-foreground text-sm focus:outline-none focus:border-accent"
                   >
                     <option value="user">Usuário Comum (user)</option>
                     <option value="admin">Administrador (admin)</option>
@@ -1088,13 +1089,13 @@ export default function Admin() {
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={saveUserEdit}
-                    className="flex-1 py-3.5 bg-[#ABDB25] hover:bg-white text-black font-extrabold rounded-2xl shadow-xl transition-all"
+                    className="flex-1 py-3.5 bg-accent-fill hover:brightness-110 text-accent-contrast font-extrabold rounded-2xl shadow-xl transition-all"
                   >
                     Salvar
                   </button>
                   <button
                     onClick={() => setEditingUser(null)}
-                    className="px-6 py-3.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-2xl border border-gray-700"
+                    className="px-6 py-3.5 bg-surface-raised hover:bg-surface text-foreground font-bold rounded-2xl border border-line"
                   >
                     Cancelar
                   </button>

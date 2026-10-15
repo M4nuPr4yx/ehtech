@@ -108,13 +108,13 @@ function Catalog({ initialFilters }) {
     <div className={styles.catalog}>
       <div className={styles.shell}>
         <div className={styles.breadcrumb}><Link href="/">Início</Link><span>/</span><span>Catálogo</span></div>
-        <header className={styles.hero}>
-          <div><p className={styles.eyebrow}>ESCOLHA SEU PRÓXIMO UPGRADE</p><h1>Tecnologia que<br />combina com <em>você.</em></h1><p className={styles.subtitle}>Explore os anúncios da comunidade e encontre seu próximo equipamento.</p></div>
+        <header className={styles.hero} data-motion="fade">
+          <div><p className={styles.eyebrow}>ESCOLHA SEU PRÓXIMO UPGRADE</p><h1>Encontre seu próximo <em>equipamento.</em></h1><p className={styles.subtitle}>Explore os anúncios da comunidade e encontre seu próximo equipamento.</p></div>
           <Link href="/anunciar" className={styles.sell}>Seu próximo upgrade começa aqui.<strong>Anuncie seu equipamento <Icon type="arrow" /></strong></Link>
         </header>
         <div className={styles.searchRow}>
           <div className={styles.search}><Icon /><label htmlFor="catalog-search" className={styles.srOnly}>Buscar produtos</label><input id="catalog-search" type="search" placeholder="O que você está procurando?" value={draft.search} maxLength={100} onChange={(e) => change('search', e.target.value)} autoComplete="off" /></div>
-          <span className={styles.searchHint}>Encontre. Compare. Escolha.</span>
+          <span className={styles.searchHint}>Busque pelo nome ou modelo</span>
         </div>
         <nav className={styles.chips} aria-label="Categorias rápidas">
           {categories.slice(0, 8).map(([value, label]) => <button key={value} type="button" aria-pressed={draft.categoria === value} onClick={() => change('categoria', value)}>{label}</button>)}
@@ -122,7 +122,7 @@ function Catalog({ initialFilters }) {
         <div className={styles.layout}>
           <aside className={styles.sidebar}>
             <details ref={filtersRef} className={styles.filters} open>
-              <summary><span><Icon type="filter" /> Refine sua busca</span><span>⌄</span></summary>
+              <summary><span><Icon type="filter" /> Filtros</span><span>⌄</span></summary>
               <div className={styles.filterBody}>
                 <label htmlFor="catalog-category">Categoria</label>
                 <select id="catalog-category" value={draft.categoria} onChange={(e) => change('categoria', e.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{value ? label : 'Todas as categorias'}</option>)}</select>
@@ -146,9 +146,9 @@ function Catalog({ initialFilters }) {
               {!result && loading ? <Skeletons /> : result?.items.length ? (
                 <div className={styles.grid} data-updating={busy}>
                   {result.items.map((product) => (
-                    <Link key={product.id_produto} href={`/produtos/${product.id_produto}`} prefetch={false} className={styles.card}>
+                    <Link key={product.id_produto} href={`/produtos/${product.id_produto}`} prefetch={false} className={styles.card} data-motion="rise">
                       <div className={styles.photo}>
-                        <ImageWithFallback src={getMainImage(product.imagem)} alt={product.nome} className={styles.productImage} sizes="(max-width: 479px) 90vw, (max-width: 759px) 45vw, (max-width: 1099px) 35vw, 25vw" />
+                        <ImageWithFallback src={getMainImage(product.imagem)} alt={product.nome} className={styles.productImage} sizes="(max-width: 479px) 90vw, (max-width: 759px) 45vw, (max-width: 1099px) 35vw, 20vw" />
                         {Number(product.estoque) <= 0 && <span className={styles.soldOut}>Esgotado</span>}
                       </div>
                       <div className={styles.cardBody}><span className={styles.category}>{product.categoria}</span><h3>{product.nome}</h3><p className={styles.description}>{product.descricao}</p><div className={styles.cardBottom}><div><span className={styles.priceLabel}>Valor do anúncio</span><strong>{money.format(Number(product.preco) || 0)}</strong></div><span className={styles.cardArrow}><Icon type="arrow" /></span></div></div>

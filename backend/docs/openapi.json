@@ -426,6 +426,324 @@
       }
     },
     "schemas": {
+      "PassaporteComponente": {
+        "type": "object",
+        "description": "Registro manual ou modelo do catálogo. Com componente_id, o backend usa nomes canônicos. Quantidade acima de 1 apenas para kits de memória.",
+        "anyOf": [
+          {
+            "required": [
+              "componente_id"
+            ],
+            "properties": {
+              "componente_id": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          {
+            "required": [
+              "tipo",
+              "modelo"
+            ],
+            "properties": {
+              "modelo": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              }
+            }
+          }
+        ],
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50
+          },
+          "modelo": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 201
+          },
+          "componente_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "revisao": {
+            "type": "integer",
+            "minimum": 1,
+            "readOnly": true
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "default": 1
+          }
+        }
+      },
+      "PassaporteEquipamento": {
+        "type": "object",
+        "required": [
+          "nome",
+          "tipo",
+          "modelo",
+          "componentes"
+        ],
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "Computador",
+              "Notebook",
+              "Celular",
+              "Tablet",
+              "Periférico",
+              "Outro"
+            ]
+          },
+          "modelo": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "componentes": {
+            "type": "array",
+            "maxItems": 20,
+            "items": { "$ref": "#/components/schemas/PassaporteComponente" }
+          }
+        }
+      },
+      "PassaporteResumo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "Computador",
+              "Notebook",
+              "Celular",
+              "Tablet",
+              "Periférico",
+              "Outro"
+            ]
+          },
+          "modelo": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "componentes": {
+            "type": "array",
+            "maxItems": 20,
+            "items": { "$ref": "#/components/schemas/PassaporteComponente" }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PassaportePublico": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "Computador",
+              "Notebook",
+              "Celular",
+              "Tablet",
+              "Periférico",
+              "Outro"
+            ]
+          },
+          "modelo": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "componentes": {
+            "type": "array",
+            "maxItems": 20,
+            "items": { "$ref": "#/components/schemas/PassaporteComponente" }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registros": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "tipo": {
+                  "type": "string"
+                },
+                "titulo": {
+                  "type": "string"
+                },
+                "ocorrido_em": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "origem": {
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "ehtech",
+                    "plataforma"
+                  ]
+                },
+                "garantia_fim_em": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "PassaporteDetalhe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "Computador",
+              "Notebook",
+              "Celular",
+              "Tablet",
+              "Periférico",
+              "Outro"
+            ]
+          },
+          "modelo": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "componentes": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "tipo",
+                "modelo"
+              ],
+              "properties": {
+                "tipo": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 50
+                },
+                "modelo": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 120
+                }
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registros": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "tipo": {
+                  "type": "string"
+                },
+                "titulo": {
+                  "type": "string"
+                },
+                "ocorrido_em": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "origem": {
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "ehtech",
+                    "plataforma"
+                  ]
+                },
+                "garantia_fim_em": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "publico_codigo": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "nullable": true
+          },
+          "transferencia_expira_em": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
       "CredenciaisLogin": {
         "type": "object",
         "required": ["email", "senha"],
@@ -460,6 +778,7 @@
         "type": "object",
         "required": ["nome", "descricao", "preco", "categoria"],
         "properties": {
+          "componente_id": { "type": "integer", "minimum": 1, "nullable": true, "description": "Modelo técnico ativo e verificado do catálogo; associação opcional e informada pelo vendedor." },
           "nome": {
             "type": "string",
             "maxLength": 255,
@@ -508,6 +827,7 @@
         "type": "object",
         "required": ["id_produto", "nome", "descricao", "preco", "estoque", "categoria", "imagem"],
         "properties": {
+          "componente_id": { "type": "integer", "minimum": 1, "nullable": true },
           "id_produto": { "type": "integer", "minimum": 1 },
           "nome": { "type": "string" },
           "descricao": { "type": "string", "nullable": true },

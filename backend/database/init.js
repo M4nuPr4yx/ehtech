@@ -192,6 +192,8 @@ async function initializeDatabase(pool) {
   }
   for (const statement of TABLES) await pool.execute(statement)
   await ensureContractWarrantyColumns(pool)
+  await require('./passports').initializePassports(pool)
+  await require('./components').initializeComponents(pool)
   await seedServices(pool)
 }
 

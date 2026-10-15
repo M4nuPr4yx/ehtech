@@ -1,0 +1,76 @@
+.page { min-height: 80vh; background: var(--background); color: var(--foreground); padding: 35px 24px 70px; }
+.shell { max-width: 1180px; margin: auto; }
+.hero { border: 1px solid var(--line); border-radius: 20px; padding: 30px; margin-bottom: 22px; background: linear-gradient(120deg,var(--surface),var(--surface)); }
+.eyebrow { color: var(--accent); text-transform: uppercase; font-size: 12px; letter-spacing: .1em; }
+.hero h1 { margin: 12px 0; font-weight: 750; font-size: clamp(28px,4vw,42px); }
+.hero p, .muted { color: var(--muted); line-height: 1.65; font-size: 14px; }
+.hero a, .panel a { color: var(--accent); }
+.layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap: 22px; align-items: start; }
+.panel { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 25px; margin-bottom: 18px; }
+.panel h2 { font-weight: 700; font-size: 23px; margin-bottom: 15px; }
+.panel h3 { font-weight: 650; font-size: 17px; margin: 20px 0 12px; }
+.form { display: grid; gap: 16px; }
+.form label { display: grid; gap: 8px; color: var(--foreground); font-size: 13px; }
+.form select, .form input, .form textarea { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); padding: 12px; color: var(--foreground); font-size: 14px; }
+.form textarea { min-height: 180px; font-family: monospace; }
+.form input:focus, .form select:focus, .form textarea:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.picker { position: relative; min-width: 0; display: grid; gap: 8px; }
+.picker label { display: block; }
+.pickerControl { position: relative; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.pickerControl:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pickerControl input { flex: 1; border: 0; background: transparent; }
+.pickerControl input:focus { outline: none; }
+.pickerClear, .pickerToggle { flex: 0 0 34px; padding: 10px 0; color: var(--accent); cursor: pointer; }
+.pickerClear { font-size: 20px; color: var(--muted); }
+.pickerToggle { border-left: 1px solid var(--line); }
+.pickerClear:focus-visible, .pickerToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 6px; }
+.pickerList { position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; right: 0; max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); padding: 5px; }
+.pickerOption { display: grid; gap: 3px; width: 100%; padding: 12px; text-align: left; color: var(--foreground); border-radius: 7px; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; }
+.pickerOption strong { color: var(--accent); font-size: 12px; }
+.pickerOption:hover, .pickerActive { background: var(--surface); }
+.pickerSelected { color: var(--accent); font-size: 12px; }
+.pickerHelp { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.pickerEmpty { color: var(--foreground); padding: 12px; font-size: 13px; line-height: 1.5; }
+.memory { display: grid; grid-template-columns: minmax(0,1fr) 78px auto; gap: 8px; align-items: end; }
+.button { border: 1px solid var(--accent-fill); border-radius: 9px; padding: 11px 15px; background: var(--accent-fill); color: var(--accent-contrast); font-size: 13px; font-weight: 750; cursor: pointer; }
+.button:disabled { opacity: .5; cursor: wait; }
+.button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.secondary { background: transparent; color: var(--foreground); border-color: var(--line); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.error, .notice { padding: 15px; border: 1px solid var(--danger); background: var(--danger-soft); border-radius: 12px; margin-bottom: 18px; color: var(--danger); }
+.notice { border-color: var(--info); background: var(--info-soft); color: var(--info); }
+.result { padding: 19px; border-radius: 12px; border: 1px solid var(--success); background: var(--success-soft); margin-bottom: 18px; }
+.result h2 { margin-bottom: 8px; }
+.incompativel { border-color: var(--danger); background: var(--danger-soft); }
+.condicional { border-color: var(--warning); background: var(--warning-soft); }
+.nao_verificado { border-color: var(--info); background: var(--info-soft); }
+.checks { list-style: none; padding: 0; display: grid; gap: 13px; }
+.check { border: 1px solid var(--line); border-radius: 10px; padding: 15px; }
+.check strong { display: block; margin-bottom: 7px; }
+.check p, .scope p { color: var(--foreground); font-size: 13px; line-height: 1.65; }
+.check small { display: block; color: var(--muted); margin-top: 10px; font-size: 12px; }
+.sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; font-size: 12px; }
+.scope { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; display: grid; gap: 8px; }
+.catalogue { display: grid; gap: 10px; }
+.catalogue button { text-align: left; }
+@media(max-width:850px) { .layout { grid-template-columns: 1fr; } .page { padding: 24px 16px 60px; } .hero, .panel { padding: 20px; } }
+@media(max-width:450px) { .memory { grid-template-columns: 1fr; } }
+.hero { background: var(--surface); box-shadow: var(--shadow); }
+.panel { box-shadow: var(--shadow); }
+.button { min-height: 44px; font-size: 14px; }
+.button:not(.secondary):not(.danger):enabled:hover { filter: brightness(1.08); }
+.secondary:hover { background: var(--surface-raised); }
+.ai { margin: 0 0 24px; padding: 20px 0 24px; border-bottom: 1px solid var(--line); }
+.aiHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.aiHeading h3 { margin: 0; }
+.aiHeading > span { padding: 4px 8px; border-radius: 6px; font-size: 11px; color: var(--accent); background: var(--accent-soft); }
+.ai > p { margin-top: 12px; }
+.aiPrivacy, .aiAnswer small { display: block; font-size: 12px; line-height: 1.65; color: var(--muted); }
+.ai > button { margin-top: 16px; width: 100%; }
+.aiError { color: var(--danger); font-size: 13px; }
+.aiAnswer { display: grid; gap: 16px; margin-top: 18px; font-size: 14px; line-height: 1.75; }
+.aiPoint { border-left: 2px solid var(--accent); padding-left: 14px; }
+.aiPoint strong { font-size: 13px; }
+.aiPoint p { margin-top: 6px; }
+.aiAction { color: var(--muted); font-size: 13px; }
+.aiAction span { font-weight: 650; color: var(--foreground); }

@@ -6,10 +6,10 @@ const crypto = require('node:crypto')
 const mysql = require('mysql2/promise')
 
 async function main() {
-  const config = require('dotenv').parse(fs.readFileSync(path.join(__dirname, '../backend/.env')))
+  const config = require('./helpers/mysql-config.cjs').mysqlTestConfig()
   const database = `ehtech_test_${process.pid}_${Date.now()}`
   const uploads = fs.mkdtempSync(path.join(os.tmpdir(), 'ehtech-test-preview-'))
-  const connection = await mysql.createConnection({ host: '127.0.0.1', port: Number(config.DB_PORT || config.DB_PORTA) || 3306, user: config.DB_USER || 'root', password: config.DB_PASSWORD || '' })
+  const connection = await mysql.createConnection(config)
   let pool, server, closing = false
   async function close() {
     if (closing) return
@@ -30,7 +30,7 @@ async function main() {
   try {
     await connection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`)
     for (const key of ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRESQL_URL', 'MYSQL_URL', 'CLEARDB_DATABASE_URL', 'PGHOST', 'VERCEL', 'SMTP_HOST', 'SMTP_USER']) delete process.env[key]
-    Object.assign(process.env, { NODE_ENV: 'test', DB_HOST: '127.0.0.1', DB_PORT: String(Number(config.DB_PORT || config.DB_PORTA) || 3306), DB_USER: config.DB_USER || 'root', DB_PASSWORD: config.DB_PASSWORD || '', DB_DATABASE: database, DB_SSL: 'false', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, FRONTEND_URL: 'http://localhost:3003' })
+    Object.assign(process.env, { NODE_ENV: 'test', DB_HOST: config.host, DB_PORT: String(config.port), DB_USER: config.user, DB_PASSWORD: config.password, DB_DATABASE: database, DB_SSL: 'false', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, FRONTEND_URL: 'http://localhost:3003' })
     const app = require('../backend/index')
     pool = require('../backend/db')
     await app.initDatabaseTables()

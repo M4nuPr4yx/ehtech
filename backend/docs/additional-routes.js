@@ -65,7 +65,10 @@ const errorDescriptions = {
   409: 'Conflito: dado duplicado, indisponibilidade ou etapa incompatível.',
   413: 'Corpo JSON excede o limite de 6 MB.',
   429: 'Cota por IP esgotada. Aguarde o tempo indicado por Retry-After.',
-  500: 'Falha interna no processamento.'
+  500: 'Falha interna no processamento.',
+  502: 'Resposta da IA inválida, incompleta ou divergente das regras.',
+  503: 'IA não configurada, modelo ausente ou provedor indisponível.',
+  504: 'Prazo da explicação por IA excedido.'
 }
 function add(method, path, tag, summary, options = {}) {
   const { auth = true, admin = false, input, output = message, code = 200, errors = [], description = '', parameters = [], limit } = options
@@ -80,7 +83,7 @@ function add(method, path, tag, summary, options = {}) {
   }
   const routeParams = Array.from(path.matchAll(/\{([^}]+)\}/g), ([, name]) => ({
     name, in: 'path', required: true,
-    schema: ['slug', 'token', 'filename'].includes(name) ? str('Valor real do recurso') : id
+    schema: name === 'codigo' ? str('Código aleatório do link de consulta', { pattern: '^[a-f0-9]{64}$' }) : ['slug', 'token', 'filename'].includes(name) ? str('Valor real do recurso') : id
   }))
   paths[path] ||= {}
   paths[path][method] = {
@@ -163,7 +166,8 @@ add('put', '/produtos/{id}', 'Produtos', 'Editar anúncio', {
   input: body({
     nome: str('Nome', { maxLength: 255 }), descricao: str('Descrição', { maxLength: 5000 }),
     preco: num('Preço'), estoque: int('Estoque'), categoria: str('Categoria', { maxLength: 60 }),
-    imagem: { oneOf: [text, arr(text)], nullable: true }, status_aprovacao: approval
+    imagem: { oneOf: [text, arr(text)], nullable: true }, status_aprovacao: approval,
+    componente_id: { ...id, nullable: true, description: 'Modelo técnico ativo e verificado; null remove a associação. Alterar a associação como vendedor retorna o anúncio à moderação.' }
   }, [], { nome: 'Produto de teste', descricao: 'Descrição atualizada do produto de teste', preco: 99.9, estoque: 10, categoria: 'Acessórios', imagem: [] })
 })
 add('delete', '/produtos/{id}', 'Produtos', 'Excluir anúncio', { errors: [400, 404], description: 'Ação destrutiva: requer proprietário ou administrador. Exclui o anúncio real indicado pelo ID.' })
@@ -259,7 +263,43 @@ add('get', '/health', 'Status', 'Consultar saúde da API e conexão com banco', 
 })
 paths['/health'].get.responses[503] = { description: 'API online, mas conexão com banco indisponível.', content: json(paths['/health'].get.responses[200].content['application/json'].schema) }
 
-const tags = ['Administração', 'Recuperação de senha', 'Perfil', 'Notificações', 'Avaliações', 'Serviços', 'Contratações', 'Pedidos', 'Mensagens', 'Uploads', 'Status'].map(name => ({ name }))
+add('get', '/passaportes', 'Passaportes', "Listar equipamentos da conta", {"auth":true,"code":200,"errors":[400,404,409],"description":"", output: {"type":"array","items":{"$ref":"#/components/schemas/PassaporteResumo"}} })
+add('post', '/passaportes', 'Passaportes', "Cadastrar equipamento privado", {"auth":true,"code":201,"errors":[400,404,409],"description":"", input: { required: true, content: json({"$ref":"#/components/schemas/PassaporteEquipamento"}) } , output: {"type":"object","properties":{"id":{"type":"integer","minimum":1},"mensagem":{"type":"string"}},"required":["id"]} })
+add('post', '/passaportes/receber', 'Passaportes', "Aceitar transferência destinada à conta autenticada", {"auth":true,"code":200,"errors":[400,404,409],"description":"Código de uso único, armazenado por hash e válido por 24 horas. Somente o destinatário indicado pode aceitar. Revoga o link público e remove o acesso do antigo proprietário. A transferência não comprova uma compra nem movimenta valores.", input: { required: true, content: json({"type":"object","properties":{"codigo":{"type":"string","pattern":"^[a-f0-9]{64}$"}},"required":["codigo"]}) } , output: {"type":"object","properties":{"id":{"type":"integer","minimum":1},"mensagem":{"type":"string"}},"required":["id"]} })
+add('get', '/passaportes/publico/{codigo}', 'Passaportes', "Consultar ficha compartilhada", {"auth":false,"code":200,"errors":[400,404,409],"description":"Link opcional e revogável com código aleatório. Mostra componentes e histórico sem dados da conta, contatos, IDs de contratação ou segredos de transferência. Registros manuais são declarações do dono; o vínculo de serviços ao equipamento é declarado pelo proprietário. Não equivale a laudo. Respostas não são armazenadas em cache.", output: {"$ref":"#/components/schemas/PassaportePublico"} })
+add('get', '/passaportes/{id}', 'Passaportes', "Consultar ficha e histórico completos da própria conta", {"auth":true,"code":200,"errors":[400,404,409],"description":"", output: {"$ref":"#/components/schemas/PassaporteDetalhe"} })
+add('put', '/passaportes/{id}', 'Passaportes', "Atualizar ficha e registrar alteração no histórico", {"auth":true,"code":200,"errors":[400,404,409],"description":"", input: { required: true, content: json({"$ref":"#/components/schemas/PassaporteEquipamento"}) } , output: {"type":"object","properties":{"mensagem":{"type":"string"}}} })
+add('delete', '/passaportes/{id}', 'Passaportes', "Excluir ficha, histórico e convites do próprio equipamento", {"auth":true,"code":200,"errors":[400,404,409],"description":"Exclusão definitiva com remoção dos registros associados. Só o proprietário pode excluir.", output: {"type":"object","properties":{"mensagem":{"type":"string"}}} })
+add('post', '/passaportes/{id}/registros', 'Passaportes', "Registrar manutenção ou upgrade manual", {"auth":true,"code":201,"errors":[400,404,409],"description":"Data válida de 1970 em diante, sem data futura. Registros são imutáveis e identificados como manuais. Não incluir informações pessoais.", input: { required: true, content: json({"type":"object","properties":{"tipo":{"type":"string","enum":["manutencao","upgrade","reparo","inspecao"]},"titulo":{"type":"string","minLength":5,"maxLength":180},"data":{"type":"string","format":"date"}},"required":["tipo","titulo","data"]}) } , output: {"type":"object","properties":{"mensagem":{"type":"string"}}} })
+add('post', '/passaportes/{id}/servicos', 'Passaportes', "Vincular serviço concluído contratado pelo dono", {"auth":true,"code":201,"errors":[400,404,409],"description":"Confere cliente e conclusão no servidor. Cada contratação pode pertencer a apenas um passaporte. Copia título, data de conclusão e fim da garantia sem copiar escopo ou dados pessoais. A associação ao equipamento é declarada pelo dono.", input: { required: true, content: json({"type":"object","properties":{"contratacao_id":{"type":"integer","minimum":1}},"required":["contratacao_id"]}) } , output: {"type":"object","properties":{"mensagem":{"type":"string"}}} })
+add('post', '/passaportes/{id}/compartilhamento', 'Passaportes', "Ativar ou renovar link de consulta", {"auth":true,"code":200,"errors":[400,404,409],"description":"A ativação permite consulta a qualquer pessoa com o código. Gerar outro link invalida o anterior.", output: {"type":"object","properties":{"codigo":{"type":"string","pattern":"^[a-f0-9]{64}$"},"mensagem":{"type":"string"}},"required":["codigo"]} })
+add('delete', '/passaportes/{id}/compartilhamento', 'Passaportes', "Revogar link público", {"auth":true,"code":200,"errors":[400,404,409],"description":"", output: {"type":"object","properties":{"mensagem":{"type":"string"}}} })
+add('post', '/passaportes/{id}/transferencia', 'Passaportes', "Gerar convite para um destinatário específico", {"auth":true,"code":200,"errors":[400,404,409],"description":"Destinatário deve ser outra conta existente. Convite válido por 24 horas, substitui convite anterior. Compartilhe o código apenas com a conta indicada. O dono mantém acesso até o aceite.", input: { required: true, content: json({"type":"object","properties":{"username":{"type":"string","minLength":3,"maxLength":30}},"required":["username"]}) } , output: {"type":"object","properties":{"codigo":{"type":"string","pattern":"^[a-f0-9]{64}$"},"expira_em":{"type":"string","format":"date-time"},"mensagem":{"type":"string"}},"required":["codigo","expira_em"]} })
+add('delete', '/passaportes/{id}/transferencia', 'Passaportes', "Cancelar convite de transferência", {"auth":true,"code":200,"errors":[400,404,409],"description":"", output: {"type":"object","properties":{"mensagem":{"type":"string"}}} })
+
+const componentType = str('Categoria técnica', { enum: ['processador', 'placa_mae', 'memoria'] })
+const componentStatus = str('Revisão editorial', { enum: ['rascunho', 'verificado'] })
+const compatibilityStatus = str('Conclusão das regras', { enum: ['compativel', 'incompativel', 'condicional', 'nao_verificado'] })
+const componentFields = {
+  slug: str('Identificador permanente', { pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', maxLength: 140 }), tipo: componentType,
+  marca: str('Fabricante', { maxLength: 60 }), modelo: str('Modelo exato', { maxLength: 140 }),
+  especificacoes: { type: 'object', description: 'Campos variam por categoria; consulte docs/COMPATIBILIDADE.md. Campos ausentes ou null ficam não verificados.' },
+  fontes: { ...arr(obj({ titulo: str('Título', { maxLength: 140 }), url: str('Fonte HTTPS do fabricante', { format: 'uri', maxLength: 600 }) }, ['titulo', 'url'])), maxItems: 8 }, status: componentStatus, ativo: bool
+}
+schemas.DocComponente = obj({ id, ...componentFields, revisao: id, revisado_em: str('Última revisão', { format: 'date-time' }) })
+schemas.DocSelecaoComponentes = obj({ processador_id: { ...id, nullable: true }, placa_mae_id: { ...id, nullable: true }, bios: str('BIOS instalada informada pelo usuário', { nullable: true, pattern: '^\\d{4}$' }), memorias: { ...arr(obj({ componente_id: id, quantidade: int('Quantidade de kits', { minimum: 1, maximum: 4, default: 1 }) }, ['componente_id'])), maxItems: 4 } }, ['memorias'])
+schemas.DocCompatibilidade = obj({ status: compatibilityStatus, metodo: str('Método', { enum: ['regras'] }), verificado_em: str('Instante da análise', { format: 'date-time' }), selecao: ref('DocSelecaoComponentes'), componentes: arr(ref('DocComponente')), verificacoes: arr(obj({ codigo: text, status: compatibilityStatus, titulo: text, mensagem: text, componentes: arr(id), fontes: componentFields.fontes })), memoria_total_gb: { ...id, nullable: true }, modulos_total: { ...id, nullable: true }, limites: arr(text), observacoes: arr(text) })
+add('get', '/componentes', 'Compatibilidade', 'Consultar modelos ativos revisados', { auth: false, errors: [400], parameters: [query('tipo', componentType), query('busca', str('Marca ou modelo', { maxLength: 100 }))], output: obj({ items: arr(ref('DocComponente')), limite: int('Até 100 resultados') }) })
+add('post', '/componentes/verificar', 'Compatibilidade', 'Comparar processador, placa-mãe e memória pelas regras técnicas', { auth: false, errors: [400], input: { required: true, content: json(ref('DocSelecaoComponentes')) }, output: ref('DocCompatibilidade'), description: 'Conclusão calculada por regras, independente da IA opcional. Dados ausentes, inativos ou não revisados não aprovam uma combinação. BIOS pendente pode exigir atualização. Não certifica QVL, velocidade, overclock, GPU, fonte, gabinete, cooler ou peças usadas. Resposta sem cache.' })
+schemas.DocEstadoIA = obj({ disponivel: bool, provedor: str('Execução configurada', { enum: ['disabled', 'ollama', 'groq', 'gemini'] }), modelo: { ...text, nullable: true }, externo: bool, mensagem: text })
+schemas.DocExplicacaoIA = obj({ provedor: str('Provedor', { enum: ['ollama', 'groq', 'gemini'] }), modelo: text, gerado_em: str('Geração da explicação', { format: 'date-time' }), em_cache: bool, resumo: str('Resumo em linguagem simples', { maxLength: 900 }), pontos: { ...arr(obj({ codigo: text, status: compatibilityStatus, titulo: text, mensagem: text, explicacao: str('Explicação', { maxLength: 700 }), acao: str('Próximo passo', { maxLength: 450 }) })), maxItems: 4 } })
+add('get', '/componentes/ia/status', 'Compatibilidade', 'Consultar configuração da explicação por IA', { auth: false, output: ref('DocEstadoIA'), description: 'Ollama consulta apenas loopback e confere o modelo instalado. Groq informa configuração; a chave nunca é retornada. Não gera texto. Resposta sem cache HTTP; sondagem local reutilizada por 10 segundos.' })
+add('post', '/componentes/ia/explicar', 'Compatibilidade', 'Explicar os requisitos técnicos com Gemini, Groq ou Ollama', { auth: false, errors: [400, 502, 503, 504], input: { required: true, content: json(ref('DocSelecaoComponentes')) }, output: obj({ verificacao: ref('DocCompatibilidade'), ia: ref('DocExplicacaoIA') }), description: 'Aceita somente seleção/BIOS, até 4 KB. Recalcula as regras e consulta as fichas atuais no servidor; não aceita chave, resultado, prompt, URL ou modelo enviados pelo cliente. Credenciais são lidas somente do ambiente do servidor e nunca retornadas. IA não muda a conclusão. Respostas com status/códigos divergentes são rejeitadas. Nenhum perfil, passaporte ou token é enviado ao provedor. Cache interno de até 50 explicações por 10 minutos, considerando fichas e revisões. Não há fallback para outro provedor.', limit: '8 solicitações por IP em 10 minutos, além da cota global. Uma geração local ou duas externas simultâneas por processo. Falhas de cota retornam 429; timeout retorna 504 e não afeta a análise técnica.' })
+add('get', '/componentes/admin', 'Compatibilidade', 'Consultar fichas e rascunhos como administrador', { admin: true, output: arr(ref('DocComponente')) })
+add('post', '/componentes/admin', 'Compatibilidade', 'Cadastrar ficha técnica', { admin: true, code: 201, errors: [400, 409], input: body(componentFields, Object.keys(componentFields)), output: obj({ id, mensagem: text }), description: 'A publicação como verificado exige ao menos uma fonte HTTPS. Não consulta nem extrai páginas externas automaticamente.' })
+add('put', '/componentes/admin/{id}', 'Compatibilidade', 'Revisar ou desativar ficha técnica', { admin: true, errors: [400, 404, 409], input: body({ ...componentFields, revisao: id }, [...Object.keys(componentFields), 'revisao']), description: 'slug e tipo são permanentes. A revisão evita sobrescrever alterações de outra sessão; conflito retorna 409. Desativar preserva associações históricas e impede novas aprovações.' })
+
+const tags = ['Compatibilidade', 'Passaportes', 'Administração', 'Recuperação de senha', 'Perfil', 'Notificações', 'Avaliações', 'Serviços', 'Contratações', 'Pedidos', 'Mensagens', 'Uploads', 'Status'].map(name => ({ name }))
 
 function extendSpecification(base) {
   // Preserva integralmente info, servers, segurança e operações anteriores.

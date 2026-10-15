@@ -1,9 +1,15 @@
 import lan from './config/lan.cjs';
+import privateEnvironment from './config/private-environment.cjs';
+
+privateEnvironment.assertPrivateEnvironment();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: lan.getLanHosts(),
   reactCompiler: true,
+  // Ollama local pode levar mais que os 30s padrão do proxy de rewrites.
+  // O backend mantém seu próprio prazo de geração, limitado a 180s.
+  experimental: { proxyTimeout: 190000 },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'commons.wikimedia.org', port: '', pathname: '/wiki/Special:FilePath/**' },
@@ -60,6 +66,13 @@ const nextConfig = {
             key: 'X-XSS-Protection',
             value: '1; mode=block',
           },
+        ],
+      },
+      {
+        source: '/passaportes/publico/:codigo',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
       },
     ];

@@ -13,8 +13,8 @@ function ImageGallery({ images }) {
 
   if (validImages.length === 0) {
     return (
-      <div className="aspect-square bg-gray-900 border border-gray-700 rounded-2xl flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="aspect-square bg-surface border border-line rounded-2xl flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       </div>
@@ -27,7 +27,7 @@ function ImageGallery({ images }) {
   return (
     <div className="flex flex-col gap-3">
       {/* Imagem Principal */}
-      <div className="relative bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden aspect-square group">
+      <div className="relative bg-surface border border-line rounded-2xl overflow-hidden aspect-square group">
         <ImageWithFallback
           src={validImages[activeIdx]}
           alt={`Foto ${activeIdx + 1}`}
@@ -48,7 +48,7 @@ function ImageGallery({ images }) {
               type="button"
               onClick={prev}
               aria-label="Imagem anterior"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-[#ABDB25] text-white hover:text-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-accent-fill text-white hover:text-accent-contrast rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
             >
               ‹
             </button>
@@ -56,7 +56,7 @@ function ImageGallery({ images }) {
               type="button"
               onClick={next}
               aria-label="Próxima imagem"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-[#ABDB25] text-white hover:text-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-accent-fill text-white hover:text-accent-contrast rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
             >
               ›
             </button>
@@ -75,14 +75,14 @@ function ImageGallery({ images }) {
               aria-label={`Ver foto ${idx + 1}`}
               className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
                 idx === activeIdx
-                  ? 'border-[#ABDB25] shadow-md shadow-[#ABDB25]/20'
-                  : 'border-gray-700 hover:border-gray-500'
+                  ? 'border-accent shadow-md shadow-transparent'
+                  : 'border-line hover:border-line'
               }`}
             >
               <ImageWithFallback
                 src={url}
                 alt={`Miniatura ${idx + 1}`}
-                className="w-full h-full object-contain bg-gray-800 p-0.5"
+                className="w-full h-full object-contain bg-surface-raised p-0.5"
                 sizes="64px"
               />
             </button>
@@ -283,7 +283,7 @@ export default function ProdutoDetalhes() {
         type="button"
         onClick={() => interactive && onRate && onRate(i + 1)}
         disabled={!interactive}
-        className={`text-2xl ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform ${i < rating ? 'text-[#ABDB25]' : 'text-gray-600'}`}
+        className={`text-2xl ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform ${i < rating ? 'text-accent' : 'text-muted'}`}
       >
         ★
       </button>
@@ -292,34 +292,34 @@ export default function ProdutoDetalhes() {
 
   if (loading) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
-        <div className="text-[#ABDB25] text-xl animate-pulse">Carregando...</div>
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
+        <div className="text-accent text-xl animate-pulse">Carregando...</div>
       </div>
     );
   }
 
   if (error || !produto) {
     return (
-      <div className="site-background min-h-screen text-white flex items-center justify-center">
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-xl mb-4">{error || 'Produto não encontrado'}</p>
-          <Link href="/produtos" className="text-[#ABDB25] hover:underline">Voltar aos produtos</Link>
+          <p className="text-danger text-xl mb-4">{error || 'Produto não encontrado'}</p>
+          <Link href="/produtos" className="text-accent hover:underline">Voltar aos produtos</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="site-background min-h-screen text-white pt-20 pb-20">
+    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
       {cartMessage && (
-        <div className="fixed right-5 top-24 z-50 rounded-xl border border-green-500/40 bg-green-500/20 px-4 py-3 text-sm font-medium text-green-200 shadow-xl" role="status">
+        <div className="fixed right-5 top-24 z-50 rounded-xl border border-success bg-success-soft px-4 py-3 text-sm font-medium text-success shadow-xl" role="status">
           {cartMessage}
-          <button type="button" onClick={() => setCartMessage('')} className="ml-3 text-green-100 hover:text-white" aria-label="Fechar mensagem">×</button>
+          <button type="button" onClick={() => setCartMessage('')} className="ml-3 text-success hover:text-foreground" aria-label="Fechar mensagem">×</button>
         </div>
       )}
       <div className="max-w-4xl mx-auto px-6">
         {/* Back button */}
-        <Link href="/produtos" className="inline-flex items-center text-gray-400 hover:text-[#ABDB25] mb-6 transition-colors">
+        <Link href="/produtos" className="inline-flex items-center text-muted hover:text-accent mb-6 transition-colors">
           ← Voltar aos produtos
         </Link>
 
@@ -331,91 +331,91 @@ export default function ProdutoDetalhes() {
           <div>
             {editMode ? (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#ABDB25] mb-4">Editar Produto</h2>
+                <h2 className="text-2xl font-bold text-accent mb-4">Editar Produto</h2>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Nome</label>
+                  <label className="block text-sm text-muted mb-1">Nome</label>
                   <input
                     type="text"
                     value={editData.nome}
                     onChange={(e) => setEditData({ ...editData, nome: e.target.value })}
-                    className="w-full p-3 bg-gray-800/50 border border-gray-600 rounded-xl text-white focus:border-[#ABDB25] focus:outline-none"
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Preço</label>
+                  <label className="block text-sm text-muted mb-1">Preço</label>
                   <input
                     type="number"
                     step="0.01"
                     value={editData.preco}
                     onChange={(e) => setEditData({ ...editData, preco: e.target.value })}
-                    className="w-full p-3 bg-gray-800/50 border border-gray-600 rounded-xl text-white focus:border-[#ABDB25] focus:outline-none"
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Descrição</label>
+                  <label className="block text-sm text-muted mb-1">Descrição</label>
                   <textarea
                     value={editData.descricao}
                     onChange={(e) => setEditData({ ...editData, descricao: e.target.value })}
-                    className="w-full p-3 bg-gray-800/50 border border-gray-600 rounded-xl text-white focus:border-[#ABDB25] focus:outline-none h-32"
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none h-32"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Imagem (URL ou Base64)</label>
+                  <label className="block text-sm text-muted mb-1">Imagem (URL ou Base64)</label>
                   <input
                     type="text"
                     value={editData.imagem}
                     onChange={(e) => setEditData({ ...editData, imagem: e.target.value })}
-                    className="w-full p-3 bg-gray-800/50 border border-gray-600 rounded-xl text-white focus:border-[#ABDB25] focus:outline-none"
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={saveEdit}
                     disabled={savingEdit}
-                    className="flex-1 py-3 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl transition-all disabled:opacity-50"
+                    className="flex-1 py-3 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl transition-all disabled:opacity-50"
                   >
                     {savingEdit ? 'Salvando...' : 'Salvar'}
                   </button>
                   <button
                     onClick={() => { setEditMode(false); setEditMessage(''); }}
-                    className="px-6 py-3 border border-gray-600 text-white rounded-xl hover:bg-gray-800 transition-all"
+                    className="px-6 py-3 border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all"
                   >
                     Cancelar
                   </button>
                 </div>
                 {editMessage && (
-                  <p className={`p-3 rounded-xl text-center ${editMessage.includes('sucesso') ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                  <p className={`p-3 rounded-xl text-center ${editMessage.includes('sucesso') ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
                     {editMessage}
                   </p>
                 )}
               </div>
             ) : (
               <>
-                <h1 className="text-3xl font-bold text-white mb-2">{produto.nome}</h1>
-                <p className="text-[#ABDB25] text-3xl font-bold mb-4">
+                <h1 className="text-3xl font-bold text-foreground mb-2">{produto.nome}</h1>
+                <p className="text-accent text-3xl font-bold mb-4">
                   {formatPrice(produto.preco)}
                 </p>
-                <p className="text-gray-300 mb-6">{produto.descricao}</p>
+                <p className="text-muted mb-6">{produto.descricao}</p>
                 
                 {/* Seller info */}
-                <div className="bg-gray-900/60 border border-gray-700 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
+                <div className="bg-surface border border-line rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="shrink-0">
                       {sellerInfo?.foto && isValidImageUrl(sellerInfo.foto) ? (
                         <img
                           src={sellerInfo.foto}
                           alt={produto.vendedor}
-                          className="w-12 h-12 rounded-full object-cover border border-[#ABDB25] bg-gray-800"
+                          className="w-12 h-12 rounded-full object-cover border border-accent bg-surface-raised"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-[#ABDB25] flex items-center justify-center text-black font-bold text-lg">
+                        <div className="w-12 h-12 rounded-full bg-accent-fill flex items-center justify-center text-accent-contrast font-bold text-lg">
                           {produto.vendedor?.charAt(0).toUpperCase() || 'V'}
                         </div>
                       )}
                     </div>
                     <div>
-                      <p className="text-gray-400 text-xs uppercase tracking-wider">Vendido por</p>
-                      <Link href={`/perfil/${produto.vendedor_id}`} className="text-[#ABDB25] hover:underline font-bold text-lg">
+                      <p className="text-muted text-xs uppercase tracking-wider">Vendido por</p>
+                      <Link href={`/perfil/${produto.vendedor_id}`} className="text-accent hover:underline font-bold text-lg">
                         {sellerInfo?.nome || produto.vendedor}
                       </Link>
                     </div>
@@ -424,7 +424,7 @@ export default function ProdutoDetalhes() {
                   {!isOwner && produto.vendedor_id && (
                     <Link
                       href={`/mensagens?vendedor=${produto.vendedor_id}&produto=${produto.id_produto}`}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-[#ABDB25] hover:text-black text-white text-sm font-semibold rounded-xl border border-gray-600 hover:border-[#ABDB25] transition-all"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-accent-fill hover:text-accent-contrast text-foreground text-sm font-semibold rounded-xl border border-line hover:border-accent transition-all"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -438,14 +438,14 @@ export default function ProdutoDetalhes() {
                 <div className="flex gap-3">
                   <button
                     onClick={addToCart}
-                    className="flex-1 py-3 bg-[#ABDB25] hover:bg-white hover:text-black text-black font-bold rounded-xl transition-all"
+                    className="flex-1 py-3 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl transition-all"
                   >
                     Adicionar ao Carrinho
                   </button>
                   {isOwner && (
                     <button
                       onClick={() => setEditMode(true)}
-                      className="px-6 py-3 border border-gray-600 text-white rounded-xl hover:bg-gray-800 transition-all"
+                      className="px-6 py-3 border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all"
                     >
                       Editar
                     </button>
@@ -457,22 +457,22 @@ export default function ProdutoDetalhes() {
         </div>
 
         {/* Ratings Section */}
-        <div className="mt-12 bg-gray-900/50 border border-gray-700 rounded-2xl p-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Avaliações</h2>
+        <div className="mt-12 bg-surface border border-line rounded-2xl p-6">
+          <h2 className="text-2xl font-bold text-foreground mb-4">Avaliações</h2>
           
           {/* Average rating */}
           <div className="flex items-center gap-4 mb-6">
             <div className="flex">
               {renderStars(Math.round(parseFloat(avaliacoes.media)))}
             </div>
-            <span className="text-xl font-bold text-[#ABDB25]">{avaliacoes.media}</span>
-            <span className="text-gray-400">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
+            <span className="text-xl font-bold text-accent">{avaliacoes.media}</span>
+            <span className="text-muted">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
           </div>
 
           {/* Submit rating (if logged in) */}
           {isLoggedIn && !isOwner && (
-            <div className="border-t border-gray-700 pt-6 mt-6">
-              <h3 className="text-lg font-bold text-white mb-3">Avaliar este produto</h3>
+            <div className="border-t border-line pt-6 mt-6">
+              <h3 className="text-lg font-bold text-foreground mb-3">Avaliar este produto</h3>
               <div className="flex gap-2 mb-3">
                 {renderStars(userRating, true, (rating) => setUserRating(rating))}
               </div>
@@ -480,17 +480,17 @@ export default function ProdutoDetalhes() {
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Comentário (opcional)"
-                className="w-full p-3 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-[#ABDB25] focus:outline-none h-24 mb-3"
+                className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none h-24 mb-3"
               />
               <button
                 onClick={submitRating}
                 disabled={!userRating || submittingRating}
-                className="py-3 px-6 bg-[#ABDB25] hover:bg-white text-black font-bold rounded-xl transition-all disabled:opacity-50"
+                className="py-3 px-6 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl transition-all disabled:opacity-50"
               >
                 {submittingRating ? 'Enviando...' : 'Enviar Avaliação'}
               </button>
               {ratingMessage && (
-                <p className={`mt-3 p-3 rounded-xl ${ratingMessage.includes('sucesso') ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                <p className={`mt-3 p-3 rounded-xl ${ratingMessage.includes('sucesso') ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
                   {ratingMessage}
                 </p>
               )}
@@ -499,17 +499,17 @@ export default function ProdutoDetalhes() {
 
           {/* Reviews list */}
           {avaliacoes.avaliacoes && avaliacoes.avaliacoes.length > 0 && (
-            <div className="border-t border-gray-700 pt-6 mt-6 space-y-4">
+            <div className="border-t border-line pt-6 mt-6 space-y-4">
               {avaliacoes.avaliacoes.map((avaliacao, index) => (
-                <div key={index} className="bg-gray-800/30 border border-gray-700 rounded-xl p-4">
+                <div key={index} className="bg-surface-raised border border-line rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex">
                       {renderStars(avaliacao.nota)}
                     </div>
-                    <span className="text-gray-400 text-sm">por {avaliacao.avaliador_username}</span>
+                    <span className="text-muted text-sm">por {avaliacao.avaliador_username}</span>
                   </div>
                   {avaliacao.comentario && (
-                    <p className="text-gray-300">{avaliacao.comentario}</p>
+                    <p className="text-muted">{avaliacao.comentario}</p>
                   )}
                 </div>
               ))}
@@ -517,7 +517,7 @@ export default function ProdutoDetalhes() {
           )}
 
           {avaliacoes.total === 0 && (
-            <p className="text-gray-400">Este produto ainda não tem avaliações.</p>
+            <p className="text-muted">Este produto ainda não tem avaliações.</p>
           )}
         </div>
       </div>

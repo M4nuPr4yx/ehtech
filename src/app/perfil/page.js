@@ -265,9 +265,9 @@ const handleChangeEmail = async (e) => {
       return;
     }
 
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage('A imagem deve ter no máximo 5MB');
+    // A Vercel aceita até 4,5 MB por requisição; a aplicação reserva margem.
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage('A imagem deve ter no máximo 4MB');
       setMessageType('error');
       return;
     }

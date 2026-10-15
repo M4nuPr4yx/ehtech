@@ -19,6 +19,10 @@ const isPostgres =
   (process.env.DB_HOST && process.env.DB_HOST.includes('neon.tech'));
 
 let poolInstance;
+const configuredPoolSize = Number.parseInt(process.env.DB_POOL_MAX || '', 10);
+const poolSize = Number.isInteger(configuredPoolSize) && configuredPoolSize > 0
+  ? Math.min(configuredPoolSize, 10)
+  : process.env.VERCEL ? 3 : 10;
 
 if (isPostgres) {
   const { Pool } = require('pg');
@@ -27,7 +31,9 @@ if (isPostgres) {
   const pgPool = connectionUri
     ? new Pool({
         connectionString: connectionUri,
-        ssl: { rejectUnauthorized: false }
+        ssl: { rejectUnauthorized: false },
+        max: poolSize,
+        idleTimeoutMillis: 10000
       })
     : new Pool({
         host: process.env.DB_HOST || process.env.PGHOST || 'localhost',
@@ -35,7 +41,9 @@ if (isPostgres) {
         password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
         database: process.env.DB_DATABASE || process.env.PGDATABASE || 'ehtech',
         port: parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10),
-        ssl: { rejectUnauthorized: false }
+        ssl: { rejectUnauthorized: false },
+        max: poolSize,
+        idleTimeoutMillis: 10000
       });
 
   // Tradutor de queries MySQL -> PostgreSQL (placeholders ?, DDL, RETURNING)
@@ -146,7 +154,7 @@ if (isPostgres) {
       return {
         uri: connectionUri,
         waitForConnections: true,
-        connectionLimit: 10,
+        connectionLimit: poolSize,
         queueLimit: 0,
         enableKeepAlive: true,
         keepAliveInitialDelay: 10000,
@@ -169,7 +177,7 @@ if (isPostgres) {
       database: process.env.DB_DATABASE || process.env.DB_NAME || 'ehtech',
       port: parseInt(process.env.DB_PORT || process.env.DB_PORTA || '3306', 10),
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: poolSize,
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000,

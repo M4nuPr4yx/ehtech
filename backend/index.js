@@ -11,6 +11,7 @@ const validator = require('validator')
 const multer = require('multer')
 require('./env')
 const { integer, money } = require('./validation')
+const { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_IMAGE_SIZE, matchesImageType, extensionFor, createImageFilename, saveImage } = require('./media')
 
 const pool = require('./db')
 const uploadRoutes = require('./routes/upload')
@@ -33,8 +34,8 @@ app.use(helmet({
   }
 }))
 app.disable('x-powered-by')
-// O proxy local Next conecta por loopback. Não confiar em proxies arbitrários.
-if (!process.env.VERCEL) app.set('trust proxy', 'loopback')
+// O proxy local Next conecta por loopback; a Vercel adiciona um proxy confiável.
+app.set('trust proxy', process.env.VERCEL ? 1 : 'loopback')
 
 app.use(cors({
   origin: '*',
@@ -103,8 +104,10 @@ const uploadLimiter = rateLimit({
 // ==========================================
 // 4. PARSER DE PAYLOAD COM LIMITES SEGUROS
 // ==========================================
-app.use(express.json({ limit: '7mb' }))
-app.use(express.urlencoded({ extended: true, limit: '6mb' }))
+// Vercel Functions aceitam até 4,5 MB por requisição; manter limites abaixo disso
+// evita uma resposta 413 antes da validação da aplicação.
+app.use(express.json({ limit: '4mb' }))
+app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 app.use((req, res, next) => {
   if (req.body && (typeof req.body !== 'object' || Array.isArray(req.body))) {
     return res.status(400).json({ mensagem: 'Envie um objeto JSON válido.' })
@@ -1002,28 +1005,17 @@ app.put("/perfil", autenticarToken, async (req, res) => {
 })
 
 // Multer configurado com validação estrita para foto de perfil
-const perfilStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase()
-    const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.jpg'
-    cb(null, `perfil-${req.user.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${safeExt}`)
-  }
-})
-
 const uploadPerfil = multer({
-  storage: perfilStorage,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase()
-    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp']
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp']
-    if (allowedMimes.includes(file.mimetype) && allowedExts.includes(ext)) {
+    if (ALLOWED_MIME_TYPES.has(file.mimetype) && ALLOWED_EXTENSIONS.has(ext)) {
       cb(null, true)
     } else {
       cb(new Error('Apenas imagens JPG, PNG ou WEBP são permitidas'))
     }
   },
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: MAX_IMAGE_SIZE }
 })
 
 // Middleware seguro: AUTENTICAR ANTES do Multer
@@ -1036,8 +1028,11 @@ app.put("/perfil/foto", autenticarToken, (req, res, next) => {
   })
 }, async (req, res) => {
   if (req.file) {
-    const fotoUrl = `/uploads/${req.file.filename}`
     try {
+      if (!matchesImageType(req.file.buffer, req.file.mimetype)) return res.status(400).json({ mensagem: 'O conteúdo do arquivo não corresponde a uma imagem válida.' })
+      const filename = createImageFilename(req.user.id, 'perfil', extensionFor(req.file))
+      const saved = await saveImage({ buffer: req.file.buffer, filename, contentType: req.file.mimetype })
+      const fotoUrl = saved.url
       await pool.execute('UPDATE usuarios SET foto = ? WHERE id_usuario = ?', [fotoUrl, req.user.id])
       return res.json({ mensagem: "Foto atualizada com sucesso", foto: fotoUrl })
     } catch (err) {

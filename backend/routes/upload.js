@@ -1,261 +1,104 @@
-const express = require('express');
-const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const crypto = require('crypto');
-const fs = require('fs');
-const { autenticarToken } = require('../middleware/auth');
+const express = require('express')
+const multer = require('multer')
+const path = require('path')
+const { autenticarToken } = require('../middleware/auth')
+const { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_IMAGE_SIZE, matchesImageType, extensionFor, createImageFilename, usesBlobStorage, saveImage, deleteImage } = require('../media')
 
-const { uploadsDir } = require('../uploads');
+const router = express.Router()
 
-function matchesImageType(buffer, mime) {
-  if (mime === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
-  if (mime === 'image/jpeg') return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  if (mime === 'image/webp') return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
-  return false;
+function validateFile(file) {
+  const ext = path.extname(file?.originalname || '').toLowerCase()
+  return Boolean(file && ALLOWED_MIME_TYPES.has(file.mimetype) && ALLOWED_EXTENSIONS.has(ext) && matchesImageType(file.buffer, file.mimetype))
 }
-
-// Extensões e MIME types estritamente permitidos (rejeita .svg, .html, .php, etc.)
-const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const safeExt = ALLOWED_EXTENSIONS.has(ext) ? ext : '.jpg';
-    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-    cb(null, `img-${req.user.id}-${uniqueSuffix}${safeExt}`);
-  }
-});
 
 const fileFilter = (req, file, cb) => {
-  const ext = path.extname(file.originalname || '').toLowerCase();
-  if (ALLOWED_MIME_TYPES.has(file.mimetype) && ALLOWED_EXTENSIONS.has(ext)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de arquivo não permitido. Use apenas imagens JPG, PNG ou WEBP.'));
-  }
-};
+  const ext = path.extname(file.originalname || '').toLowerCase()
+  if (ALLOWED_MIME_TYPES.has(file.mimetype) && ALLOWED_EXTENSIONS.has(ext)) return cb(null, true)
+  return cb(new Error('Tipo de arquivo não permitido. Use apenas imagens JPG, PNG ou WEBP.'))
+}
+const upload = multer({ storage: multer.memoryStorage(), fileFilter, limits: { fileSize: MAX_IMAGE_SIZE, files: 1 } })
+const uploadMultiple = multer({ storage: multer.memoryStorage(), fileFilter, limits: { fileSize: MAX_IMAGE_SIZE, files: 8 } })
 
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB máximo
-    files: 1
-  }
-});
-
-// Middleware auxiliar para capturar erros de Multer
 function handleMulterError(uploadMiddleware) {
-  return (req, res, next) => {
-    uploadMiddleware(req, res, (err) => {
-      if (err instanceof multer.MulterError) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({ erro: 'Arquivo muito grande. O limite máximo é de 5MB.' });
-        }
-        return res.status(400).json({ erro: `Erro no upload: ${err.message}` });
-      } else if (err) {
-        return res.status(400).json({ erro: err.message || 'Erro ao processar arquivo.' });
-      }
-      const files = req.file ? [req.file] : req.files || [];
-      if (files.some(file => !matchesImageType(fs.readFileSync(file.path), file.mimetype))) {
-        for (const file of files) fs.unlinkSync(file.path);
-        return res.status(400).json({ erro: 'O conteúdo do arquivo não corresponde a uma imagem JPG, PNG ou WEBP.' });
-      }
-      next();
-    });
-  };
+  return (req, res, next) => uploadMiddleware(req, res, error => {
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ erro: 'Arquivo muito grande. O limite máximo é de 4MB.' })
+    if (error) return res.status(400).json({ erro: error.message || 'Erro ao processar arquivo.' })
+    const files = req.file ? [req.file] : req.files || []
+    if (!files.every(validateFile)) return res.status(400).json({ erro: 'O conteúdo do arquivo não corresponde a uma imagem JPG, PNG ou WEBP.' })
+    next()
+  })
 }
 
-const uploadMultiple = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB máximo por arquivo
-    files: 8 // Até 8 imagens simultâneas
-  }
-});
+async function persist(file, ownerId) {
+  const filename = createImageFilename(ownerId, 'produto', extensionFor(file))
+  const saved = await saveImage({ buffer: file.buffer, filename, contentType: file.mimetype })
+  return { url: saved.url, filename: path.basename(saved.filename), tamanho: file.size, tipo: file.mimetype }
+}
 
-// POST /upload/imagem - Upload autenticado de imagem única
 router.post('/imagem', autenticarToken, handleMulterError(upload.single('imagem')), async (req, res) => {
+  if (!req.file) return res.status(400).json({ erro: 'Nenhuma imagem enviada' })
   try {
-    if (!req.file) {
-      return res.status(400).json({ erro: 'Nenhuma imagem enviada' });
-    }
-
-    const imagemUrl = `/uploads/${req.file.filename}`;
-
-    return res.json({
-      sucesso: true,
-      url: imagemUrl,
-      filename: req.file.filename,
-      tamanho: req.file.size,
-      tipo: req.file.mimetype
-    });
+    const image = await persist(req.file, req.user.id)
+    return res.json({ sucesso: true, ...image })
   } catch (error) {
-    console.error('[upload] Erro ao processar upload:', error.message);
-    return res.status(500).json({ erro: 'Erro interno ao salvar arquivo' });
+    console.error('[upload] Erro ao salvar imagem:', error.message)
+    return res.status(503).json({ erro: 'Não foi possível salvar a imagem agora. Tente novamente.' })
   }
-});
+})
 
-// POST /upload/imagens - Upload autenticado de múltiplas imagens (até 8)
 router.post('/imagens', autenticarToken, handleMulterError(uploadMultiple.array('imagens', 8)), async (req, res) => {
+  if (!req.files?.length) return res.status(400).json({ erro: 'Nenhuma imagem enviada' })
   try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ erro: 'Nenhuma imagem enviada' });
-    }
-
-    const uploaded = req.files.map((file) => ({
-      url: `/uploads/${file.filename}`,
-      filename: file.filename,
-      tamanho: file.size,
-      tipo: file.mimetype
-    }));
-
-    const urls = uploaded.map(u => u.url);
-
-    return res.json({
-      sucesso: true,
-      urls,
-      arquivos: uploaded,
-      total: urls.length
-    });
+    const arquivos = []
+    for (const file of req.files) arquivos.push(await persist(file, req.user.id))
+    return res.json({ sucesso: true, urls: arquivos.map(file => file.url), arquivos, total: arquivos.length })
   } catch (error) {
-    console.error('[upload/imagens] Erro ao processar upload múltiplo:', error.message);
-    return res.status(500).json({ erro: 'Erro interno ao salvar arquivos' });
+    console.error('[upload/imagens] Erro ao salvar imagens:', error.message)
+    return res.status(503).json({ erro: 'Não foi possível salvar as imagens agora. Tente novamente.' })
   }
-});
+})
 
-// POST /upload/imagem-base64 - Upload autenticado de Base64 com validação estrita
 router.post('/imagem-base64', autenticarToken, async (req, res) => {
+  const match = typeof req.body?.imagem === 'string' && req.body.imagem.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/i)
+  if (!match) return res.status(400).json({ erro: 'Formato base64 inválido ou tipo de imagem não suportado. Use JPG, PNG ou WEBP.' })
+  const format = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase()
+  const buffer = Buffer.from(match[2], 'base64')
+  const mimetype = format === 'jpg' ? 'image/jpeg' : `image/${format}`
+  if (buffer.length > 3 * 1024 * 1024 || !matchesImageType(buffer, mimetype) || buffer.toString('base64').replace(/=+$/, '') !== match[2].replace(/=+$/, '')) return res.status(400).json({ erro: 'Conteúdo base64 inválido ou maior que 3MB.' })
   try {
-    const { imagem } = req.body;
-
-    if (!imagem || typeof imagem !== 'string') {
-      return res.status(400).json({ erro: 'Imagem base64 não fornecida' });
-    }
-
-    // Aceita apenas tipos de imagem seguros
-    const match = imagem.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
-    if (!match) {
-      return res.status(400).json({ erro: 'Formato base64 inválido ou tipo de imagem não suportado. Use JPG, PNG ou WEBP.' });
-    }
-
-    const format = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
-    const ext = `.${format}`;
-    const base64Data = match[2];
-
-    const buffer = Buffer.from(base64Data, 'base64');
-    const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
-    if (!matchesImageType(buffer, mime) || buffer.toString('base64').replace(/=+$/, '') !== base64Data.replace(/=+$/, '')) {
-      return res.status(400).json({ erro: 'Conteúdo base64 de imagem inválido.' });
-    }
-
-    // Limite estrito de 5MB
-    if (buffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ erro: 'Imagem excede o limite de 5MB' });
-    }
-
-    const filename = `img-${req.user.id}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
-    const filepath = path.resolve(uploadsDir, filename);
-
-    // Validação de escape de diretório
-    if (!filepath.startsWith(uploadsDir + path.sep)) {
-      return res.status(400).json({ erro: 'Caminho de gravação inválido' });
-    }
-
-    fs.writeFileSync(filepath, buffer);
-
-    const imagemUrl = `/uploads/${filename}`;
-
-    return res.json({
-      sucesso: true,
-      url: imagemUrl,
-      filename,
-      tamanho: buffer.length
-    });
+    const filename = createImageFilename(req.user.id, 'produto', `.${format}`)
+    const saved = await saveImage({ buffer, filename, contentType: mimetype })
+    return res.json({ sucesso: true, url: saved.url, filename: path.basename(saved.filename), tamanho: buffer.length })
   } catch (error) {
-    console.error('[upload-base64] Erro:', error.message);
-    return res.status(500).json({ erro: 'Erro interno ao processar imagem base64' });
+    console.error('[upload-base64] Erro:', error.message)
+    return res.status(503).json({ erro: 'Não foi possível salvar a imagem agora. Tente novamente.' })
   }
-});
+})
 
-// POST /upload/imagem-url - Salva referência de URL de imagem externa validada
 router.post('/imagem-url', autenticarToken, async (req, res) => {
+  if (typeof req.body?.url !== 'string') return res.status(400).json({ erro: 'URL não fornecida' })
   try {
-    const { url } = req.body;
-
-    if (!url || typeof url !== 'string') {
-      return res.status(400).json({ erro: 'URL não fornecida' });
-    }
-
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url.trim());
-    } catch {
-      return res.status(400).json({ erro: 'URL inválida' });
-    }
-
-    // Apenas protocolos HTTP e HTTPS
-    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      return res.status(400).json({ erro: 'Protocolo de URL inválido. Use http ou https.' });
-    }
-
-    // Validar extensão de imagem na URL
-    const pathname = parsedUrl.pathname.toLowerCase();
-    const hasValidExt = Array.from(ALLOWED_EXTENSIONS).some(ext => pathname.endsWith(ext));
-    if (!hasValidExt && !url.includes('/uploads/')) {
-      return res.status(400).json({ erro: 'URL deve apontar para uma imagem válida (.jpg, .jpeg, .png, .webp)' });
-    }
-
-    return res.json({
-      sucesso: true,
-      url: parsedUrl.toString(),
-      tipo: 'url_externa'
-    });
-  } catch (error) {
-    console.error('[upload-url] Erro:', error.message);
-    return res.status(500).json({ erro: 'Erro ao validar URL' });
+    const url = new URL(req.body.url.trim())
+    const validExt = [...ALLOWED_EXTENSIONS].some(extension => url.pathname.toLowerCase().endsWith(extension))
+    if (!['http:', 'https:'].includes(url.protocol) || (!validExt && !url.pathname.includes('/uploads/'))) throw Error()
+    return res.json({ sucesso: true, url: url.toString(), tipo: 'url_externa' })
+  } catch {
+    return res.status(400).json({ erro: 'URL deve apontar para uma imagem JPG, PNG ou WEBP via HTTP(S).' })
   }
-});
+})
 
-// DELETE /upload/imagem/:filename - Remoção segura contra Path Traversal
 router.delete('/imagem/:filename', autenticarToken, async (req, res) => {
+  const filename = String(req.params.filename || '').replace(/^\/+/, '')
+  const allowed = filename.startsWith(`img-${req.user.id}-`) || filename.startsWith(`perfil-${req.user.id}-`)
+  if (!allowed || /(^|\/)\.\.($|\/)/.test(filename)) return res.status(403).json({ erro: 'Você só pode remover imagens enviadas pela sua conta.' })
   try {
-    const rawFilename = req.params.filename;
-    if (!rawFilename || typeof rawFilename !== 'string') {
-      return res.status(400).json({ erro: 'Nome de arquivo obrigatório' });
-    }
-
-    // Extrai estritamente o basename para eliminar qualquer ../ ou caracteres de caminho
-    const safeFilename = path.basename(rawFilename);
-    if (safeFilename !== rawFilename || /[/\\]/.test(rawFilename)) {
-      return res.status(400).json({ erro: 'Nome de arquivo inválido.' });
-    }
-    if (!safeFilename.startsWith(`img-${req.user.id}-`) && !safeFilename.startsWith(`perfil-${req.user.id}-`)) {
-      return res.status(403).json({ erro: 'Você só pode remover imagens enviadas pela sua conta.' });
-    }
-    const targetPath = path.resolve(uploadsDir, safeFilename);
-
-    // Garante que o arquivo está estritamente dentro da pasta uploads
-    if (!targetPath.startsWith(uploadsDir + path.sep)) {
-      return res.status(400).json({ erro: 'Tentativa de acesso a caminho inválido' });
-    }
-
-    if (fs.existsSync(targetPath)) {
-      fs.unlinkSync(targetPath);
-      return res.json({ sucesso: true, mensagem: 'Arquivo removido com sucesso' });
-    } else {
-      return res.status(404).json({ erro: 'Arquivo não encontrado' });
-    }
+    const storageFilename = usesBlobStorage() ? `uploads/${filename}` : filename
+    if (!await deleteImage(storageFilename)) return res.status(404).json({ erro: 'Arquivo não encontrado' })
+    return res.json({ sucesso: true, mensagem: 'Arquivo removido com sucesso' })
   } catch (error) {
-    console.error('[upload] Erro ao remover arquivo:', error.message);
-    return res.status(500).json({ erro: 'Erro interno ao remover arquivo' });
+    console.error('[upload/delete] Erro:', error.message)
+    return res.status(503).json({ erro: 'Não foi possível remover a imagem agora. Tente novamente.' })
   }
-});
+})
 
-module.exports = router;
+module.exports = router

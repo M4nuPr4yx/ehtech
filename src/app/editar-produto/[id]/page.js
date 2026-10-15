@@ -139,8 +139,8 @@ export default function EditarProduto() {
       setMessageType('error');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage('A imagem deve ter no máximo 5MB');
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage('A imagem deve ter no máximo 4MB');
       setMessageType('error');
       return;
     }

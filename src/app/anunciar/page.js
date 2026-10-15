@@ -69,8 +69,8 @@ export default function Anunciar() {
         setMessageType('error');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setMessage(`A imagem "${file.name}" ultrapassa o limite de 5MB.`);
+      if (file.size > 4 * 1024 * 1024) {
+        setMessage(`A imagem "${file.name}" ultrapassa o limite de 4MB.`);
         setMessageType('error');
         return;
       }
@@ -81,23 +81,20 @@ export default function Anunciar() {
 
     try {
       const token = localStorage.getItem('token');
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append('imagens', file);
-      });
-
-      const res = await fetch(getApiUrl('/upload/imagens'), {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.erro || 'Erro no upload das imagens');
-
-      if (data.urls && Array.isArray(data.urls)) {
-        setImagens((prev) => [...prev, ...data.urls]);
+      // Envia uma foto por requisição para respeitar o limite de 4,5 MB da Vercel.
+      // No deploy, o backend grava cada arquivo no Blob persistente.
+      const urls = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('imagem', file);
+        const res = await fetch(getApiUrl('/upload/imagem'), {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro no upload das imagens');
+        urls.push(data.url);
       }
+      setImagens((prev) => [...prev, ...urls]);
     } catch (err) {
       setMessage('Erro ao subir imagem: ' + err.message);
       setMessageType('error');

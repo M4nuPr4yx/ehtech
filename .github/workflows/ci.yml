@@ -12,6 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci_pg_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
       mysql:
         image: mysql:8.4
         env:
@@ -35,6 +46,10 @@ jobs:
       DB_DATABASE: ehtech
       DB_SSL: "false"
       COMPAT_AI_PROVIDER: disabled
+      TEST_PG_HOST: 127.0.0.1
+      TEST_PG_PORT: "5432"
+      TEST_PG_USER: postgres
+      TEST_PG_PASSWORD: ci_pg_local_only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,3 +61,14 @@ jobs:
       - run: npm run db:init
       - run: npm run check
       - run: npm run test:integration
+      - run: npm run test:integration:postgres
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: evidencias-e2e
+          path: |
+            scratch/e2e-results
+            scratch/e2e-report
+          retention-days: 7

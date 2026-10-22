@@ -1,9 +1,10 @@
 'use client'
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getApiUrl } from '../../lib/api'
 import styles from './contratacoes.module.css'
 
 const STATUS = {
@@ -54,7 +55,7 @@ export default function ContractsPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(getApiUrl('/contratacoes'), {
+      const response = await apiResponse('/contratacoes', {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
       })
       const data = await response.json()
@@ -98,7 +99,7 @@ export default function ContractsPage() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(getApiUrl(`/contratacoes/${id}/orcamento`), {
+      const response = await apiResponse(`/contratacoes/${id}/orcamento`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify(quote)
@@ -119,7 +120,7 @@ export default function ContractsPage() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(getApiUrl(`/contratacoes/${id}/status`), {
+      const response = await apiResponse(`/contratacoes/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ status })
@@ -140,7 +141,7 @@ export default function ContractsPage() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(getApiUrl(`/contratacoes/${id}/avaliacao`), {
+      const response = await apiResponse(`/contratacoes/${id}/avaliacao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify(review)

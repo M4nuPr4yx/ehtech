@@ -1,8 +1,11 @@
 'use client';
+import AdminLogin from './AdminLogin.js';
+
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getApiUrl } from '../../lib/api';
 
 async function readApiResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -65,6 +68,11 @@ function SimpleBarChart({ categories }) {
 
 export default function Admin() {
   const [adminToken, setAdminToken] = useState(null);
+  useEffect(() => {
+    const expired = () => { setAdminToken(null); setIsCheckingSession(false); };
+    window.addEventListener('ehtech:admin-session-expired', expired);
+    return () => window.removeEventListener('ehtech:admin-session-expired', expired);
+  }, []);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'produtos', 'usuarios'
@@ -116,7 +124,7 @@ export default function Admin() {
       }
 
       try {
-        const sessionResponse = await fetch(getApiUrl('/admin/sessao'), {
+        const sessionResponse = await apiResponse('/admin/sessao', {
           headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
         });
         if (!sessionResponse.ok) throw new Error(sessionResponse.status === 403 ? 'Acesso restrito a contas com cargo admin ou sessão expirada.' : 'Sua sessão expirou. Entre novamente.');
@@ -124,8 +132,8 @@ export default function Admin() {
         if (session.role !== 'admin') throw new Error('Acesso restrito a administradores');
 
         const [usersResponse, productsResponse] = await Promise.all([
-          fetch(getApiUrl('/admin/users'), { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
-          fetch(getApiUrl('/admin/produtos'), { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+          apiResponse('/admin/users', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+          apiResponse('/admin/produtos', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
         ]);
         if (!usersResponse.ok || !productsResponse.ok) throw new Error('Não foi possível restaurar a sessão');
         const [usersData, productsData] = await Promise.all([readApiResponse(usersResponse), readApiResponse(productsResponse)]);
@@ -167,7 +175,7 @@ export default function Admin() {
     setIsLoggingIn(true);
     setFeedback('');
     try {
-      const res = await fetch(getApiUrl('/admin/login'), {
+      const res = await apiResponse('/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, senha: loginSenha }),
@@ -190,7 +198,7 @@ export default function Admin() {
 
   async function fetchUsers(token) {
     try {
-      const res = await fetch(getApiUrl('/admin/users'), {
+      const res = await apiResponse('/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await readApiResponse(res);
@@ -208,7 +216,7 @@ export default function Admin() {
 
   const fetchProducts = async (token) => {
     try {
-      const res = await fetch(getApiUrl('/admin/produtos'), {
+      const res = await apiResponse('/admin/produtos', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await readApiResponse(res);
@@ -226,7 +234,7 @@ export default function Admin() {
 
   const updateProductApproval = async (id, status) => {
     try {
-      const res = await fetch(getApiUrl(`/admin/produtos/${id}/aprovacao`), {
+      const res = await apiResponse(`/admin/produtos/${id}/aprovacao`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -260,7 +268,7 @@ export default function Admin() {
 
     setSavingProduct(true);
     try {
-      const res = await fetch(getApiUrl(`/produtos/${editingProduct.id_produto}`), {
+      const res = await apiResponse(`/produtos/${editingProduct.id_produto}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +305,7 @@ export default function Admin() {
     if (!confirm(`Tem certeza que deseja excluir o produto "${nome}"?`)) return;
 
     try {
-      const res = await fetch(getApiUrl(`/produtos/${id}`), {
+      const res = await apiResponse(`/produtos/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -317,7 +325,7 @@ export default function Admin() {
     if (!editingUser) return;
 
     try {
-      const res = await fetch(getApiUrl(`/admin/users/${editingUser.id_usuario}`), {
+      const res = await apiResponse(`/admin/users/${editingUser.id_usuario}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -339,7 +347,7 @@ export default function Admin() {
   const deleteUser = async (id, email) => {
     if (!confirm(`Deletar o usuário ${email}?`)) return;
     try {
-      const res = await fetch(getApiUrl(`/admin/users/${id}`), {
+      const res = await apiResponse(`/admin/users/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -438,61 +446,7 @@ export default function Admin() {
 
   if (!adminToken) {
     return (
-      <div className="site-background min-h-screen flex items-center justify-center p-6">
-        <div className="bg-surface backdrop-blur-xl p-8 rounded-3xl border border-accent max-w-md w-full shadow-2xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-foreground">
-              Painel Administrativo
-            </h1>
-            <p className="text-muted text-sm mt-1">Acesso restrito a administradores EHtech</p>
-          </div>
-          {feedback && (
-            <div className="mb-4 rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">
-              {feedback}
-            </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              loginAdmin();
-            }}
-            className="space-y-4"
-          >
-            <div>
-              <label htmlFor="admin-email" className="block text-sm font-semibold text-muted mb-1">E-mail Administrativo</label>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                id="admin-email" autoComplete="username" placeholder="admin@ehtech.com"
-                required
-                className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground placeholder-muted focus:outline-none focus:border-accent transition-all"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="admin-password" className="block text-sm font-semibold text-muted mb-1">Senha</label>
-              <input
-                type="password"
-                value={loginSenha}
-                onChange={(e) => setLoginSenha(e.target.value)}
-                id="admin-password" autoComplete="current-password" placeholder="••••••••"
-                required
-                className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground placeholder-muted focus:outline-none focus:border-accent transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full py-4 bg-accent-fill hover:brightness-110 text-accent-contrast font-extrabold rounded-2xl shadow-xl hover:shadow-transparent transition-all duration-300 mt-4 text-base"
-            >
-              {isLoggingIn ? 'Autenticando…' : 'Entrar como Administrador'}
-            </button>
-          </form>
-        </div>
-      </div>
+      <AdminLogin feedback={feedback} loginAdmin={loginAdmin} loginEmail={loginEmail} setLoginEmail={setLoginEmail} loginSenha={loginSenha} setLoginSenha={setLoginSenha} isLoggingIn={isLoggingIn} />
     );
   }
 

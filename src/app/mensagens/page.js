@@ -1,9 +1,11 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { apiResponse, apiRequest } from '../../lib/api-request.js';
+
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { getApiUrl } from '../../lib/api';
 import UserSearch from '../complements/UserSearch';
+import { ConversationSafety, ReportControl } from '../complements/TrustControls';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -31,7 +33,7 @@ function formatMessageTime(dateString) {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function MensagensPage() {
+function MensagensContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlVendedorId = searchParams.get('usuario') || searchParams.get('vendedor');
@@ -46,6 +48,8 @@ export default function MensagensPage() {
   const [activePartner, setActivePartner] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [messageFeedback, setMessageFeedback] = useState('');
@@ -56,8 +60,15 @@ export default function MensagensPage() {
   const activePartnerRef = useRef(null);
   const messagesRequestRef = useRef(0);
   const partnerRevisionRef = useRef(0);
+  const cursorRef = useRef({ oldest: null, latest: null });
+  const messageRequest = useRef(null);
+  const conversationRequest = useRef(null);
+  const messageList = useRef(null);
+  const restoreScroll = useRef(null);
+  const scrollToLatest = useRef(true);
 
   function openConversation(user) {
+    messageRequest.current?.abort(); cursorRef.current = { oldest: null, latest: null }; setHasOlder(false);
     const id = Number(user.id_usuario);
     activePartnerRef.current = id;
     partnerRevisionRef.current += 1;
@@ -91,18 +102,23 @@ export default function MensagensPage() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    if (silent && conversationRequest.current) return;
+    conversationRequest.current?.abort();
+    const controller = new AbortController(); conversationRequest.current = controller;
     if (!silent) setLoadingConversations(true);
     try {
-      const res = await fetch(getApiUrl('/mensagens/conversas'), {
+      const res = await apiResponse('/mensagens/conversas', {
+        signal: controller.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        setConversations(Array.isArray(data) ? data : []);
+        if (!controller.signal.aborted) setConversations(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error('Erro ao buscar conversas:', err);
     } finally {
+      if (conversationRequest.current === controller) conversationRequest.current = null;
       if (!silent) setLoadingConversations(false);
     }
   }, []);
@@ -124,11 +140,12 @@ export default function MensagensPage() {
 
     const setupPartnerFromUrl = async () => {
       const revision = ++partnerRevisionRef.current;
+      messageRequest.current?.abort(); cursorRef.current = { oldest: null, latest: null }; setHasOlder(false);
       activePartnerRef.current = targetVendedorId;
       messagesRequestRef.current += 1;
       setActivePartner(null); setMessages([]); setReferencedProduct(null); setNewMessage(''); setMessageFeedback('');
       try {
-        const res = await fetch(getApiUrl(`/usuarios/${targetVendedorId}/publico`), { signal: controller.signal });
+        const res = await apiResponse(`/usuarios/${targetVendedorId}/publico`, { signal: controller.signal });
         if (!res.ok) throw new Error('Usuário não encontrado. Busque outra pessoa para conversar.');
         if (res.ok) {
           const userData = await res.json();
@@ -141,7 +158,7 @@ export default function MensagensPage() {
           });
           setMobileView('chat'); setFindingPeople(false);
           if (urlProdutoId) {
-            const productResponse = await fetch(getApiUrl(`/produtos/${urlProdutoId}`), { signal: controller.signal });
+            const productResponse = await apiResponse(`/produtos/${urlProdutoId}`, { signal: controller.signal });
             const product = productResponse.ok ? await productResponse.json() : null;
             if (!controller.signal.aborted && activePartnerRef.current === targetVendedorId && partnerRevisionRef.current === revision && Number(product?.vendedor_id) === targetVendedorId) setReferencedProduct(product);
           }
@@ -157,65 +174,72 @@ export default function MensagensPage() {
   }, [currentUser, urlVendedorId, urlProdutoId]);
 
   // 4. Carregar mensagens da conversa ativa
-  const fetchMessages = useCallback(async (partnerId, silent = false) => {
+  const fetchMessages = useCallback(async (partnerId, silent = false, older = false) => {
     if (!partnerId) return;
     const token = localStorage.getItem('token');
-    if (!token) return;
-
+    if (!token || (silent && messageRequest.current)) return;
+    messageRequest.current?.abort();
+    const controller = new AbortController(); messageRequest.current = controller;
     const requestId = ++messagesRequestRef.current;
-    if (!silent) setLoadingMessages(true);
+    const query = new URLSearchParams({ limit: '40' });
+    if (older && cursorRef.current.oldest) query.set('antes', cursorRef.current.oldest);
+    else if (silent && cursorRef.current.latest) query.set('depois', cursorRef.current.latest);
+    if (older) { setLoadingOlder(true); const list = messageList.current; if (list) restoreScroll.current = { height: list.scrollHeight, top: list.scrollTop }; }
+    else if (!silent) setLoadingMessages(true);
+    const list = messageList.current;
+    scrollToLatest.current = !older && (!silent || !list || list.scrollHeight - list.scrollTop - list.clientHeight < 100);
     try {
-      const res = await fetch(getApiUrl(`/mensagens/${partnerId}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (activePartnerRef.current !== Number(partnerId) || requestId !== messagesRequestRef.current) return;
-      if (res.ok) {
-        setMessages(Array.isArray(data.mensagens) ? data.mensagens : []);
-
-        // Marcar como lida
-        if (data.mensagens?.some(message => !message.lida && Number(message.remetente_id) === Number(partnerId))) fetch(getApiUrl(`/mensagens/${partnerId}/lidas`), {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` },
-        }).then(() => {
-          // Atualiza contadores locais
-          setConversations((prev) =>
-            prev.map((c) => (c.partner_id === partnerId ? { ...c, unread_count: 0 } : c))
-          );
+      const data = await apiRequest('/mensagens/' + partnerId + '?' + query, { signal: controller.signal, headers: { Authorization: 'Bearer ' + token } });
+      if (controller.signal.aborted || activePartnerRef.current !== Number(partnerId) || requestId !== messagesRequestRef.current) return;
+      const received = Array.isArray(data.mensagens) ? data.mensagens : [];
+      if (!silent || older) setHasOlder(Boolean(data.paginacao?.tem_anteriores));
+      if (received.length) {
+        if (!cursorRef.current.oldest || older) cursorRef.current.oldest = received[0].id;
+        if (!older) cursorRef.current.latest = received.at(-1).id;
+        setMessages(previous => {
+          const merged = new Map((silent || older ? previous : []).map(item => [item.id, item]));
+          received.forEach(item => merged.set(item.id, item));
+          return [...merged.values()].sort((a, b) => Number(a.id) - Number(b.id)).map(item => Number(item.destinatario_id) === Number(partnerId) && Number(item.id) <= data.lidas_ate ? { ...item, lida: true } : item);
+        });
+      } else if (!silent && !older) setMessages([]);
+      else if (data.lidas_ate) setMessages(previous => previous.some(item => !item.lida && Number(item.destinatario_id) === Number(partnerId) && Number(item.id) <= data.lidas_ate) ? previous.map(item => Number(item.destinatario_id) === Number(partnerId) && Number(item.id) <= data.lidas_ate ? { ...item, lida: true } : item) : previous);
+      if (received.some(message => !message.lida && Number(message.remetente_id) === Number(partnerId))) {
+        apiRequest('/mensagens/' + partnerId + '/lidas', { method: 'PUT', signal: controller.signal, json: { ate_id: received.at(-1).id }, headers: { Authorization: 'Bearer ' + token } }).then(() => {
+          setConversations(previous => previous.map(item => Number(item.partner_id) === Number(partnerId) ? { ...item, unread_count: 0 } : item));
         }).catch(() => {});
-      } else setMessageFeedback(data.mensagem || 'Não foi possível carregar esta conversa.');
-    } catch (err) {
-      if (activePartnerRef.current === Number(partnerId) && requestId === messagesRequestRef.current) setMessageFeedback('Não foi possível carregar as mensagens. Tente novamente.');
+      }
+    } catch (error) {
+      if (!controller.signal.aborted && activePartnerRef.current === Number(partnerId)) setMessageFeedback(error.message);
     } finally {
-      if (activePartnerRef.current === Number(partnerId) && requestId === messagesRequestRef.current) setLoadingMessages(false);
+      if (messageRequest.current === controller) messageRequest.current = null;
+      if (activePartnerRef.current === Number(partnerId) && requestId === messagesRequestRef.current) { setLoadingMessages(false); setLoadingOlder(false); }
     }
   }, []);
 
   useEffect(() => {
-    if (activePartner?.id_usuario || activePartner?.partner_id) {
-      const partnerId = activePartner.id_usuario || activePartner.partner_id;
-      fetchMessages(partnerId);
-    }
+    if (activePartner?.id_usuario) fetchMessages(activePartner.id_usuario);
+    return () => { messageRequest.current?.abort(); messageRequest.current = null; };
   }, [activePartner, fetchMessages]);
 
-  // 5. Polling em tempo real a cada 4 segundos
   useEffect(() => {
     if (!currentUser) return;
-
-    const intervalId = setInterval(() => {
-      fetchConversations(true);
-      if (activePartner) {
-        const pId = activePartner.id_usuario || activePartner.partner_id;
-        if (pId) fetchMessages(pId, true);
-      }
-    }, 4000);
-
-    return () => clearInterval(intervalId);
+    let cycle = 0;
+    const update = (force = false) => {
+      if (document.visibilityState === 'hidden') return;
+      if (force || !activePartner || cycle++ % 3 === 0) fetchConversations(true);
+      if (activePartner?.id_usuario) fetchMessages(activePartner.id_usuario, true);
+    };
+    const visible = () => update(true);
+    const interval = setInterval(update, 8000);
+    document.addEventListener('visibilitychange', visible);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', visible); conversationRequest.current?.abort(); };
   }, [currentUser, activePartner, fetchConversations, fetchMessages]);
 
-  // 6. Scroll automático para a mensagem mais recente
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const list = messageList.current;
+    if (!list) return;
+    if (restoreScroll.current) { const prior = restoreScroll.current; list.scrollTop = prior.top + list.scrollHeight - prior.height; restoreScroll.current = null; }
+    else if (scrollToLatest.current) list.scrollTop = list.scrollHeight;
   }, [messages]);
 
   // 7. Enviar mensagem
@@ -232,7 +256,7 @@ export default function MensagensPage() {
     setSending(true);
 
     try {
-      const res = await fetch(getApiUrl('/mensagens'), {
+      const res = await apiResponse('/mensagens', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -444,6 +468,7 @@ export default function MensagensPage() {
                   </Link>
                 </div>
 
+                <ConversationSafety key={activePartner.id_usuario} userId={activePartner.id_usuario} />
                 {/* Banner de Contexto de Produto (se houver) */}
                 {referencedProduct && (
                   <div className="px-4 py-2.5 bg-surface border-b border-line flex items-center justify-between gap-3">
@@ -469,7 +494,7 @@ export default function MensagensPage() {
                 )}
 
                 {/* Área de Mensagens (Scroll) */}
-                <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                <div ref={messageList} className="flex-1 p-4 overflow-y-auto space-y-4" aria-label="Histórico da conversa">{hasOlder && <button type="button" disabled={loadingOlder} onClick={() => fetchMessages(activePartner.id_usuario, false, true)} className="rounded-xl border border-line px-4 py-2 text-sm">{loadingOlder ? 'Carregando anteriores…' : 'Carregar mensagens anteriores'}</button>}
                   {loadingMessages ? (
                     <div className="h-full flex items-center justify-center text-muted text-sm animate-pulse">
                       Carregando mensagens...
@@ -489,7 +514,7 @@ export default function MensagensPage() {
                       const isMe = Number(msg.remetente_id) === Number(currentUser?.id);
 
                       return (
-                        <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div key={msg.id} data-message-id={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                           {/* Card de produto anexado (se houver na mensagem) */}
                           {msg.produto_nome && (
                             <div className="mb-1 max-w-xs text-xs bg-surface border border-line rounded-xl p-2.5 flex items-center gap-2">
@@ -523,6 +548,7 @@ export default function MensagensPage() {
                           </div>
 
                           {/* Hora e Status */}
+                          {!isMe && <ReportControl type="mensagem" targetId={msg.id} label="Denunciar mensagem" />}
                           <div className="flex items-center gap-1 mt-1 px-1">
                             <span className="text-xs text-muted">{formatMessageTime(msg.created_at)}</span>
                             {isMe && (
@@ -590,4 +616,8 @@ export default function MensagensPage() {
       </div>
     </div>
   );
+}
+
+export default function MensagensPage() {
+  return <Suspense fallback={<p role="status" className="p-8">Carregando conversas…</p>}><MensagensContent /></Suspense>;
 }

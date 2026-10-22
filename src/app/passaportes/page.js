@@ -1,9 +1,10 @@
 'use client'
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getApiUrl } from '../../lib/api'
 import PassportView from './PassportView'
 import { useTechnicalCatalog } from '../complements/TechnicalComponentPicker'
 import styles from './passaportes.module.css'
@@ -11,7 +12,7 @@ import styles from './passaportes.module.css'
 const TYPES = ['Computador', 'Notebook', 'Celular', 'Tablet', 'Periférico', 'Outro']
 const blank = { nome: '', tipo: 'Computador', modelo: '', componentes: [] }
 async function api(path, method = 'GET', body, signal) {
-  const response = await fetch(getApiUrl(`/passaportes${path}`), { method, signal, cache: 'no-store', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
+  const response = await apiResponse(`/passaportes${path}`, { method, signal, cache: 'no-store', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
   const data = await response.json()
   if (!response.ok) throw new Error(data.mensagem || 'Não foi possível processar a solicitação.')
   return data
@@ -79,7 +80,7 @@ export default function PassportsPage() {
     let cancelled = false
     async function load() {
       try {
-        const response = await fetch(getApiUrl('/contratacoes'), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, cache: 'no-store' })
+        const response = await apiResponse('/contratacoes', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, cache: 'no-store' })
         const data = await response.json()
         if (!response.ok) throw new Error(data.mensagem || 'Não foi possível carregar serviços.')
         if (!cancelled) { setContracts(data.filter(item => item.papel === 'cliente' && item.status === 'concluido')); await refresh(null) }

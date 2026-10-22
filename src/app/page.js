@@ -1,10 +1,11 @@
 'use client';
+import { apiResponse } from '../lib/api-request.js';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from './complements/ImageWithFallback';
 import { getMainImage } from './complements/imageHelper';
-import { getApiUrl } from '../lib/api';
 import styles from './home.module.css';
 
 export default function Home() {
@@ -17,7 +18,7 @@ export default function Home() {
   useEffect(() => {
     const fetchProdutos = async () => {
       try {
-        const res = await fetch(getApiUrl('/produtos/catalogo?limit=8&page=1'));
+        const res = await apiResponse('/produtos/catalogo?limit=8&page=1');
         
         if (res.ok) {
           const data = await res.json();
@@ -162,7 +163,7 @@ export default function Home() {
         </div>
         <div className={styles.showcase} data-motion="fade" data-motion-delay="120">
           {loading ? <div className={styles.skeleton} role="status" aria-label="Carregando destaque da vitrine" /> : featured ? (
-            <Link href={'/produtos/' + featured.id_produto} className={styles.heroProduct} aria-label={'Ver anúncio de ' + featured.nome}>
+            <Link href={'/produtos/' + featured.id_produto} className={styles.heroProduct}>
               <div className={styles.heroLabel}><span>{Number(featured.estoque) <= 0 ? 'Anúncio esgotado' : 'Anúncio da comunidade'}</span><span>Ver na vitrine ↗</span></div>
               <div className={styles.heroPhoto}>{getMainImage(featured.imagem) ? <ImageWithFallback src={getMainImage(featured.imagem)} alt={featured.nome} sizes="(max-width: 759px) 90vw, 42vw" loading="eager" /> : emptyPhoto}</div>
               <div className={styles.heroCaption}><div><small>{categoryName(featured.categoria)}</small><h2>{featured.nome}</h2></div><strong>{formatPrice(featured.preco)}</strong></div>

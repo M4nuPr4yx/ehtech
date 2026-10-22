@@ -1,7 +1,8 @@
 'use client';
+import { apiResponse } from '../../../lib/api-request.js';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getApiUrl } from '../../../lib/api';
 import { getMainImage } from '../../complements/imageHelper';
 import TechnicalComponentPicker from '../../complements/TechnicalComponentPicker';
 import OriginSelector from '../../complements/OriginSelector';
@@ -53,7 +54,7 @@ export default function EditarProduto() {
           return;
         }
 
-        const res = await fetch(getApiUrl(`/produtos/${params.id}`), {
+        const res = await apiResponse(`/produtos/${params.id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -122,7 +123,7 @@ export default function EditarProduto() {
     const formData = new FormData();
     formData.append('imagem', file);
 
-    const res = await fetch(getApiUrl('/upload/imagem'), {
+    const res = await apiResponse('/upload/imagem', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -213,7 +214,7 @@ export default function EditarProduto() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl(`/produtos/${params.id}`), {
+      const res = await apiResponse(`/produtos/${params.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

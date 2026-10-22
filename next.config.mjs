@@ -5,12 +5,14 @@ privateEnvironment.assertPrivateEnvironment();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.EHTECH_E2E === '1' ? 'scratch/e2e-next' : '.next',
   allowedDevOrigins: lan.getLanHosts(),
   reactCompiler: true,
   // Ollama local pode levar mais que os 30s padrão do proxy de rewrites.
   // O backend mantém seu próprio prazo de geração, limitado a 180s.
   experimental: { proxyTimeout: 190000 },
   images: {
+    qualities: [50, 75],
     remotePatterns: [
       { protocol: 'https', hostname: 'commons.wikimedia.org', port: '', pathname: '/wiki/Special:FilePath/**' },
       { protocol: 'https', hostname: 'upload.wikimedia.org', port: '', pathname: '/wikipedia/commons/**' },

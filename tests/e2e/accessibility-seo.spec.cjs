@@ -1,0 +1,75 @@
+const { test, expect } = require('@playwright/test')
+const AxeBuilder = require('@axe-core/playwright').default
+test.use({ reducedMotion: 'reduce' })
+async function accessible(page, info, label) {
+  const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).exclude('nextjs-portal').analyze()
+  await info.attach(`acessibilidade-${label}`, { body: JSON.stringify(result, null, 2), contentType: 'application/json' })
+  expect(result.violations.map(item => ({ id: item.id, impact: item.impact, targets: item.nodes.map(node => node.target) }))).toEqual([])
+}
+test.beforeEach(async ({ request }) => {
+  const reset = await request.post(`${process.env.E2E_API_URL}/__e2e/reset-limits`, { headers: { 'x-e2e-key': process.env.E2E_RESET_KEY } })
+  expect(reset.ok()).toBeTruthy()
+})
+test('teclado, foco do modal e regras básicas disponíveis sem IA', async ({ page }, info) => {
+  await page.goto('/')
+  await accessible(page, info, 'inicio')
+  for (const theme of ['Escuro', 'Oceano', 'Aurora', 'Claro']) {
+    await page.getByRole('button', { name: 'Escolher tema', exact: true }).click()
+    await page.getByRole('group', { name: 'Temas de aparência' }).getByRole('button', { name: new RegExp(theme) }).click()
+    await accessible(page, info, `inicio-${theme}`)
+  }
+  const opener = page.getByRole('button', { name: 'Entrar', exact: true })
+  await opener.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByLabel('E-mail', { exact: true })).toBeFocused()
+  for (let index = 0; index < 15; index++) {
+    await page.keyboard.press('Tab')
+    expect(await page.evaluate(() => Boolean(document.activeElement.closest('[role="dialog"]')))).toBeTruthy()
+  }
+  await accessible(page, info, 'autenticacao')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden(); await expect(opener).toBeFocused()
+  await page.goto('/compatibilidade')
+  const search = page.getByRole('combobox', { name: 'Buscar modelo', exact: true })
+  await search.fill('AMD Ryzen 5 5600')
+  await expect(page.getByRole('listbox').getByRole('option').first()).toBeVisible()
+  await search.press('ArrowDown'); await expect(search).toHaveAttribute('aria-activedescendant', /.+/)
+  await search.press('Enter')
+  await expect(page.getByRole('button', { name: /^Remover AMD Ryzen 5/ }).first()).toBeVisible()
+  await page.getByRole('combobox', { name: /^Categoria/ }).selectOption('placa_mae')
+  await search.fill('Asus PRIME B550M-A')
+  await page.getByRole('listbox').getByRole('option').filter({ has: page.getByText('Asus PRIME B550M-A', { exact: true }) }).click()
+  await expect(page.getByRole('button', { name: 'Complementar com IA', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: 'Verificar com regras básicas', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Resultado da checagem básica' })).toContainText('Checagem por regras, sem IA.')
+  await accessible(page, info, 'compatibilidade')
+  await page.screenshot({ path: info.outputPath('compatibilidade-sem-ia.png'), fullPage: true })
+})
+test('anúncio aprovado tem HTML inicial, metadados e sitemap; pendente retorna 404', async ({ page, request }, info) => {
+  const api = process.env.E2E_API_URL
+  const login = await request.post(api + '/admin/login', { data: { email: process.env.E2E_ADMIN_EMAIL, senha: process.env.E2E_PASSWORD } })
+  expect(login.ok()).toBeTruthy()
+  const headers = { Authorization: `Bearer ${(await login.json()).token}` }
+  const name = `Anúncio compartilhável ${info.project.name}`
+  const created = await request.post(api + '/produtos', { headers, data: { nome: name, descricao: 'Descrição pública para compartilhar um anúncio de teste.', categoria: 'gadgets', preco: 100, estoque: 1, exige_entrega: false, imagem: null } })
+  expect(created.status()).toBe(201)
+  const id = (await created.json()).id
+  const pending = await request.get(`/produtos/${id}`)
+  expect(pending.status()).toBe(404)
+  expect(await pending.text()).toContain('noindex')
+  await request.put(api + `/admin/produtos/${id}/aprovacao`, { headers, data: { status: 'aprovado' } })
+  const response = await request.get(`/produtos/${id}`), html = await response.text()
+  expect(response.ok()).toBeTruthy(); expect(html).toContain(`<h1`)
+  expect(html).toContain(name); expect(html).toContain('property="og:title"'); expect(html).toContain('rel="canonical"')
+  expect(html).toContain(`${process.env.E2E_BASE_URL}/produtos/${id}`)
+  const index = await request.get('/sitemap.xml'); expect(index.ok()).toBeTruthy(); expect(await index.text()).toContain('/sitemaps/0')
+  const sitemap = await request.get('/sitemaps/1'); expect(await sitemap.text()).toContain(`/produtos/${id}`)
+  const staticMap = await request.get('/sitemaps/0'); expect(await staticMap.text()).not.toMatch(/\/mensagens|\/perfil|\/admin|\/passaportes/)
+  const robots = await request.get('/robots.txt'); expect(await robots.text()).toContain('Disallow: /mensagens')
+  await page.goto(`/produtos/${id}`)
+  await accessible(page, info, 'anuncio')
+  const privatePage = await request.get('/favoritos'); expect(await privatePage.text()).toContain('noindex')
+  await request.put(api + `/admin/produtos/${id}/aprovacao`, { headers, data: { status: 'reprovado' } })
+  expect((await request.get(`/produtos/${id}`)).status()).toBe(404)
+  await request.delete(api + `/produtos/${id}`, { headers })
+})

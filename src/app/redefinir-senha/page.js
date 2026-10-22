@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { apiResponse } from '../../lib/api-request.js';
+
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { getApiUrl } from '../../lib/api';
 
-export default function RedefinirSenhaPage() {
+function RedefinirSenhaContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -24,7 +25,7 @@ export default function RedefinirSenhaPage() {
 
     const verificar = async () => {
       try {
-        const res = await fetch(getApiUrl(`/verificar-token/${token}`));
+        const res = await apiResponse(`/verificar-token/${token}`);
         const data = await res.json();
         if (data.valido) {
           setTokenValido(true);
@@ -56,7 +57,7 @@ export default function RedefinirSenhaPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(getApiUrl('/redefinir-senha'), {
+      const res = await apiResponse('/redefinir-senha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, novaSenha }),
@@ -151,5 +152,9 @@ export default function RedefinirSenhaPage() {
       </div>
     </div>
   );
+}
+
+export default function RedefinirSenhaPage() {
+  return <Suspense fallback={<p role="status" className="p-8">Carregando recuperação de senha…</p>}><RedefinirSenhaContent /></Suspense>;
 }
 

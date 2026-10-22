@@ -1,0 +1,514 @@
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import ImageWithFallback from '../../complements/ImageWithFallback';
+import { getProductImages, isValidImageUrl } from '../../complements/imageHelper';
+import { ProductExtras } from '../../complements/DifferentialsUI';
+import { ProductActions, ReportControl } from '../../complements/TrustControls';
+import { apiRequest, apiResponse } from '../../../lib/api-request';
+
+// ImageGallery Component - galeria interativa com miniaturas
+function ImageGallery({ images }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const validImages = Array.isArray(images) ? images.filter(isValidImageUrl) : [];
+
+  if (validImages.length === 0) {
+    return (
+      <div className="aspect-square bg-surface border border-line rounded-2xl flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+    );
+  }
+
+  const prev = () => setActiveIdx((i) => (i - 1 + validImages.length) % validImages.length);
+  const next = () => setActiveIdx((i) => (i + 1) % validImages.length);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Imagem Principal */}
+      <div className="relative bg-surface border border-line rounded-2xl overflow-hidden aspect-square group">
+        <ImageWithFallback
+          src={validImages[activeIdx]}
+          alt={`Foto ${activeIdx + 1}`}
+          className="w-full h-full object-contain p-2 transition-opacity duration-300"
+        />
+
+        {/* Badge contagem */}
+        {validImages.length > 1 && (
+          <span className="absolute top-3 right-3 bg-black/60 backdrop-blur text-white text-xs font-bold px-2.5 py-1 rounded-full">
+            {activeIdx + 1}/{validImages.length}
+          </span>
+        )}
+
+        {/* Setas de Navegação */}
+        {validImages.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={prev}
+              aria-label="Imagem anterior"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-accent-fill text-white hover:text-accent-contrast rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={next}
+              aria-label="Próxima imagem"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-accent-fill text-white hover:text-accent-contrast rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Miniaturas */}
+      {validImages.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {validImages.map((url, idx) => (
+            <button
+              type="button"
+              key={idx}
+              onClick={() => setActiveIdx(idx)}
+              aria-label={`Ver foto ${idx + 1}`}
+              className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                idx === activeIdx
+                  ? 'border-accent shadow-md shadow-transparent'
+                  : 'border-line hover:border-line'
+              }`}
+            >
+              <ImageWithFallback
+                src={url}
+                alt={`Miniatura ${idx + 1}`}
+                className="w-full h-full object-contain bg-surface-raised p-0.5"
+                sizes="64px"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ProdutoDetalhes({ initialProduct }) {
+  const router = useRouter();
+  const params = useParams();
+  const [produto, setProduto] = useState(initialProduct);
+  const loading = false;
+  const error = ''; 
+  const [cartMessage, setCartMessage] = useState('');
+  
+  // Rating state
+  const [avaliacoes, setAvaliacoes] = useState({ avaliacoes: [], media: 0, total: 0 });
+  const [userRating, setUserRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
+  
+  // Edit state
+  const [isOwner, setIsOwner] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState({ nome: initialProduct.nome, descricao: initialProduct.descricao, preco: initialProduct.preco, imagem: initialProduct.imagem || '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editMessage, setEditMessage] = useState('');
+  
+  // User state
+  const [user, setUser] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [sellerInfo, setSellerInfo] = useState(null);
+  const [canReview, setCanReview] = useState(false);
+  const [reviewNotice, setReviewNotice] = useState('Verificando se você pode avaliar…');
+  useEffect(() => {
+    const controller = new AbortController();
+    const token = localStorage.getItem('token');
+    if (token && params.id) apiRequest(`/avaliacoes/elegibilidade/${params.id}`, { signal: controller.signal, headers: { Authorization: `Bearer ${token}` } }).then(data => { setCanReview(data.permitido); setReviewNotice(data.mensagem); }).catch(error => { if (!controller.signal.aborted) { setCanReview(false); setReviewNotice(error.message); } });
+    return () => controller.abort();
+  }, [params.id]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsLoggedIn(true);
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUser(payload);
+      } catch (e) {
+        console.error('Error parsing token:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (produto && user) {
+      setIsOwner(Number(produto.vendedor_id) === Number(user.id) || produto.vendedor === user.email);
+    } else {
+      setIsOwner(false);
+    }
+  }, [produto, user]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (produto.vendedor_id) apiRequest('/usuarios/' + produto.vendedor_id + '/publico', { signal: controller.signal }).then(setSellerInfo).catch(() => {});
+    return () => controller.abort();
+  }, [produto.vendedor_id]);
+
+  const fetchAvaliacoes = useCallback(async () => {
+    if (!params.id) return;
+    try {
+      const res = await apiResponse(`/avaliacoes/produto/${params.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvaliacoes(data);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar avaliações:', err);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchAvaliacoes();
+  }, [fetchAvaliacoes]);
+
+  const submitRating = async () => {
+    if (!userRating) return;
+    setSubmittingRating(true);
+    setRatingMessage('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await apiResponse('/avaliacoes', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          produtoId: parseInt(params.id),
+          nota: userRating,
+          comentario: comment
+        })
+      });
+      const data = await res.json();
+      setRatingMessage(data.mensagem);
+      if (res.ok) {
+        fetchAvaliacoes();
+        setComment('');
+      }
+    } catch (err) {
+      setRatingMessage('Erro ao enviar avaliação');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    setSavingEdit(true);
+    setEditMessage('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await apiResponse(`/produtos/${params.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editData)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEditMessage('Produto atualizado!');
+        setProduto({ ...produto, ...editData });
+        setEditMode(false);
+      } else {
+        setEditMessage(data.mensagem || 'Erro ao atualizar');
+      }
+    } catch (err) {
+      setEditMessage('Erro ao atualizar produto');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const addToCart = () => {
+    if (!isLoggedIn) {
+      router.push(`/?login=1&next=${encodeURIComponent(`/produtos/${produto.id_produto}`)}`);
+      return;
+    }
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existing = cart.findIndex(item => item.id_produto === produto.id_produto);
+    if (existing >= 0) {
+      cart[existing].quantidade += 1;
+    } else {
+      cart.push({ ...produto, quantidade: 1 });
+    }
+    localStorage.setItem('cart', JSON.stringify(cart));
+    setCartMessage('Produto adicionado ao carrinho!');
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(price);
+  };
+
+  const renderStars = (rating, interactive = false, onRate = null) => {
+    return [...Array(5)].map((_, i) => (
+      <button
+        key={i}
+        type="button"
+        onClick={() => interactive && onRate && onRate(i + 1)}
+        disabled={!interactive}
+        aria-label={`${interactive ? 'Avaliar com' : 'Nota'} ${i + 1} ${i === 0 ? 'estrela' : 'estrelas'}`}
+        className={`text-2xl ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform ${i < rating ? 'text-accent' : 'text-muted'}`}
+      >
+        ★
+      </button>
+    ));
+  };
+
+  if (loading) {
+    return (
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
+        <div className="text-accent text-xl animate-pulse">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (error || !produto) {
+    return (
+      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-danger text-xl mb-4">{error || 'Produto não encontrado'}</p>
+          <Link href="/produtos" className="text-accent hover:underline">Voltar aos produtos</Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
+      {cartMessage && (
+        <div className="fixed right-5 top-24 z-50 rounded-xl border border-success bg-success-soft px-4 py-3 text-sm font-medium text-success shadow-xl" role="status">
+          {cartMessage}
+          <button type="button" onClick={() => setCartMessage('')} className="ml-3 text-success hover:text-foreground" aria-label="Fechar mensagem">×</button>
+        </div>
+      )}
+      <div className="max-w-4xl mx-auto px-6">
+        {/* Back button */}
+        <Link href="/produtos" className="inline-flex items-center text-muted hover:text-accent mb-6 transition-colors">
+          ← Voltar aos produtos
+        </Link>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Galeria de Fotos do Produto */}
+          <ImageGallery images={getProductImages(produto.imagem)} />
+
+          {/* Product Info */}
+          <div>
+            {editMode ? (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold text-accent mb-4">Editar Produto</h2>
+                <div>
+                  <label className="block text-sm text-muted mb-1">Nome</label>
+                  <input
+                    type="text"
+                    value={editData.nome}
+                    onChange={(e) => setEditData({ ...editData, nome: e.target.value })}
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-muted mb-1">Preço</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editData.preco}
+                    onChange={(e) => setEditData({ ...editData, preco: e.target.value })}
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-muted mb-1">Descrição</label>
+                  <textarea
+                    value={editData.descricao}
+                    onChange={(e) => setEditData({ ...editData, descricao: e.target.value })}
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none h-32"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-muted mb-1">Imagem (URL ou Base64)</label>
+                  <input
+                    type="text"
+                    value={editData.imagem}
+                    onChange={(e) => setEditData({ ...editData, imagem: e.target.value })}
+                    className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={saveEdit}
+                    disabled={savingEdit}
+                    className="flex-1 py-3 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl transition-all disabled:opacity-50"
+                  >
+                    {savingEdit ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button
+                    onClick={() => { setEditMode(false); setEditMessage(''); }}
+                    className="px-6 py-3 border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                {editMessage && (
+                  <p className={`p-3 rounded-xl text-center ${editMessage.includes('sucesso') ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
+                    {editMessage}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <h1 className="text-3xl font-bold text-foreground mb-2">{produto.nome}</h1>
+                <p className="text-accent text-3xl font-bold mb-4">
+                  {formatPrice(produto.preco)}
+                </p>
+                <p className="text-muted mb-6">{produto.descricao}</p>
+                <p className="mb-3 text-sm text-muted">{produto.exige_entrega ? produto.origem_uf ? `Origem do envio: ${produto.origem_cidade}/${produto.origem_uf}` : 'Origem do envio ainda não cadastrada pelo vendedor.' : 'Produto sem entrega física.'}{produto.data_criacao && ` · Publicado em ${new Date(produto.data_criacao).toLocaleDateString('pt-BR')}`}</p>
+                {isOwner && <Link href={`/editar-produto/${produto.id_produto}`} className="mb-4 block text-sm text-accent underline">Editar endereço de origem e dados do anúncio</Link>}
+                <ProductExtras productId={produto.id_produto} />
+                
+                {/* Seller info */}
+                <div className="bg-surface border border-line rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="shrink-0">
+                      {sellerInfo?.foto && isValidImageUrl(sellerInfo.foto) ? (
+                        <img
+                          src={sellerInfo.foto}
+                          alt={produto.vendedor}
+                          className="w-12 h-12 rounded-full object-cover border border-accent bg-surface-raised"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-accent-fill flex items-center justify-center text-accent-contrast font-bold text-lg">
+                          {produto.vendedor?.charAt(0).toUpperCase() || 'V'}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-muted text-xs uppercase tracking-wider">Vendido por</p>
+                      <Link href={`/perfil/${produto.vendedor_id}`} className="text-accent hover:underline font-bold text-lg">
+                        {sellerInfo?.nome || produto.vendedor}
+                      </Link>
+                    </div>
+                  </div>
+
+                  {!isOwner && produto.vendedor_id && (
+                    <Link
+                      href={`/mensagens?vendedor=${produto.vendedor_id}&produto=${produto.id_produto}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-accent-fill hover:text-accent-contrast text-foreground text-sm font-semibold rounded-xl border border-line hover:border-accent transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      Conversar
+                    </Link>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={addToCart}
+                    className="flex-1 py-3 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl transition-all"
+                  >
+                    Adicionar ao Carrinho
+                  </button>
+                  {isOwner && (
+                    <button
+                      onClick={() => setEditMode(true)}
+                      className="px-6 py-3 border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all"
+                    >
+                      Editar
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Ratings Section */}
+        <div className="mt-12 bg-surface border border-line rounded-2xl p-6">
+          <h2 className="text-2xl font-bold text-foreground mb-4">Avaliações</h2>
+          
+          {/* Average rating */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex">
+              {renderStars(Math.round(parseFloat(avaliacoes.media)))}
+            </div>
+            <span className="text-xl font-bold text-accent">{avaliacoes.media}</span>
+            <span className="text-muted">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
+          </div>
+
+          <div className="my-6 space-y-4"><ProductActions productId={params.id} />{!isOwner && <ReportControl type="produto" targetId={params.id} label="Denunciar anúncio" />}</div>
+          {isLoggedIn && !isOwner && <p className="my-3 text-sm text-muted">{reviewNotice}</p>}
+          {isLoggedIn && !isOwner && canReview && (
+            <div className="border-t border-line pt-6 mt-6">
+              <h3 className="text-lg font-bold text-foreground mb-3">Avaliar este produto</h3>
+              <div className="flex gap-2 mb-3">
+                {renderStars(userRating, true, (rating) => setUserRating(rating))}
+              </div>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Comentário (opcional)"
+                aria-label="Comentário da avaliação"
+                maxLength={1000}
+                className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none h-24 mb-3"
+              />
+              <button
+                onClick={submitRating}
+                disabled={!userRating || submittingRating}
+                className="py-3 px-6 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl transition-all disabled:opacity-50"
+              >
+                {submittingRating ? 'Enviando...' : 'Enviar Avaliação'}
+              </button>
+              {ratingMessage && (
+                <p className={`mt-3 p-3 rounded-xl ${ratingMessage.includes('sucesso') ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'}`}>
+                  {ratingMessage}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Reviews list */}
+          {avaliacoes.avaliacoes && avaliacoes.avaliacoes.length > 0 && (
+            <div className="border-t border-line pt-6 mt-6 space-y-4">
+              {avaliacoes.avaliacoes.map((avaliacao, index) => (
+                <div key={index} className="bg-surface-raised border border-line rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex">
+                      {renderStars(avaliacao.nota)}
+                    </div>
+                    <span className="text-muted text-sm">por {avaliacao.avaliador_username}</span>
+                    <span className="text-xs text-muted" title="Compra verificada indica pedido concluído com recebimento confirmado pelo comprador; não confirma pagamento.">{avaliacao.compra_verificada ? 'Compra verificada' : 'Avaliação histórica · compra não verificada'}</span>
+                  </div>
+                  {avaliacao.comentario && (
+                    <p className="text-muted">{avaliacao.comentario}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {avaliacoes.total === 0 && (
+            <p className="text-muted">Este produto ainda não tem avaliações de compras verificadas.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

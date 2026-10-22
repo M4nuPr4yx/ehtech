@@ -1,0 +1,388 @@
+EHTECH — PLANO DE MELHORIAS E EXECUÇÃO
+Data: 20/10/2026
+
+Escopo autorizado: primeira etapa com itens 1, 2, 3, 10 e 11; continuação
+autorizada com todos os pendentes: 4, 5, 6, 7, 8, 9 e 12. Os 12 itens estão
+implementados, começando pelos de prioridade alta.
+Custos: recursos locais e ferramentas gratuitas; nenhuma publicação automática.
+Validação: utilizar contas e anúncios fictícios em bases temporárias reais;
+não alterar os dados da aplicação em uso.
+
+1. ENCERRAR SESSÕES APÓS TROCAR A SENHA — PRIORIDADE ALTA
+Situação: CONCLUÍDO E VERIFICADO.
+Objetivo: impedir o uso de tokens anteriores após troca ou recuperação de senha,
+inclusive redefinição administrativa e sessões de administrador.
+Passos:
+  1) Criar uma versão de sessão por usuário com migração idempotente.
+  2) Incluir essa versão no JWT emitido no login normal e administrativo.
+  3) Comparar a versão do token com o banco em cada requisição autenticada.
+  4) Incrementar a versão ao trocar/redefinir a senha.
+  5) Consumir o token de recuperação dentro de uma transação e invalidar os
+     demais links de recuperação da mesma conta.
+  6) Testar que tokens antigos falham, novo login funciona e outras contas
+     continuam com acesso. Preservar rate limits e mensagens de autenticação.
+Aceite: token anterior rejeitado pelo servidor mesmo se mantido no navegador.
+
+2. AVALIAÇÕES VINCULADAS A COMPRAS CONCLUÍDAS — PRIORIDADE ALTA
+Situação: CONCLUÍDO E VERIFICADO.
+Objetivo: reputação baseada em experiência de compra comprovada pelo sistema.
+Passos:
+  1) Vincular a avaliação a um pedido da própria conta contendo aquele produto.
+  2) Exigir conclusão do pedido, com recebimento confirmado pelo comprador.
+  3) Proibir avaliações próprias, de terceiros e de pedidos ainda em andamento.
+  4) Validar novamente no POST; a interface não substitui autorização.
+  5) Exibir o selo Compra verificada e orientar quem ainda não pode avaliar.
+  6) Preservar avaliações antigas como históricas, sem promovê-las a verificadas;
+     calcular a reputação a partir das verificadas.
+  7) Testar elegibilidade, tentativa indevida, criação e atualização da nota.
+Aceite: não comprador recebe erro; comprador elegível avalia uma vez e pode editar.
+Nota: o selo comprova o vínculo ao pedido e a declaração de recebimento;
+o pagamento permanece externo e não é confirmado automaticamente pelo site.
+
+3. TESTES COMPLETOS NO NAVEGADOR — PRIORIDADE ALTA
+Situação: CONCLUÍDO E VERIFICADO EM DESKTOP E CELULAR (CHROMIUM).
+Objetivo: validar a experiência real além das respostas HTTP.
+Passos:
+  1) Adicionar Playwright como dependência de desenvolvimento.
+  2) Criar banco e uploads temporários, sem alterar a base configurada da aplicação.
+  3) Iniciar API e frontend em portas livres, distintas de 3000/3001.
+  4) Exercitar cadastro/login, anúncio, aprovação administrativa, carrinho,
+     checkout, proposta de entrega, aceite, retirada/envio e recebimento.
+  5) Cobrir revogação de sessão, avaliação, favoritos, comparação e moderação.
+  6) Executar em desktop e viewport de celular; preservar evidências de falha.
+  7) Integrar o comando ao CI e documentar instalação do navegador de teste.
+  8) Encerrar os processos criados e remover exclusivamente banco/uploads de teste.
+Aceite: os testes navegam e interagem com a aplicação real, sem simular a API.
+
+4. INTEGRAÇÃO REAL COM POSTGRESQL — PRIORIDADE ALTA
+Situação: CONCLUÍDO E VERIFICADO EM MYSQL E POSTGRESQL REAIS.
+Passos:
+  1) Criar serviço PostgreSQL temporário no CI ao lado do MySQL.
+  2) Parametrizar a infraestrutura de integração para cada driver.
+  3) Executar criação e reaplicação de migrações, autenticação e CRUD.
+  4) Cobrir transações, concorrência, upsert, datas, booleanos e IDs gerados.
+  5) Corrigir apenas traduções comprovadamente incompatíveis e documentar limites.
+Aceite: a mesma suíte de negócio passa nos dois bancos sem serviços pagos.
+
+5. OTIMIZAR O CHAT — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO.
+Passos:
+  1) Medir consultas e tamanho das respostas usando conversas fictícias longas.
+  2) Adicionar paginação por cursor de ID, com limite máximo no servidor.
+  3) Carregar mensagens antigas ao solicitar; buscar novas pelo último cursor.
+  4) Suspender polling em abas ocultas e cancelar requisições ao trocar conversa.
+  5) Preservar ordenação, leitura, participantes e bloqueios; testar concorrência.
+Aceite: novas consultas não transferem repetidamente todo o histórico.
+
+6. DIVIDIR ARQUIVOS GRANDES — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO.
+Passos:
+  1) Mapear dependências de autenticação, produtos, avaliações e mensagens.
+  2) Extrair um router por domínio, injetando pool e dependências necessárias.
+  3) Extrair componentes de perfil, administração e cabeçalho por responsabilidade.
+  4) Manter URLs, respostas, permissões e apresentação; evitar refatoração geral.
+  5) Rodar testes do domínio a cada extração e check ao terminar.
+Aceite: arquivos menores com comportamento externo preservado.
+
+7. PADRONIZAR CHAMADAS DA API — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO.
+Passos:
+  1) Inventariar fetch direto e requisitos de autenticação/upload.
+  2) Ampliar apiRequest para preservar status/código, cancelamento e erros úteis.
+  3) Migrar por tela, mantendo getApiUrl como origem das URLs.
+  4) Tratar sessão expirada, indisponibilidade, timeout e resposta inválida.
+  5) Testar falhas de rede e nunca repetir automaticamente operações de escrita.
+Aceite: feedback consistente e ausência de requisições penduradas.
+
+8. DIVULGAÇÃO E COMPARTILHAMENTO — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO.
+Passos:
+  1) Separar carregamento público do produto dos controles interativos.
+  2) Gerar título, descrição, canonical e Open Graph por anúncio aprovado.
+  3) Gerar sitemap paginado e robots, excluindo páginas privadas e links secretos.
+  4) Validar HTML inicial e imagem de compartilhamento, inclusive anúncio removido.
+Aceite: prévia específica do produto sem indexar áreas privadas.
+
+9. VERIFICAÇÃO BÁSICA SEM IA — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO COM O PROVEDOR DE IA DESATIVADO.
+Passos:
+  1) Mapear regras determinísticas e cobertura do catálogo técnico revisado.
+  2) Associar apenas modelos inequívocos às fichas confiáveis.
+  3) Oferecer checagem local de socket, memória e requisitos disponíveis.
+  4) Marcar dados ausentes como não verificados, sem afirmar compatibilidade.
+  5) Manter IA como complemento; testar provedor desativado e indisponível.
+Aceite: resultado básico explicável sem chave e com limites visíveis.
+
+10. FAVORITOS E COMPARAÇÃO — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO.
+Passos:
+  1) Persistir favoritos por conta; somente o proprietário pode consultar/remover.
+  2) Validar existência e aprovação dos produtos ao favoritar.
+  3) Oferecer botões no anúncio, lista de favoritos e navegação acessível.
+  4) Permitir comparar até quatro anúncios em tabela, inclusive sem login.
+  5) Mostrar preço, categoria, descrição, estoque e vendedor com dados públicos.
+     Não inventar especificações, estado ou localização ausentes no anúncio.
+  6) Tratar anúncios removidos, armazenamento inválido e lista vazia.
+  7) Testar isolamento de contas, repetição de ações e limite de comparação.
+Aceite: favoritos persistem na conta e comparação permite remover/trocar anúncios.
+
+11. DENÚNCIAS E BLOQUEIOS — PRIORIDADE MÉDIA
+Situação: CONCLUÍDO E VERIFICADO.
+Passos:
+  1) Criar denúncias para anúncio, usuário e mensagem com motivo e descrição.
+  2) Validar o alvo; mensagens privadas somente podem ser denunciadas por
+     participantes. Preservar evidência para revisão sem divulgá-la publicamente.
+  3) Criar bloqueio/desbloqueio por conta e impedir mensagens nas duas direções.
+     Manter o histórico e os pedidos existentes acessíveis aos participantes.
+  4) Oferecer denúncia no anúncio e na conversa, bloqueio na conversa e gestão
+     de bloqueados em página própria.
+  5) Oferecer fila administrativa e decisões com justificativa e autor.
+     Denúncia não remove automaticamente conteúdo: usar controles de moderação.
+  6) Registrar histórico das decisões e manter dados restritos à administração.
+  7) Aplicar limites de frequência e testar terceiros, IDs inválidos e privacidade.
+Aceite: bloqueio aplicado no servidor, evidência privada e decisões auditáveis.
+
+12. USABILIDADE E ACESSIBILIDADE — PRIORIDADE MÉDIA
+Situação: IMPLEMENTADO; VERIFICADO POR TECLADO E AXE NOS QUATRO TEMAS.
+Passos:
+  1) Revisar fluxos em larguras de celular e desktop e nos temas existentes.
+     Zoom manual de 200% permanece como revisão complementar não executada.
+  2) Conferir labels, mensagens de validação, ordem de foco e teclado.
+  3) Testar abertura/fechamento dos modais, retorno de foco e anúncios de estado.
+  4) Simplificar formulários com instruções junto aos campos e preservar rascunhos.
+  5) Medir acessibilidade automaticamente e corrigir os achados dos fluxos testados.
+Aceite: fluxos testados utilizáveis por teclado e sem violações nas regras
+automatizadas executadas; isso não certifica acessibilidade de todo o site.
+
+REGISTRO DE EXECUÇÃO
+Concluído em 20/10/2026. Itens implementados: 1 a 12.
+
+Ordem aplicada: regras de sessão e avaliação primeiro; infraestrutura de testes
+em seguida; favoritos, comparação e moderação; validação integrada de todos.
+Na continuação, PostgreSQL real foi priorizado, seguido pela extração de rotas,
+cliente HTTP, chat, compartilhamento, regras básicas e acessibilidade.
+
+ENTREGAS DO ITEM 1
+- backend/database/trust.js acrescenta usuarios.session_version, com padrão zero.
+  Tokens antigos sem a versão continuam válidos somente enquanto a conta estiver
+  na versão zero; trocar a senha passa a invalidá-los.
+- backend/middleware/auth.js compara a versão do JWT com a versão da conta.
+- Login normal e administrativo passam a emitir JWT com a versão atual.
+- Troca de senha no perfil, redefinição por administrador e recuperação de senha
+  incrementam a versão. A revogação é aplicada no servidor.
+- A recuperação consome o link e invalida os demais links da conta em transação.
+  Duas tentativas simultâneas com o mesmo link: uma tem sucesso e outra é rejeitada.
+
+ENTREGAS DO ITEM 2
+- backend/review-eligibility.js confere comprador, produto, vendedor, conclusão
+  do pedido e confirmação de todas as entregas.
+- GET /avaliacoes/elegibilidade/:id informa à própria conta se ela pode avaliar.
+- POST /avaliacoes revalida a compra e grava o vínculo ao pedido. Cada conta
+  mantém uma avaliação por produto e pode atualizá-la.
+- A tela de anúncio informa a elegibilidade e identifica Compra verificada.
+- Avaliações históricas continuam visíveis sem selo e não entram na média/total
+  de compras verificadas, inclusive na reputação pública do vendedor.
+
+ENTREGAS DO ITEM 3
+- @playwright/test é dependência de desenvolvimento; Chromium foi instalado e usado.
+- playwright.config.cjs define cenários desktop e celular, um worker, prazos,
+  relatório HTML e screenshots/traces de falhas.
+- tests/run-e2e.cjs cria banco e uploads temporários, inicializa os servidores em
+  portas livres e limpa seus próprios recursos ao terminar. Nenhum dado real é seed.
+- tests/e2e/marketplace.spec.cjs exercita pela interface: cadastro, login, endereço,
+  anúncio, aprovação administrativa, favorito, comparação, carrinho, checkout,
+  proposta de retirada, aceite, recebimento, avaliação verificada, mensagem,
+  denúncia, bloqueio, desbloqueio, decisão administrativa e troca de senha.
+- O teste também tenta enviar mensagem bloqueada e reutilizar JWT revogado.
+- Apenas o administrador inicial e a consulta EXTERNA de CEP são fixtures.
+  API de negócio e banco são reais. E-mail e IA externos não são acionados.
+- .github/workflows/ci.yml passa a instalar Chromium, executar a suíte e guardar
+  evidências de falha. A execução local passou; o job remoto do GitHub não foi rodado.
+
+ENTREGAS DO ITEM 10
+- Favoritos persistem no banco por conta, com PUT idempotente e DELETE próprio.
+- GET /favoritos lista até 200 anúncios aprovados mais recentes, sem origem privada.
+- /favoritos permite abrir anúncios, remover favoritos e selecionar comparação.
+- Botões no anúncio permitem salvar/remover favorito e incluir/remover comparação.
+- /comparar apresenta até quatro anúncios em tabela, com rolagem no celular.
+  A seleção fica no navegador e dispensa login; os dados são consultados na API.
+- Navegação principal inclui Comparar; menu de conta inclui Meus favoritos.
+
+ENTREGAS DO ITEM 11
+- /bloqueados gerencia os bloqueios da própria conta. Bloquear não apaga histórico
+  nem cancela pedidos; impede novas mensagens nas duas direções no servidor.
+- Há denúncia no anúncio, na conversa (usuário) e em cada mensagem recebida.
+- Denúncias exigem motivo, descrição e alvo válido; terceiros não podem denunciar
+  mensagens privadas às quais não têm acesso. Conteúdo próprio não é aceito.
+- Evidência é registrada para análise privada e permanece após remoção do alvo.
+- /admin/denuncias permite filtrar status, ver evidência e registrar decisões
+  justificadas. Cada decisão acrescenta evento com autor e data, em transação.
+- A denúncia não exclui conteúdo automaticamente. Aprovação/reprovação de anúncios
+  e gestão de contas continuam nos controles administrativos existentes.
+- Endpoints têm autenticação, verificação de papel e limites de frequência.
+- Contrato OpenAPI e testes de todas as rotas foram sincronizados.
+
+ENTREGAS DO ITEM 4
+- tests/helpers/database-fixture.cjs cria e remove bases ehtech_test_* para cada
+  execução. A mesma suíte de negócio roda com TEST_DB_DRIVER=mysql/postgres.
+- tests/run-postgres-local.cjs permite PostgreSQL portátil, sem instalar serviço:
+  cria dados temporários, inicia somente em 127.0.0.1 e porta livre, executa a
+  suíte, encerra o processo criado e remove exclusivamente seus dados temporários.
+- backend/db.js reconhece DB_DRIVER=postgres e DB_SSL=false para testes locais.
+  Mantém placeholders ? e o contrato [rows, fields] para ambos os bancos.
+- Corrigida a normalização numérica dos totais de mensagens retornados pelo pg.
+- CI define PostgreSQL 17 junto ao MySQL e executa as duas integrações. O job
+  remoto não foi executado nesta sessão; ambas as integrações locais passaram.
+- PostgreSQL portátil 17.11 foi usado de fato, com criação/reaplicação de schema,
+  autenticação, pedidos, concorrência, avaliações, chat e moderação.
+- Os testes neutralizam URLs herdadas de ambientes reais e uploads externos.
+
+ENTREGAS DO ITEM 5
+- backend/message-pagination.js valida limite (padrão 40, máximo 100) e cursores
+  exclusivos antes/depois. Mensagens são ordenadas por ID, sem repetir histórico.
+- GET /mensagens/:outroUsuarioId retorna paginacao e lidas_ate. PUT de leitura
+  aceita ate_id, evitando marcar como lidas mensagens ainda não carregadas.
+- Migração idempotente cria idx_mensagens_cursor para a consulta do histórico.
+- Interface permite Carregar mensagens anteriores, elimina duplicações, preserva
+  a posição ao inserir mensagens antigas e não força rolagem de quem lê histórico.
+- Trocar conversa cancela a requisição; respostas atrasadas não trocam o histórico.
+- Polling de mensagens a cada 8 s; lista de conversas aproximadamente a cada 24 s
+  com conversa ativa; cabeçalho a cada 30 s. Aba oculta suspende essas consultas
+  e retornar à aba dispara atualização. Não foi alterado o rate limit global.
+- Integração cobre 125 mensagens, paginação, leitura limitada e privacidade.
+  Navegador cobre histórico longo, novas mensagens, rolagem e aba oculta.
+
+ENTREGAS DO ITEM 6
+- backend/index.js concentra inicialização, infraestrutura e montagem dos routers.
+- Rotas foram extraídas para backend/routes/auth.js, admin.js, notifications.js,
+  products.js, reviews.js, profile.js, recovery.js e messages.js, com dependências
+  injetadas. router.js preserva validação dos parâmetros; user-validation.js
+  compartilha as regras de cadastro/login. URLs públicas foram preservadas.
+- AuthDialog.js, AdminLogin.js e ProfileSecurity.js separam formulários do
+  cabeçalho, administração e perfil sem duplicar o estado de seus pais.
+- Inventário de rotas, OpenAPI, integrações e jornadas de navegador acompanham
+  a separação; os mesmos fluxos continuam verificados nos dois bancos.
+
+ENTREGAS DO ITEM 7
+- src/lib/api-request.js concentra chamadas via getApiUrl, serialização JSON,
+  preservação de multipart, cancelamento e limpeza de timers/listeners.
+- ApiError preserva status, code, errors e Retry-After. Diferencia falha de rede,
+  tempo excedido, cancelamento e resposta inválida. Aceita resposta 204 vazia.
+- Timeout padrão de 15 s, uploads de 60 s e IA com prazo explícito de 190 s.
+  Nenhuma escrita é repetida automaticamente.
+- apiResponse mantém a interface das telas migradas; apiRequest atende novos
+  consumidores e address-api. Chamadas diretas da API no cliente foram migradas.
+- Sessão expirada por JWT inválido/revogado limpa somente o token correspondente,
+  preservando um login mais recente. Administração recebe o mesmo aviso de sessão.
+- Testes isolados cobrem rede, HTTP, dados inválidos, abort, timeout e upload.
+
+ENTREGAS DO ITEM 8
+- Produto público é carregado no servidor, com título, descrição, canonical,
+  Open Graph e Twitter específicos. SITE_URL configura a origem pública.
+- API pública só mostra anúncios aprovados. Proprietário/administrador com JWT
+  mantém acesso ao próprio anúncio pendente para edição. Anúncio indisponível
+  retorna 404 real; controles interativos ficam em ProductDetails.js.
+- GET /produtos/mapa lista IDs aprovados em páginas de 1.000. /sitemap.xml aponta
+  para /sitemaps/0 (páginas públicas) e /sitemaps/N (anúncios aprovados).
+- robots e layouts privados aplicam noindex às áreas de conta, compra, mensagens
+  e administração. Noindex complementa a autenticação; não a substitui.
+- Erros e anúncios ausentes têm telas em pt-BR. Loading global foi movido para
+  componente reutilizável e loading de serviços para preservar o status 404.
+- Navegador verifica HTML inicial, metadados, canonical, sitemap, robots,
+  pendência/aprovação/reprovação e 404. Build não exige banco ativo.
+
+ENTREGAS DO ITEM 9
+- POST /componentes/verificar-basico usa backend/components/basic-check.js,
+  sem consultar banco nem chamar provedor de IA; funciona com IA desativada.
+- Modelos completos e inequívocos do catálogo são associados a fichas revisadas.
+  Regras disponíveis conferem socket/BIOS de CPU e placa-mãe, geração de RAM,
+  velocidade e capacidade/slots quando as fichas oferecem dados suficientes.
+- Resultado mostra cada regra, fontes, procedência e limites. Categoria sem
+  cobertura, modelo ambíguo ou campo ausente permanece não verificado.
+- Interface oferece Verificar com regras básicas e IA opcional como complemento.
+  Análise de IA preserva o resultado básico; alterar seleção limpa resultados.
+- Testes cobrem incompatibilidade, dados ausentes e endpoint sem pool/provedor;
+  no navegador a análise básica passa com o provedor desativado.
+
+ENTREGAS DO ITEM 12
+- Foco visível global, respeito a prefers-reduced-motion e correção do nome
+  acessível do destaque da página inicial. Modais preservam teclado, Escape,
+  contenção de foco e retorno ao elemento que os abriu.
+- Formulário de anúncio salva rascunho textual em sessionStorage por conta e aba,
+  restaura após recarregar, informa o restauro e permite apagar. Remove após envio.
+  Fotos, endereço e senha não são salvos. Falha de armazenamento não bloqueia uso.
+- Mensagens de resultado usam status/alert e falhas exibem orientação em pt-BR.
+- Axe executado nos quatro temas com WCAG 2 A/AA e 2.1 A/AA nos fluxos cobertos,
+  em desktop e celular. Teclado, modal e resultados básicos também são exercitados.
+- A checagem automatizada não substitui revisão integral com leitor de tela,
+  zoom manual de 200% e aparelhos físicos; essas revisões não foram executadas.
+
+COMO USAR APÓS ATUALIZAR O CÓDIGO
+1) Dependência nova: em outro clone/ambiente, execute npm ci.
+2) Reinicie o backend pelo fluxo normal do README. A inicialização aplica as
+   migrações aditivas/idempotentes; não é necessário importar SQL manualmente.
+3) Abra um anúncio para Salvar favorito, Comparar anúncio ou Denunciar anúncio.
+4) No menu da conta, abra Meus favoritos ou Usuários bloqueados.
+5) Em Mensagens, use Bloquear usuário, Denunciar usuário ou Denunciar mensagem.
+6) Como administrador, entre em /admin e abra Denúncias na navegação.
+7) Para rodar E2E em outro ambiente: npx playwright install chromium;
+   configure TEST_DB_* conforme docs/DESENVOLVIMENTO.md; npm run test:e2e.
+8) Em Compatibilidade, selecione as peças e use Verificar com regras básicas;
+   a configuração de IA é necessária somente para o complemento por IA.
+9) Em Mensagens, Carregar mensagens anteriores traz mais 40 itens. Voltar à aba
+   atualiza mensagens e indicadores; abas ocultas não fazem polling.
+10) Configure SITE_URL com a URL pública no ambiente de hospedagem para canonical
+    e sitemap. Verifique /sitemap.xml e /robots.txt após iniciar o frontend.
+11) Integração MySQL: npm run test:integration. Para PostgreSQL já disponível,
+    configure TEST_PG_* e rode npm run test:integration:postgres.
+12) PostgreSQL portátil: npm run test:integration:postgres:local -- CAMINHO_BIN.
+    CAMINHO_BIN deve conter initdb, pg_ctl e postgres. Veja as instruções de
+    obtenção dos binários oficiais e isolamento em docs/DESENVOLVIMENTO.md.
+    Não é necessário baixar esses binários para usar o marketplace com MySQL.
+
+VERIFICAÇÕES DA PRIMEIRA ETAPA (HISTÓRICO)
+- npm run check passou com 84 testes rápidos; integração passou com 27 testes,
+  115 operações e 679 requisições; duas jornadas completas passaram no Chromium.
+  Naquela etapa PostgreSQL tinha somente doubles. A etapa atual abaixo passou
+  também em servidor PostgreSQL real e substitui essa limitação anterior.
+
+VERIFICAÇÕES DA CONTINUAÇÃO EXECUTADAS E RESULTADOS
+- npm run check: PASSOU — lint sem erros; 90 testes rápidos aprovados, uma
+  integração intencionalmente ignorada neste comando; build de produção aprovado.
+- npm run test:integration: PASSOU — 29 testes, 117 operações de API e 698
+  requisições HTTP verificadas em base MySQL/MariaDB temporária.
+- npm run test:integration:postgres:local -- scratch/postgresql-core/pgsql/bin:
+  PASSOU — os mesmos 29 testes, 117 operações e 698 requisições em PostgreSQL
+  17.11 real, com instância e banco temporários encerrados e limpos pelo runner.
+- npm run test:e2e: PASSOU — oito cenários: quatro em desktop e quatro em celular,
+  Chromium; jornada completa, chat longo, SEO e acessibilidade/compatibilidade.
+  A suíte completa foi repetida após o ajuste final dos intervalos: 8/8 passaram.
+- npm run test:e2e -- chat-pagination.spec.cjs: PASSOU — dois cenários após ajuste
+  final dos intervalos, incluindo aba oculta por um ciclo completo de 8 segundos.
+- git diff --check: PASSOU.
+- Capturas da checagem básica sem IA foram inspecionadas em desktop e celular.
+
+EVIDÊNCIAS LOCAIS (IGNORADAS PELO GIT)
+- scratch/audit/pending-check-final.log
+- scratch/audit/pending-mysql.log
+- scratch/audit/pending-postgres.log
+- scratch/audit/api-results-mysql.json e api-results-postgres.json
+- scratch/audit/pending-e2e-final.log (oito cenários)
+- scratch/audit/pending-e2e-current.log (oito cenários, código final)
+- scratch/audit/pending-chat-final.log (intervalos finais)
+- scratch/e2e-report/index.html
+- scratch/e2e-results/ (evidências da execução mais recente por tamanho de tela)
+
+LIMITES DA VERIFICAÇÃO
+- Banco real da aplicação não foi migrado/alterado como parte da validação.
+  As migrações serão aplicadas quando o backend da aplicação for reiniciado.
+- Compatibilidade básica cobre somente regras sustentadas pelas fichas revisadas;
+  não certifica montagem completa, QVL, dimensões, conectores ou fonte de energia.
+- Celular: emulação de viewport/touch no Chromium; não foi teste em aparelho
+  físico nem em Safari/Firefox.
+- Permanecem 15 avisos existentes do lint sobre imagens <img>, sem erros.
+- Acessibilidade medida nos fluxos e temas cobertos; sem certificação global,
+  leitor de tela ou verificação manual de zoom de 200%.
+- CI foi atualizado; execução remota do GitHub não foi realizada nesta sessão.
+- Não houve deploy/publicação nem uso de serviços pagos.
+- Alterações preexistentes em src/app/icon.png e src/app/layout.js foram preservadas.

@@ -1,7 +1,8 @@
 'use client';
+import { apiResponse } from '../../lib/api-request.js';
+
 import { useState } from 'react';
 import Link from 'next/link';
-import { getApiUrl } from '../../lib/api';
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ export default function EsqueciSenhaPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(getApiUrl('/esqueci-senha'), {
+      const res = await apiResponse('/esqueci-senha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

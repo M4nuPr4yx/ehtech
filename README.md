@@ -54,8 +54,9 @@ Esse seed cria/atualiza 50 contas (`usuario1@gmail.com` a `usuario50@gmail.com`,
 
 - **Frontend:** não precisa de `.env.local` na instalação padrão. Use `.env.example` como referência para mudar `BACKEND_URL` (destino do proxy no servidor). `NEXT_PUBLIC_API_URL` substitui `/api` no navegador; mantenha vazio para o mesmo domínio. Nunca use `NEXT_PUBLIC_*` para segredos.
 - **E-mail:** configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASS` no backend. Sem SMTP, a recuperação de senha não envia o link.
-- **IA:** a tela de compatibilidade analisa a seleção somente com IA; exige um provedor configurado. O catálogo público funciona sem chave e sem banco. Consulte [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md) e [CATALOGO_COMPONENTES.md](docs/CATALOGO_COMPONENTES.md).
-- **PostgreSQL/Neon:** configure `DATABASE_URL` no ambiente do backend e um `API_SEGREDO` exclusivo. O caminho local e a integração automatizada deste guia usam MySQL/MariaDB; veja [DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md) para as limitações do adaptador.
+- **Compatibilidade:** catálogo e checagem básica de requisitos funcionam sem chave de IA e sem banco. A análise adicional com IA exige um provedor configurado. Dados ausentes ou variantes ambíguas permanecem não verificados. Consulte [COMPATIBILIDADE.md](docs/COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md).
+- **PostgreSQL/Neon:** configure `DATABASE_URL` no backend e um `API_SEGREDO` exclusivo. A mesma suíte de integração roda em MySQL/MariaDB e PostgreSQL real; veja [DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md) para a configuração de testes temporários.
+- **Compartilhamento:** configure `SITE_URL` no frontend com a URL pública canônica. Anúncios aprovados têm metadados próprios e HTML inicial; `/sitemap.xml` lista mapas paginados. Áreas da conta e links secretos não entram nos mapas e usam `noindex`.
 
 ## Publicar na Vercel
 
@@ -91,11 +92,14 @@ O nome usado pelo upload é `BLOB_READ_WRITE_TOKEN`; outras chaves do Blob não 
 | `npm run db:init` | Criar/migrar tabelas no banco configurado, sem abrir servidor |
 | `npm run check` | Lint, testes rápidos e build de produção |
 | `npm run test:integration` | Exercitar a API em banco e uploads temporários |
+| `npm run test:integration:postgres` | Mesma suíte em PostgreSQL, com `TEST_PG_*` |
+| `npm run test:integration:postgres:local` | PostgreSQL portátil temporário, com `TEST_POSTGRES_BIN` |
+| `npm run test:e2e` | Jornada real no Chromium em desktop e celular, com banco e uploads temporários |
 | `npm run build` | Compilar o frontend para produção |
 | `npm run start:all` | Frontend compilado e backend; exige banco e build prévios |
 | `npm start` | Somente frontend compilado |
 
-O CI do GitHub instala com `npm ci`, inicializa um MySQL limpo, roda `check` e a integração, sem segredos da máquina do autor. A integração precisa de uma conta com permissão para criar/remover bancos temporários; veja [como configurar](docs/DESENVOLVIMENTO.md#testes-de-integração).
+O CI do GitHub instala com `npm ci`, inicializa um MySQL limpo, roda `check`, integrações MySQL/PostgreSQL e testes de navegador em desktop e celular, sem segredos da máquina do autor. A integração precisa de uma conta com permissão para criar/remover bancos temporários; veja [como configurar](docs/DESENVOLVIMENTO.md#testes-de-integração).
 
 Diagnóstico: **http://localhost:3001/api/health**, documentação da API em **http://localhost:3001/api/docs**. A API direta também responde em `/health` e `/docs` na porta 3000.
 
@@ -111,6 +115,8 @@ Diagnóstico: **http://localhost:3001/api/health**, documentação da API em **h
 `src/`: frontend; `backend/`: API e migrações; `api/`: entrada serverless; `tests/`: testes; `docs/`: documentação; `.agents/skills/`: fluxo específico para o assistente.
 
 Para publicar no GitHub, inclua código, assets locais, exemplos de ambiente e `package-lock.json`. `.env`, uploads, `node_modules`, `.next`, dumps e `scratch` são locais e ficam fora do Git. Confira `git diff --check` e `git status --short` depois das verificações.
+
+O histórico deste repositório ainda contém 39 uploads antigos. O `.gitignore` protege os arquivos atuais, mas não remove versões anteriores. Para iniciar um repositório público sem esse histórico, use uma cópia limpa do código; veja [PUBLICAR_GITHUB.md](docs/PUBLICAR_GITHUB.md) para os dois fluxos.
 
 A configuração Vercel está incluída, mas publicar exige banco e variáveis no provedor. Uploads locais em serverless são temporários; armazenamento persistente de arquivos precisa ser configurado antes de usar esse modo com dados reais. O funcionamento local segue o fluxo acima.
 

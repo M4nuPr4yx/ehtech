@@ -1,7 +1,8 @@
 'use client';
+import { apiResponse } from '../../lib/api-request.js';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getApiUrl } from '../../lib/api';
 import TechnicalComponentPicker from '../complements/TechnicalComponentPicker';
 import OriginSelector from '../complements/OriginSelector';
 
@@ -24,6 +25,9 @@ export default function Anunciar() {
   const [imagens, setImagens] = useState([]); // Array de URLs das fotos
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
+  const draftKey = useRef(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   // Check login status on mount
   useEffect(() => {
@@ -32,8 +36,40 @@ export default function Anunciar() {
       router.push('/');
       return;
     }
-    setLoading(false);
+    Promise.resolve().then(() => {
+      try {
+        const id = Number(JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).id);
+        if (Number.isSafeInteger(id) && id > 0) {
+          draftKey.current = `ehtech-anuncio-rascunho-${id}`;
+          const saved = JSON.parse(sessionStorage.getItem(draftKey.current) || 'null');
+          if (saved?.versao === 1 && typeof saved.nome === 'string' && typeof saved.descricao === 'string') {
+            setNome(saved.nome.slice(0, 255)); setDescricao(saved.descricao.slice(0, 10000));
+            setPreco(typeof saved.preco === 'string' ? saved.preco.slice(0, 20) : '');
+            setEstoque(typeof saved.estoque === 'string' ? saved.estoque.slice(0, 4) : '1');
+            setCategoria(typeof saved.categoria === 'string' ? saved.categoria.slice(0, 60) : '');
+            setDraftRestored(true);
+          }
+        }
+      } catch {}
+      setLoading(false); setDraftReady(true);
+    });
   }, [router]);
+
+  useEffect(() => {
+    if (!draftReady || !draftKey.current) return;
+    const timer = setTimeout(() => {
+      try {
+        if (!nome && !descricao && !preco && !categoria) sessionStorage.removeItem(draftKey.current);
+        else sessionStorage.setItem(draftKey.current, JSON.stringify({ versao: 1, nome, descricao, preco, estoque, categoria }));
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draftReady, nome, descricao, preco, estoque, categoria]);
+
+  function clearDraft() {
+    try { if (draftKey.current) sessionStorage.removeItem(draftKey.current); } catch {}
+    setNome(''); setDescricao(''); setPreco(''); setEstoque('1'); setCategoria(''); setComponenteId(null); setDraftRestored(false);
+  }
 
   // Handle price input with mask (BRL format)
   const handlePrecoChange = (e) => {
@@ -90,7 +126,7 @@ export default function Anunciar() {
       for (const file of files) {
         const formData = new FormData();
         formData.append('imagem', file);
-        const res = await fetch(getApiUrl('/upload/imagem'), {
+        const res = await apiResponse('/upload/imagem', {
           method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
         });
         const data = await res.json();
@@ -154,7 +190,7 @@ export default function Anunciar() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl('/produtos'), {
+      const res = await apiResponse('/produtos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,6 +225,8 @@ export default function Anunciar() {
         setMessage('Produto enviado com sucesso! O anúncio aguarda aprovação da moderação.');
         setMessageType('success');
         // Reset form
+        try { if (draftKey.current) sessionStorage.removeItem(draftKey.current); } catch {}
+        setDraftRestored(false);
         setNome('');
         setDescricao('');
         setPreco('');
@@ -202,7 +240,7 @@ export default function Anunciar() {
         setMessageType('error');
       }
     } catch (err) {
-      setMessage('Erro: Verifique se o backend está rodando');
+      setMessage(err.message || 'Não foi possível enviar o anúncio. Tente novamente.');
       setMessageType('error');
     } finally {
       setIsSubmitting(false);
@@ -247,6 +285,7 @@ export default function Anunciar() {
             </p>
           </div>
 
+          <section className="mb-5 space-y-2 rounded-xl border border-line bg-surface p-4" aria-label="Rascunho do anúncio"><p className="text-sm text-muted">Os campos de texto são salvos nesta aba para sua conta. Fotos e endereço de origem precisam ser revisados novamente após recarregar.</p>{draftRestored && <p role="status">Rascunho de texto restaurado.</p>}<button type="button" className="text-sm font-bold text-accent underline" onClick={clearDraft}>Limpar texto do rascunho</button></section>
           <OriginSelector value={origin} onChange={setOrigin} requiresShipping={requiresShipping} onShippingChange={setRequiresShipping} />
           <form onSubmit={handleSubmit} className="space-y-6">
             <h2 className="text-lg font-semibold">Informações do produto</h2>
@@ -440,7 +479,7 @@ export default function Anunciar() {
 
             {/* Mensagem de Feedback */}
             {message && (
-              <p className={`p-4 rounded-2xl text-center font-bold text-sm ${
+              <p role={messageType === 'error' ? 'alert' : 'status'} className={`p-4 rounded-2xl text-center font-bold text-sm ${
                 messageType === 'success'
                   ? 'bg-success-soft text-success border border-success'
                   : 'bg-danger-soft text-danger border border-danger'

@@ -1,7 +1,8 @@
 'use client'
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { useEffect, useRef, useState } from 'react'
-import { getApiUrl } from '../../lib/api'
 import styles from './compatibilidade.module.css'
 
 const providerNames = { gemini: 'Gemini', groq: 'Groq', ollama: 'Ollama' }
@@ -15,7 +16,7 @@ export default function CompatibilityAI({ result, onAnalysis }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(getApiUrl('/componentes/ia/status'), { signal: controller.signal, cache: 'no-store' })
+    apiResponse('/componentes/ia/status', { signal: controller.signal, cache: 'no-store' })
       .then(async response => {
         if (!response.ok) throw Error()
         setStatus(await response.json())
@@ -30,13 +31,14 @@ export default function CompatibilityAI({ result, onAnalysis }) {
     setBusy(true); setError('')
     try {
       if (!status?.disponivel) {
-        const response = await fetch(getApiUrl('/componentes/ia/status'), { signal: controller.signal, cache: 'no-store' })
+        const response = await apiResponse('/componentes/ia/status', { signal: controller.signal, cache: 'no-store' })
         if (!response.ok) throw Error('Não foi possível consultar a IA agora.')
         const next = await response.json()
         setStatus(next)
         return
       }
-      const response = await fetch(getApiUrl('/componentes/ia/explicar'), {
+      const response = await apiResponse('/componentes/ia/explicar', {
+        timeoutMs: 190000,
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result.selecao), signal: controller.signal, cache: 'no-store'
       })
       let data

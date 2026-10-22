@@ -57,8 +57,8 @@ function autenticarToken(req, res, next) {
       return res.status(403).json({ mensagem: 'Token inválido.', code: 'INVALID_TOKEN' });
     }
     try {
-      const [users] = await pool.execute('SELECT id_usuario, username, email, role FROM usuarios WHERE id_usuario = ? AND email = ?', [decoded.id, decoded.email]);
-      if (!users.length) return res.status(403).json({ mensagem: 'Sessão encerrada. Faça login novamente.', code: 'INVALID_TOKEN' });
+      const [users] = await pool.execute('SELECT id_usuario, username, email, role, session_version FROM usuarios WHERE id_usuario = ? AND email = ?', [decoded.id, decoded.email]);
+      if (!users.length || (decoded.session_version ?? 0) !== Number(users[0].session_version)) return res.status(403).json({ mensagem: 'Sessão encerrada. Faça login novamente.', code: 'INVALID_TOKEN' });
       req.user = { ...decoded, username: users[0].username, role: users[0].role };
       next();
     } catch (error) {

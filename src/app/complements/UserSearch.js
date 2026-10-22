@@ -1,7 +1,8 @@
 'use client';
+import { apiResponse } from '../../lib/api-request.js';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getApiUrl } from '../../lib/api';
 import ImageWithFallback from './ImageWithFallback';
 
 export default function UserSearch({ onSelect }) {
@@ -19,7 +20,7 @@ export default function UserSearch({ onSelect }) {
       setLoading(true); setError('');
       try {
         const params = new URLSearchParams({ q: query.trim(), page: String(page) });
-        const response = await fetch(getApiUrl(`/usuarios/busca?${params}`), { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, cache: 'no-store', signal: controller.signal });
+        const response = await apiResponse(`/usuarios/busca?${params}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, cache: 'no-store', signal: controller.signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data.mensagem || 'Não foi possível buscar pessoas.');
         if (!controller.signal.aborted) setResult({ ...data, query, page });

@@ -1,4 +1,6 @@
 'use client'
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -6,7 +8,6 @@ import { useSearchParams } from 'next/navigation'
 import ServiceIcon from './ServiceIcon'
 import { MODALITIES, SERVICE_CATEGORIES, categoryLabel, modalityLabel, servicePrice } from './serviceData'
 import styles from './servicos.module.css'
-import { getApiUrl } from '../../lib/api'
 
 const PAGE_SIZE = 9
 const INITIAL = { search: '', categoria: '', modalidade: '', ordenacao: 'recentes' }
@@ -41,7 +42,7 @@ function ServiceCatalog({ initial }) {
       setLoading(true)
       setError('')
       try {
-        const response = await fetch(getApiUrl(`/servicos?${params}`), { signal: controller.signal })
+        const response = await apiResponse(`/servicos?${params}`, { signal: controller.signal })
         const data = await response.json()
         if (!response.ok || !Array.isArray(data.items)) throw new Error(data.mensagem || 'Não foi possível carregar os serviços.')
         if (active) setResult(data)

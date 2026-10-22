@@ -1,7 +1,8 @@
 'use client'
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { useEffect, useState } from 'react'
-import { getApiUrl } from '../../lib/api'
 
 export function useTechnicalCatalog() {
   const [items, setItems] = useState([])
@@ -11,7 +12,7 @@ export function useTechnicalCatalog() {
     const controller = new AbortController()
     async function load() {
       try {
-        const response = await fetch(getApiUrl('/componentes'), { signal: controller.signal })
+        const response = await apiResponse('/componentes', { signal: controller.signal })
         const data = await response.json()
         if (!response.ok) throw new Error(data.mensagem || 'Catálogo técnico indisponível.')
         setItems(data.items)

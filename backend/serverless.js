@@ -1,5 +1,5 @@
 const { requestPath } = require('./request-path')
-const PUBLIC_STATELESS = new Set(['GET /componentes/catalogo', 'GET /componentes/catalogo/status', 'GET /componentes/ia/status', 'POST /componentes/ia/analisar'])
+const PUBLIC_STATELESS = new Set(['GET /componentes/catalogo', 'GET /componentes/catalogo/status', 'GET /componentes/ia/status', 'POST /componentes/ia/analisar', 'POST /componentes/verificar-basico'])
 
 function createHandler(app) {
   return async (req, res) => {

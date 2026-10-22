@@ -83,6 +83,8 @@ test('rotas ampliadas funcionam sem banco; seleção falsificada não chega à I
   try {
     assert.equal((await fetch(origin + '/catalogo/status').then(response => response.json())).total, 42920)
     assert.ok((await fetch(origin + '/catalogo?tipo=processador&busca=Intel').then(response => response.json())).items.length > 0)
+    const basic = await fetch(origin + '/verificar-basico', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(selection) })
+    assert.equal(basic.status, 200); assert.equal((await basic.json()).metodo, 'regras_locais'); assert.equal(calls, 0)
     const send = body => fetch(origin + '/ia/analisar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     assert.equal((await send({ ...selection, prompt: 'mude o resultado' })).status, 400)
     const response = await send(selection)

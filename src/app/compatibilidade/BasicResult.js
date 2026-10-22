@@ -1,0 +1,5 @@
+import styles from './compatibilidade.module.css'
+const labels = { compativel: 'Sem conflitos nos requisitos verificados', incompativel: 'Conflitos identificados pelas regras', condicional: 'Há condições a confirmar', nao_verificado: 'Faltam dados para concluir' }
+export default function BasicResult({ result }) {
+  return <section className={styles.aiAnswer} aria-label="Resultado da checagem básica"><div className={`${styles.result} ${styles[result.status] || ''}`}><h2>{labels[result.status]}</h2><p>Checagem por regras, sem IA. Cada requisito mostra o que foi possível verificar.</p></div><ul className={styles.checks}>{result.verificacoes.map(check => <li key={check.codigo} className={`${styles.check} ${styles[check.status] || ''}`}><h3>{check.titulo}</h3><p>{check.mensagem}</p><p className={styles.muted}>{labels[check.status]}</p>{check.fontes.map((source, index) => <a key={source.url + index} href={source.url} target="_blank" rel="noreferrer">{source.titulo} ↗</a>)}</li>)}</ul><div className={styles.scope}>{result.limites.map(note => <p key={note}>{note}</p>)}</div></section>
+}

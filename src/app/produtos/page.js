@@ -1,11 +1,12 @@
 'use client';
+import { apiResponse } from '../../lib/api-request.js';
+
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
 import styles from './catalogo.module.css';
-import { getApiUrl } from '../../lib/api';
 
 const PAGE_SIZE = 12;
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -72,7 +73,7 @@ function Catalog({ initialFilters }) {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(getApiUrl(`/produtos/catalogo?${params}`), { signal: controller.signal });
+        const response = await apiResponse(`/produtos/catalogo?${params}`, { signal: controller.signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data.mensagem || 'Não foi possível carregar o catálogo.');
         if (!Array.isArray(data.items)) throw new Error('Resposta inválida do catálogo.');

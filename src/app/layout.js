@@ -1,6 +1,7 @@
 import "./globals.css";
 import "../styles/motion.css";
 import localFont from 'next/font/local';
+import { siteOrigin } from '../lib/seo.mjs';
 
 const manrope = localFont({
   src: '../../public/fonts/Manrope-Variable.ttf',
@@ -10,10 +11,11 @@ const manrope = localFont({
 });
 
 export const metadata = {
+  metadataBase: new URL(siteOrigin()),
   title: "EHtech",
   description: "Marketplace para comprar produtos de tecnologia e contratar serviços especializados de TI",
   icons: {
-    icon: "/icon.png?v=2",
+    icon: "/icon.png?v=3",
   },
 };
 

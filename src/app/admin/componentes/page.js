@@ -1,9 +1,10 @@
 'use client'
+import { apiResponse } from '../../../lib/api-request.js';
+
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getApiUrl } from '../../../lib/api'
 import styles from '../../compatibilidade/compatibilidade.module.css'
 
 const TEMPLATES = {
@@ -16,7 +17,7 @@ const create = tipo => ({ id: null, slug: '', tipo, marca: '', modelo: '', statu
   especificacoes: JSON.stringify(TEMPLATES[tipo], null, 2), fontes: JSON.stringify([{ titulo: '', url: '' }], null, 2) })
 
 async function api(path = '', method = 'GET', body) {
-  const response = await fetch(getApiUrl(`/componentes/admin${path}`), { method, cache: 'no-store', headers: { Authorization: `Bearer ${sessionStorage.getItem('adminToken')}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
+  const response = await apiResponse(`/componentes/admin${path}`, { method, cache: 'no-store', headers: { Authorization: `Bearer ${sessionStorage.getItem('adminToken')}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
   const data = await response.json()
   if (!response.ok) throw new Error(data.mensagem || 'Não foi possível consultar as fichas.')
   return data

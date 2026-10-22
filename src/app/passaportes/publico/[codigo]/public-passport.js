@@ -1,8 +1,9 @@
 'use client'
+import { apiResponse } from '../../../../lib/api-request.js';
+
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getApiUrl } from '../../../../lib/api'
 import PassportView from '../../PassportView'
 import styles from '../../passaportes.module.css'
 
@@ -13,7 +14,7 @@ export default function PublicPassport({ code }) {
     const controller = new AbortController()
     async function load() {
       try {
-        const response = await fetch(getApiUrl(`/passaportes/publico/${encodeURIComponent(code)}`), { cache: 'no-store', signal: controller.signal, referrerPolicy: 'no-referrer' })
+        const response = await apiResponse(`/passaportes/publico/${encodeURIComponent(code)}`, { cache: 'no-store', signal: controller.signal, referrerPolicy: 'no-referrer' })
         const data = await response.json()
         if (!response.ok) throw new Error(data.mensagem || 'Link indisponível ou revogado.')
         setPassport(data)

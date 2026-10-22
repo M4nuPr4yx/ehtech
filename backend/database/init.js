@@ -195,6 +195,7 @@ async function initializeDatabase(pool) {
   await require('./addresses').initializeAddresses(pool)
   await require('./product-origins').initializeProductOrigins(pool)
   await require('./order-deliveries').initializeOrderDeliveries(pool)
+  await require('./trust').initializeTrust(pool)
   await require('./passports').initializePassports(pool)
   await require('./components').initializeComponents(pool)
   await require('./differentials').initializeDifferentials(pool)

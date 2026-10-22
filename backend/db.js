@@ -12,6 +12,7 @@ const connectionUri = (
 ).trim();
 
 const isPostgres = 
+  process.env.DB_DRIVER === 'postgres' ||
   connectionUri.startsWith('postgres://') ||
   connectionUri.startsWith('postgresql://') ||
   Boolean(process.env.POSTGRES_URL) ||
@@ -31,7 +32,7 @@ if (isPostgres) {
   const pgPool = connectionUri
     ? new Pool({
         connectionString: connectionUri,
-        ssl: { rejectUnauthorized: false },
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
         max: poolSize,
         idleTimeoutMillis: 10000,
         connectionTimeoutMillis: 10000
@@ -42,7 +43,7 @@ if (isPostgres) {
         password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
         database: process.env.DB_DATABASE || process.env.PGDATABASE || 'ehtech',
         port: parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10),
-        ssl: { rejectUnauthorized: false },
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
         max: poolSize,
         idleTimeoutMillis: 10000,
         connectionTimeoutMillis: 10000

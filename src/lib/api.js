@@ -33,6 +33,9 @@ export const getApiUrl = (endpoint = '') => {
   }
 
   // No SSR (Node.js):
+  if (process.env.BACKEND_URL) {
+    return `${process.env.BACKEND_URL.replace(/\/+$/, '')}${path}`;
+  }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}/api${path}`;
   }

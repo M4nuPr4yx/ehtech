@@ -1,4 +1,6 @@
 'use client'
+import { apiResponse } from '../../../lib/api-request.js';
+
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -6,7 +8,6 @@ import { useParams, useRouter } from 'next/navigation'
 import ServiceIcon from '../ServiceIcon'
 import { categoryLabel, modalityLabel, servicePrice } from '../serviceData'
 import styles from '../servicos.module.css'
-import { getApiUrl } from '../../../lib/api'
 
 export default function ServiceDetailPage() {
   const { slug } = useParams()
@@ -24,7 +25,7 @@ export default function ServiceDetailPage() {
     const controller = new AbortController()
     async function load() {
       try {
-        const response = await fetch(getApiUrl(`/servicos/${encodeURIComponent(slug)}`), { signal: controller.signal })
+        const response = await apiResponse(`/servicos/${encodeURIComponent(slug)}`, { signal: controller.signal })
         const data = await response.json()
         if (!response.ok) throw new Error(data.mensagem || 'Não foi possível carregar este serviço.')
         setService(data)
@@ -58,7 +59,7 @@ export default function ServiceDetailPage() {
     setSubmitting(true)
     setFormError('')
     try {
-      const response = await fetch(getApiUrl('/contratacoes'), {
+      const response = await apiResponse('/contratacoes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

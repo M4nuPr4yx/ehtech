@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "EHtech — Produtos e teste de carga",
+    "title": "EHtech — Marketplace e moderação",
     "version": "1.0.0",
     "description": "Consultas públicas: não exigem cadastro, login ou token. GET /produtos retorna a vitrine inteira e é o cenário de maior volume de resposta. GET /produtos/catalogo representa a navegação paginada e executa COUNT + SELECT. POST /produtos exige autenticação JWT (obtenha o token em POST /login) e cria um produto com status 'pendente'. A rota mais lenta só pode ser determinada por medição. As fotos são referências/dados no JSON: Swagger e testes HTTP desta API não baixam automaticamente as imagens referenciadas."
   },

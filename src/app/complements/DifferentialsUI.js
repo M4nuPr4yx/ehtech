@@ -1,15 +1,16 @@
 'use client'
+import { apiResponse } from '../../lib/api-request.js';
+
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getApiUrl } from '../../lib/api'
 import styles from './differentials.module.css'
 
 export { styles }
 export const price = value => value === null ? 'Sob consulta' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 export async function request(path, method = 'GET', body, signal) {
   const token = localStorage.getItem('token')
-  const response = await fetch(getApiUrl(path), { method, signal, cache: 'no-store', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
+  const response = await apiResponse(path, { method, signal, cache: 'no-store', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) })
   const data = await response.json()
   if (!response.ok) throw new Error(data.mensagem || 'Não foi possível concluir a operação.')
   return data

@@ -53,6 +53,9 @@ function createComponentsRouter(pool, verifyAdmin = require('../middleware/auth'
   router.get('/catalogo/status', route(async (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600').json(metadata)
   }))
+  router.post('/verificar-basico', route(async (req, res) => {
+    res.set('Cache-Control', 'no-store').json(require('../components/basic-check').basicCheck(req.body))
+  }))
   router.get('/catalogo', route(async (req, res) => {
     res.set('Cache-Control', 'public, max-age=300').json(searchCatalog(req.query))
   }))

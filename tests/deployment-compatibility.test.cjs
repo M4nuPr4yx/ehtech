@@ -30,11 +30,11 @@ test('entrada serverless libera só rotas públicas sem banco, não ignora inici
   app.initDatabaseTables = async () => { initialized++ }
   const handler = createHandler(app)
   for (const prefix of ['', '/api', '/api/_backend']) {
-    for (const [method, route] of [['GET', '/componentes/catalogo?tipo=processador'], ['GET', '/componentes/catalogo/status'], ['GET', '/componentes/ia/status'], ['POST', '/componentes/ia/analisar']]) await handler({ method, url: prefix + route }, {})
+    for (const [method, route] of [['GET', '/componentes/catalogo?tipo=processador'], ['GET', '/componentes/catalogo/status'], ['GET', '/componentes/ia/status'], ['POST', '/componentes/ia/analisar'], ['POST', '/componentes/verificar-basico']]) await handler({ method, url: prefix + route }, {})
   }
-  assert.equal(initialized, 0); assert.equal(served, 12)
+  assert.equal(initialized, 0); assert.equal(served, 15)
   for (const [method, url] of [['GET', '/api/componentes/admin'], ['POST', '/api/componentes/admin'], ['GET', '/api/perfil'], ['POST', '/api/componentes/ia/explicar'], ['GET', '/api/health'], ['PUT', '/api/componentes/ia/analisar']]) await handler({ method, url }, {})
-  assert.equal(initialized, 6); assert.equal(served, 18)
+  assert.equal(initialized, 6); assert.equal(served, 21)
 })
 
 test('handlers Next na Vercel redirecionam para Express sem localhost ou recursão', async () => {
@@ -52,14 +52,14 @@ test('handlers Next na Vercel redirecionam para Express sem localhost ou recurs�
 })
 
 test('helper de requisição traduz falha de rede, resposta HTML e JSON inválido', async () => {
-  const source = fs.readFileSync(path.join(__dirname, '../src/lib/api-request.js'), 'utf8').replace("import { getApiUrl } from './api'", '').replace('export async function', 'async function')
+  const source = fs.readFileSync(path.join(__dirname, '../src/lib/api-request.js'), 'utf8').replace(/^import[^\n]+\n/, '').replaceAll('export ', '')
   for (const [fetchImpl, message] of [
     [async () => { throw new TypeError('Failed to fetch') }, /Não foi possível conectar/],
     [async () => new Response('<html>offline</html>', { status: 502 }), /serviço não respondeu/],
     [async () => new Response('{', { headers: { 'Content-Type': 'application/json' } }), /resposta inválida/],
     [async () => Response.json({ mensagem: 'Cota da IA atingida.' }, { status: 429 }), /Cota da IA/]
   ]) {
-    const context = { getApiUrl: endpoint => `/api${endpoint}`, AbortSignal, fetch: fetchImpl, TypeError, SyntaxError, Error }
+    const context = { getApiUrl: endpoint => `/api${endpoint}`, AbortSignal, AbortController, Headers, setTimeout, clearTimeout, DOMException, fetch: fetchImpl, TypeError, SyntaxError, Error }
     vm.runInNewContext(source, context)
     await assert.rejects(context.apiRequest('/componentes/catalogo'), message)
   }

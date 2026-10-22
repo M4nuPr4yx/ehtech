@@ -24,7 +24,7 @@ A licença MIT publicada acompanha os dados em `backend/components/data/LICENSE.
 
 - Snapshot está em `backend/components/data/catalog.json`, apenas no servidor. Não altera nem popula o Neon. Evita dezenas de milhares de INSERTs em cold start da Vercel.
 - API: `/componentes/catalogo/status` e `/componentes/catalogo?tipo=processador&busca=Intel&pagina=1`. IDs são hashes estáveis de categoria, nome e especificações, não IDs numéricos do banco. Paginação de 30 itens; busca ignora acentos e exige todos os termos. A pesquisa inclui valores das especificações.
-- A tela `/compatibilidade` usa esse catálogo e `/componentes/ia/analisar`, sem motor manual. BIOS muda conforme fabricante, por isso aceita letras/números/ponto/hífen/espaço; o site não lê BIOS do aparelho.
+- A tela /compatibilidade usa esse catálogo com /componentes/verificar-basico (regras sem IA/banco) e /componentes/ia/analisar (complemento opcional). As regras não inventam campos ausentes ou variantes; BIOS fora das listas revisadas permanece não verificada. BIOS pode conter letras/números/ponto/hífen/espaço; o site não lê a BIOS do aparelho.
 - O catálogo revisado `/componentes` e painel `/admin/componentes` permanecem separados para preservar associações em anúncios e passaportes, permissões e revisão humana. Não marque automaticamente os 42 mil registros comunitários como verificados.
 - Importação de passaporte busca correspondência exata por nome no snapshot. Registros manuais, códigos não disponíveis ou variantes ambíguas são avisados e exigem seleção. Não altera o equipamento original.
 

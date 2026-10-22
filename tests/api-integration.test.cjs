@@ -5,13 +5,9 @@ const os = require('node:os')
 const path = require('node:path')
 const crypto = require('node:crypto')
 
-test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1', timeout: 120000 }, async t => {
-  const mysql = require('mysql2/promise')
-  const config = require('./helpers/mysql-config.cjs').mysqlTestConfig()
-  const database = `ehtech_test_${process.pid}_${Date.now()}`
-  assert.match(database, /^ehtech_test_\d+_\d+$/)
+test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL' : 'MySQL/MariaDB'} isolado`, { skip: process.env.RUN_DB_TESTS !== '1', timeout: 180000 }, async t => {
+  const fixture = await require('./helpers/database-fixture.cjs').isolatedDatabase()
   const uploads = fs.mkdtempSync(path.join(os.tmpdir(), 'ehtech-test-uploads-'))
-  const adminConnection = await mysql.createConnection(config)
   let pool, server
   const deliveries = []
   const nodemailer = require(require.resolve('nodemailer', { paths: [path.join(__dirname, '../backend')] }))
@@ -34,9 +30,8 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
     .map(([method, operation]) => ({ method: method.toUpperCase(), route, operation, regex: new RegExp('^' + route.replace(/\{[^}]+\}/g, '[^/]+') + '$') })))
     .sort((a, b) => Number(a.route.includes('{')) - Number(b.route.includes('{')))
   try {
-    await adminConnection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`)
-    for (const key of ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRESQL_URL', 'MYSQL_URL', 'CLEARDB_DATABASE_URL', 'PGHOST', 'VERCEL']) delete process.env[key]
-    Object.assign(process.env, { NODE_ENV: 'test', DB_HOST: config.host, DB_PORT: String(config.port), DB_USER: config.user, DB_PASSWORD: config.password, DB_DATABASE: database, DB_SSL: 'false', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, SMTP_HOST: 'test.invalid', SMTP_USER: 'test@example.invalid', FRONTEND_URL: 'http://localhost:3001' })
+    for (const key of ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRESQL_URL', 'MYSQL_URL', 'CLEARDB_DATABASE_URL', 'PGHOST', 'VERCEL', 'BLOB_READ_WRITE_TOKEN']) process.env[key] = ''
+    Object.assign(process.env, { ...fixture.environment, NODE_ENV: 'test', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, SMTP_HOST: 'test.invalid', SMTP_USER: 'test@example.invalid', FRONTEND_URL: 'http://localhost:3001' })
     process.env.COMPAT_AI_PROVIDER = 'disabled'
     const app = require('../backend/index')
     pool = require('../backend/db')
@@ -44,8 +39,9 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       // Reproduz o schema antigo distribuído no repositório.
       await pool.execute(`CREATE TABLE produtos (id_produto INT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(255), descricao TEXT, preco DECIMAL(10,2), estoque INT, categoria VARCHAR(60), imagem TEXT, vendedor VARCHAR(255), vendedor_id INT, data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`)
       server = await app.startServer({ port: 0 })
+      await require('../backend/database/trust').initializeTrust(pool)
       assert.equal(await app.startServer({ port: 0 }), server)
-      const [columns] = await pool.query('SHOW COLUMNS FROM produtos')
+      const [columns] = fixture.driver === 'postgres' ? await pool.execute('SELECT column_name AS "Field" FROM information_schema.columns WHERE table_schema = ? AND table_name = ?', ['public', 'produtos']) : await pool.query('SHOW COLUMNS FROM produtos')
       assert.ok(columns.some(column => column.Field === 'status_aprovacao'))
       assert.ok(columns.some(column => column.Field === 'componente_id'))
     })
@@ -111,6 +107,8 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       for (const method of ['PUT', 'DELETE']) await request(method, '/admin/users/999999', { token: users.admin.token, body: { email: 'missing@gmail.com', role: 'user' }, expected: 404 })
       await request('PUT', '/admin/users/999999/senha', { token: users.admin.token, body: { novaSenha: password }, expected: 404 })
       await request('PUT', `/admin/users/${users.other.id}/senha`, { token: users.admin.token, body: { novaSenha: password } })
+      await request('GET', '/perfil', { token: users.other.token, expected: 403 })
+      users.other.token = (await request('POST', '/login', { body: { email: users.other.email, senha: password } })).token
     })
 
     let components
@@ -162,10 +160,16 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       productId = (await request('POST', '/produtos', { token: users.seller.token, body: product, expected: 201 })).id
       assert.ok(productId)
       assert.equal((await request('GET', '/produtos')).length, 0)
+      await request('GET', `/produtos/${productId}`, { expected: 404 })
+      await request('GET', `/produtos/${productId}`, { token: users.buyer.token, expected: 404 })
+      assert.equal((await request('GET', `/produtos/${productId}`, { token: users.seller.token })).id_produto, productId)
+      assert.equal((await request('GET', '/produtos/mapa')).itens.length, 0)
       assert.equal((await request('GET', '/produtos/meus', { token: users.seller.token })).length, 1)
       assert.equal((await request('GET', '/admin/produtos', { token: users.admin.token })).length, 1)
       await request('PUT', `/admin/produtos/${productId}/aprovacao`, { token: users.admin.token, body: { status: 'aprovado' } })
       assert.equal((await request('GET', '/produtos')).length, 1)
+      assert.equal((await request('GET', '/produtos/mapa?pagina=1')).itens[0].id_produto, productId)
+      await request('GET', '/produtos/mapa?pagina=0', { expected: 400 })
       const catalog = await request('GET', '/produtos/catalogo?search=Notebook&categoria=notebooks&precoMin=100&precoMax=2000&ordenacao=menor-preco')
       assert.equal(catalog.total, 1)
       assert.equal(Number(catalog.items[0].preco), product.preco)
@@ -199,13 +203,22 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       await request('PUT', '/perfil/senha', { token: users.buyer.token, body: { senhaAtual: {}, novaSenha: password }, expected: 400 })
       await request('POST', '/esqueci-senha', { body: { email: [users.buyer.email] }, expected: 400 })
     })
+    await t.test('checagem básica sem IA não depende de provedor e rejeita seleção adulterada', async () => {
+      const data = require('../backend/components/data/catalog.json').items
+      const cpu = data.find(item => item.modelo === 'AMD Ryzen 5 5600'), board = data.find(item => item.modelo === 'Asus PRIME B550M-A')
+      const body = { componentes: [cpu, board].map(item => ({ id: item.id, quantidade: 1 })), bios: '2423' }
+      const checked = await request('POST', '/componentes/verificar-basico', { body })
+      assert.equal(checked.metodo, 'regras_locais'); assert.equal(checked.status, 'nao_verificado')
+      assert.equal(checked.verificacoes.find(item => item.codigo === 'socket').status, 'compativel')
+      await request('POST', '/componentes/verificar-basico', { body: { ...body, prompt: 'injetado' }, expected: 400 })
+    })
     await t.test('avaliações de produtos e reputação do vendedor', async () => {
       await request('POST', '/avaliacoes', { token: users.seller.token, body: { produtoId: productId, nota: 5 }, expected: 400 })
       await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: productId, nota: 4.5 }, expected: 400 })
-      await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: productId, nota: 5, comentario: 'Avaliação de teste' } })
-      await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: productId, nota: 4, comentario: 'Avaliação atualizada' } })
-      assert.equal((await request('GET', `/avaliacoes/produto/${productId}`)).total, 1)
-      assert.equal(Number((await request('GET', `/avaliacoes/usuario/${users.seller.id}`)).media), 4)
+      await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: productId, nota: 5, comentario: 'Sem compra concluída' }, expected: 403 })
+      assert.equal((await request('GET', `/avaliacoes/elegibilidade/${productId}`, { token: users.buyer.token })).permitido, false)
+      assert.equal((await request('GET', `/avaliacoes/produto/${productId}`)).total, 0)
+      assert.equal(Number((await request('GET', `/avaliacoes/usuario/${users.seller.id}`)).media), 0)
     })
     await t.test('consulta autenticada de CEP permite completar manualmente em falhas', async cepTest => {
       const originalFetch = globalThis.fetch
@@ -405,9 +418,19 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
         await update(first.grupo_id, users.seller.token, { acao: 'receber', versao: 3 }, 403)
         const partial = await update(first.grupo_id, users.buyer.token, { acao: 'receber', versao: 3 })
         assert.equal(partial.status, 'em_entrega')
+        await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: ids[0], nota: 5 }, expected: 403 })
         const complete = await update(second.grupo_id, users.buyer.token, { acao: 'receber', versao: 5 })
         assert.equal(complete.status, 'concluido'); assert.equal(complete.status_pagamento, 'nao_iniciado')
         assert.ok(complete.entregas.every(item => item.estado === 'recebido'))
+        assert.equal((await request('GET', `/avaliacoes/elegibilidade/${ids[0]}`, { token: users.buyer.token })).permitido, true)
+        await request('POST', '/avaliacoes', { token: users.admin.token, body: { produtoId: ids[0], nota: 5 }, expected: 403 })
+        await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: ids[0], nota: 5, comentario: 'Compra concluída de teste' } })
+        await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: ids[0], nota: 4, comentario: 'Avaliação atualizada' } })
+        await pool.execute('INSERT INTO avaliacoes (produto_id, avaliador_id, nota, comentario) VALUES (?, ?, 1, ?)', [ids[0], users.admin.id, 'Histórica sem compra'])
+        const reviews = await request('GET', `/avaliacoes/produto/${ids[0]}`)
+        assert.equal(reviews.total, 1); assert.equal(Number(reviews.media), 4); assert.equal(reviews.avaliacoes.length, 2)
+        assert.equal(reviews.avaliacoes.filter(item => item.compra_verificada).length, 1)
+        assert.equal(Number((await request('GET', `/avaliacoes/usuario/${users.seller.id}`)).media), 4)
         await update(second.grupo_id, users.buyer.token, { acao: 'receber', versao: 6 }, 409)
         const history = (await request('GET', '/pedidos', { token: users.buyer.token })).find(item => item.id_pedido === order.id_pedido)
         assert.equal(history.status, 'concluido'); assert.equal(history.total, 312.5)
@@ -448,6 +471,31 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       assert.ok((await request('GET', '/notificacoes', { token: users.seller.token })).every(item => item.lida))
     })
 
+    await t.test('chat pagina histórico, retorna novidades e limita recibos sem vazar terceiros', async () => {
+      const ids = []
+      for (let index = 0; index < 125; index++) {
+        const [row] = await pool.execute('INSERT INTO mensagens (remetente_id, destinatario_id, conteudo) VALUES (?, ?, ?)', [users.other.id, users.admin.id, `Mensagem fictícia paginada ${index}`])
+        ids.push(Number(row.insertId))
+      }
+      const route = `/mensagens/${users.other.id}`
+      const recent = await request('GET', route, { token: users.admin.token })
+      assert.equal(recent.mensagens.length, 40); assert.equal(recent.mensagens[0].id, ids[85]); assert.equal(recent.paginacao.tem_anteriores, true)
+      const older = await request('GET', route + '?antes=' + recent.paginacao.cursor_anterior, { token: users.admin.token })
+      assert.equal(older.mensagens.length, 40); assert.equal(older.mensagens.at(-1).id, ids[84])
+      assert.equal(new Set([...older.mensagens, ...recent.mensagens].map(item => item.id)).size, 80)
+      const empty = await request('GET', route + '?depois=' + recent.paginacao.cursor_posterior, { token: users.admin.token })
+      assert.equal(empty.mensagens.length, 0)
+      const [inserted] = await pool.execute('INSERT INTO mensagens (remetente_id, destinatario_id, conteudo) VALUES (?, ?, ?)', [users.other.id, users.admin.id, 'Nova mensagem isolada'])
+      const delta = await request('GET', route + '?depois=' + recent.paginacao.cursor_posterior, { token: users.admin.token })
+      assert.equal(delta.mensagens.length, 1); assert.equal(delta.mensagens[0].id, Number(inserted.insertId))
+      await request('PUT', route + '/lidas', { token: users.admin.token, body: { ate_id: ids[124] } })
+      const receipt = await request('GET', `/mensagens/${users.admin.id}?depois=${inserted.insertId}`, { token: users.other.token })
+      assert.equal(receipt.lidas_ate, ids[124])
+      for (const query of ['limit=101', 'antes=0', 'antes=1&depois=2']) await request('GET', route + '?' + query, { token: users.admin.token, expected: 400 })
+      const stranger = await request('GET', route, { token: users.buyer.token })
+      assert.ok(stranger.mensagens.every(item => Number(item.remetente_id) === users.buyer.id || Number(item.destinatario_id) === users.buyer.id))
+      t.diagnostic('Histórico com 125 mensagens: resposta inicial limitada a 40; polling sem novidades retornou zero e após inserção retornou uma mensagem.')
+    })
     await t.test('busca de pessoas e chat direto sem anúncio preservam dados privados e participantes', async () => {
       const email = 'pessoa.nova.test@gmail.com'
       await request('POST', '/cadastro', { body: { username: 'pessoa_nova', email, senha: password, confirmarSenha: password }, expected: 201 })
@@ -695,7 +743,8 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       await request('PUT', `/produtos/${announced.id}`, { token, body: { origem_endereco_id: sellerOrigin.id, origem_versao: sellerOrigin.versao }, expected: 409 })
       await request('POST', `/enderecos/${sellerOrigin.id}/confirmar`, { token, body: { versao: updatedAddress.versao } })
       await request('PUT', `/produtos/${announced.id}`, { token, body: { origem_endereco_id: sellerOrigin.id, origem_versao: updatedAddress.versao } })
-      assert.equal((await request('GET', `/produtos/${announced.id}`)).status_aprovacao, 'pendente')
+      await request('GET', `/produtos/${announced.id}`, { expected: 404 })
+      assert.equal((await request('GET', `/produtos/${announced.id}`, { token })).status_aprovacao, 'pendente')
       await request('PUT', `/admin/produtos/${announced.id}/aprovacao`, { token: users.admin.token, body: { status: 'aprovado' } })
       await request('GET', `/checkout/${checkout.id}`, { token: users.buyer.token, expected: 409 })
       const buyerAddress = (await request('GET', '/enderecos', { token: users.buyer.token }))[0]
@@ -748,24 +797,85 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
       await request('DELETE', `/upload/imagem/${single.filename}`, { token: users.seller.token, expected: 404 })
       await request('PUT', '/perfil/foto', { token: users.buyer.token, form: makeForm('foto') })
     })
+    await t.test('favoritos, bloqueios, denúncia privada e histórico de moderação', async () => {
+      const buyer = users.buyer.token, seller = users.seller.token, other = users.other.token, admin = users.admin.token
+      await request('PUT', '/favoritos/999999', { token: buyer, expected: 404 })
+      await request('PUT', `/favoritos/${productId}`, { token: buyer })
+      await request('PUT', `/favoritos/${productId}`, { token: buyer })
+      const favorites = await request('GET', '/favoritos', { token: buyer })
+      assert.equal(favorites.itens.length, 1)
+      assert.ok(!('origem_snapshot' in favorites.itens[0]))
+      assert.equal((await request('GET', '/favoritos', { token: other })).itens.length, 0)
+      await request('DELETE', `/favoritos/${productId}`, { token: other })
+      assert.equal((await request('GET', '/favoritos', { token: buyer })).itens.length, 1)
+      await request('DELETE', `/favoritos/${productId}`, { token: buyer })
+      assert.equal((await request('GET', '/favoritos', { token: buyer })).itens.length, 0)
+      await request('PUT', `/bloqueios/${users.buyer.id}`, { token: buyer, expected: 400 })
+      await request('PUT', '/bloqueios/999999', { token: buyer, expected: 404 })
+      await request('PUT', `/bloqueios/${users.seller.id}`, { token: buyer })
+      await request('PUT', `/bloqueios/${users.seller.id}`, { token: buyer })
+      assert.equal((await request('GET', '/bloqueios', { token: buyer })).itens.length, 1)
+      assert.equal((await request('GET', '/bloqueios', { token: other })).itens.length, 0)
+      await request('POST', '/mensagens', { token: seller, body: { destinatarioId: users.buyer.id, conteudo: 'Bloqueado para o comprador' }, expected: 403 })
+      await request('POST', '/mensagens', { token: buyer, body: { destinatarioId: users.seller.id, conteudo: 'Bloqueado para o vendedor' }, expected: 403 })
+      await request('DELETE', `/bloqueios/${users.seller.id}`, { token: other })
+      await request('POST', '/mensagens', { token: seller, body: { destinatarioId: users.buyer.id, conteudo: 'Permanece bloqueado' }, expected: 403 })
+      await request('DELETE', `/bloqueios/${users.seller.id}`, { token: buyer })
+      const sent = await request('POST', '/mensagens', { token: seller, body: { destinatarioId: users.buyer.id, conteudo: 'Mensagem fictícia para moderação' }, expected: 201 })
+      const report = { tipo: 'mensagem', alvo_id: sent.id, motivo: 'spam', detalhes: 'Descrição fictícia para teste de moderação.' }
+      await request('POST', '/denuncias', { token: other, body: report, expected: 404 })
+      await request('POST', '/denuncias', { token: buyer, body: { ...report, motivo: 'invalido' }, expected: 400 })
+      const created = await request('POST', '/denuncias', { token: buyer, body: report, expected: 201 })
+      await request('POST', '/denuncias', { token: buyer, body: report, expected: 409 })
+      await request('POST', '/denuncias', { token: buyer, body: { ...report, tipo: 'produto', alvo_id: productId }, expected: 201 })
+      await request('POST', '/denuncias', { token: buyer, body: { ...report, tipo: 'usuario', alvo_id: users.seller.id }, expected: 201 })
+      await request('GET', '/admin/denuncias', { token: buyer, expected: 403 })
+      await request('PATCH', `/admin/denuncias/${created.id}`, { token: buyer, body: { status: 'resolvida', justificativa: 'Tentativa sem permissão' }, expected: 403 })
+      await request('GET', '/admin/denuncias?status=invalido', { token: admin, expected: 400 })
+      const queue = await request('GET', '/admin/denuncias', { token: admin })
+      assert.equal(queue.itens.length, 3)
+      assert.ok(queue.itens.find(item => item.id === created.id).evidencia.includes('Mensagem fictícia'))
+      await request('PATCH', `/admin/denuncias/${created.id}`, { token: admin, body: { status: 'em_analise', justificativa: 'Iniciada revisão da mensagem recebida.' } })
+      await request('PATCH', `/admin/denuncias/${created.id}`, { token: admin, body: { status: 'resolvida', justificativa: 'Revisão concluída no ambiente de teste.' } })
+      const resolved = await request('GET', '/admin/denuncias?status=resolvida', { token: admin })
+      assert.equal(resolved.itens[0].historico.length, 2)
+      assert.ok(resolved.itens[0].historico.every(item => Number(item.moderador_id) === users.admin.id))
+      await request('GET', `/mensagens/${users.seller.id}`, { token: buyer })
+    })
+    await t.test('troca administrativa revoga JWT comum e administrativo da mesma conta', async () => {
+      const ordinary = users.admin.token
+      const administrative = (await request('POST', '/admin/login', { body: { email: users.admin.email, senha: password } })).token
+      await request('PUT', `/admin/users/${users.admin.id}/senha`, { token: administrative, body: { novaSenha: password } })
+      await request('GET', '/admin/sessao', { token: administrative, expected: 403 })
+      await request('GET', '/perfil', { token: ordinary, expected: 403 })
+      users.admin.token = (await request('POST', '/admin/login', { body: { email: users.admin.email, senha: password } })).token
+      await request('GET', '/admin/sessao', { token: users.admin.token })
+    })
     await t.test('perfil privado/público, alteração de senha e e-mail', async () => {
       await request('PUT', '/perfil', { token: users.buyer.token, body: { nome: 'Cliente de teste' } })
       assert.equal((await request('GET', '/perfil', { token: users.buyer.token })).nome, 'Cliente de teste')
       const publicProfile = await request('GET', `/usuarios/${users.buyer.id}/publico`)
       assert.ok(!('email' in publicProfile) && !('senha' in publicProfile))
       await request('PUT', '/perfil/senha', { token: users.buyer.token, body: { senhaAtual: password, novaSenha: 'Changed-Password-2026' } })
+      await request('GET', '/perfil', { token: users.buyer.token, expected: 403 })
+      await request('GET', '/perfil', { token: users.seller.token })
+      users.buyer.token = (await request('POST', '/login', { body: { email: users.buyer.email, senha: 'Changed-Password-2026' } })).token
       await request('PUT', '/perfil/email', { token: users.buyer.token, body: { novoEmail: 'buyer.updated.test@gmail.com', senha: 'Changed-Password-2026' } })
       users.buyer.email = 'buyer.updated.test@gmail.com'
       await request('GET', '/perfil', { token: users.buyer.token, expected: 403 })
     })
     await t.test('recuperação de senha usa link correto e token de uso único; e-mail interceptado localmente', async () => {
+      const oldToken = (await request('POST', '/login', { body: { email: users.buyer.email, senha: 'Changed-Password-2026' } })).token
       await request('POST', '/esqueci-senha', { body: { email: users.buyer.email } })
       assert.equal(deliveries.length, 1)
       const link = deliveries[0].html.match(/href="([^"]+)"/)[1]
       assert.ok(link.startsWith('http://localhost:3001/redefinir-senha?token='))
       const token = new URL(link).searchParams.get('token')
       assert.equal((await request('GET', `/verificar-token/${token}`)).valido, true)
-      await request('POST', '/redefinir-senha', { body: { token, novaSenha: password } })
+      const resets = await Promise.all([1, 2].map(() => fetch(origin + '/redefinir-senha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, novaSenha: password }) })))
+      assert.deepEqual(resets.map(response => response.status).sort(), [200, 400])
+      for (const response of resets) { records.push({ method: 'POST', route: '/redefinir-senha', status: response.status, expected: response.status }); await response.json() }
+      await request('GET', '/perfil', { token: oldToken, expected: 403 })
       assert.equal((await request('GET', `/verificar-token/${token}`)).valido, false)
       await request('POST', '/redefinir-senha', { body: { token, novaSenha: password }, expected: 400 })
       assert.ok((await request('POST', '/login', { body: { email: users.buyer.email, senha: password } })).token)
@@ -787,11 +897,10 @@ test('API completa com MariaDB isolado', { skip: process.env.RUN_DB_TESTS !== '1
   } finally {
     const report = { date: new Date().toISOString(), operations: covered.size, requests: records.length, failures: records.filter(item => item.status !== item.expected), records }
     fs.mkdirSync(path.join(__dirname, '../scratch/audit'), { recursive: true })
-    fs.writeFileSync(path.join(__dirname, '../scratch/audit/api-results.json'), JSON.stringify(report, null, 2))
+    fs.writeFileSync(path.join(__dirname, `../scratch/audit/api-results-${fixture.driver}.json`), JSON.stringify(report, null, 2))
     if (server) await new Promise(resolve => server.close(resolve))
     if (pool) await pool.end()
-    await adminConnection.query(`DROP DATABASE IF EXISTS \`${database}\``)
-    await adminConnection.end()
+    await fixture.cleanup()
     // Apenas o diretório temporário criado por esta execução pode ser removido.
     assert.ok(path.resolve(uploads).startsWith(path.resolve(os.tmpdir()) + path.sep + 'ehtech-test-uploads-'))
     fs.rmSync(uploads, { recursive: true, force: true })

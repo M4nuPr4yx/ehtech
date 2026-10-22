@@ -1,8 +1,11 @@
 'use client';
+import ProfileSecurity from './ProfileSecurity.js';
+
+import { apiResponse } from '../../lib/api-request.js';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getApiUrl } from '../../lib/api';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
 import AddressBook, { AddressDetails } from '../complements/AddressBook';
@@ -66,7 +69,7 @@ export default function Perfil() {
         router.replace('/?login=1&next=%2Fperfil');
         return;
       }
-      const res = await fetch(getApiUrl('/perfil'), {
+      const res = await apiResponse('/perfil', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -88,7 +91,7 @@ export default function Perfil() {
     setLoadingProducts(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl('/produtos/meus'), {
+      const res = await apiResponse('/produtos/meus', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -109,8 +112,8 @@ export default function Perfil() {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       const [servicesResponse, ordersResponse] = await Promise.all([
-        fetch(getApiUrl('/contratacoes'), { headers, cache: 'no-store' }),
-        fetch(getApiUrl('/pedidos'), { headers, cache: 'no-store' })
+        apiResponse('/contratacoes', { headers, cache: 'no-store' }),
+        apiResponse('/pedidos', { headers, cache: 'no-store' })
       ]);
       const [servicesData, ordersData] = await Promise.all([servicesResponse.json(), ordersResponse.json()]);
       if (!servicesResponse.ok) throw new Error(servicesData.mensagem || 'Não foi possível carregar os serviços.');
@@ -176,7 +179,7 @@ const handleLogout = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl('/perfil/senha'), {
+      const res = await apiResponse('/perfil/senha', {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -212,7 +215,7 @@ const handleChangeEmail = async (e) => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl('/perfil/email'), {
+      const res = await apiResponse('/perfil/email', {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -245,7 +248,7 @@ const handleChangeEmail = async (e) => {
     formData.append('imagem', file);
 
     const token = localStorage.getItem('token');
-    const res = await fetch(getApiUrl('/upload/imagem'), {
+    const res = await apiResponse('/upload/imagem', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -283,7 +286,7 @@ const handleChangeEmail = async (e) => {
 
       // Enviar URL para o backend salvar no banco
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl('/perfil/foto'), {
+      const res = await apiResponse('/perfil/foto', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -313,7 +316,7 @@ const handleChangeEmail = async (e) => {
   const handleRemovePhoto = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(getApiUrl('/perfil/foto'), {
+      const res = await apiResponse('/perfil/foto', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -467,82 +470,7 @@ const handleChangeEmail = async (e) => {
           )}
 
           {/* Tab: Segurança */}
-          {activeTab === 'seguranca' && (
-            <div className="space-y-8">
-              {/* Alterar Senha */}
-              <div>
-                <h2 className="text-xl font-bold text-foreground mb-4">Alterar Senha</h2>
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                  <label className="block text-sm font-medium"><span className="block mb-2">Senha atual</span><input
-                    type="password"
-                    placeholder="Senha atual"
-                    value={senhaAtual}
-                    onChange={(e) => setSenhaAtual(e.target.value)}
-                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
-                    required
-                  /></label>
-                  <label className="block text-sm font-medium"><span className="block mb-2">Nova senha (mínimo 8 caracteres)</span><input
-                    type="password"
-                    placeholder="Nova senha (mínimo 8 caracteres)"
-                    minLength={8}
-                    value={novaSenha}
-                    onChange={(e) => setNovaSenha(e.target.value)}
-                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
-                    required
-                  /></label>
-                  <label className="block text-sm font-medium"><span className="block mb-2">Confirme a nova senha</span><input
-                    type="password"
-                    placeholder="Confirmar nova senha"
-                    value={confirmarSenha}
-                    onChange={(e) => setConfirmarSenha(e.target.value)}
-                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
-                    required
-                  /></label>
-                  <button
-                    type="submit"
-                    className="w-full py-4 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all"
-                  >
-                    Alterar Senha
-                  </button>
-                </form>
-              </div>
-
-              {/* Alterar Email */}
-              <div className="pt-6 border-t border-line">
-                <h2 className="text-xl font-bold text-foreground mb-4">Alterar E-mail</h2>
-                <form onSubmit={handleChangeEmail} className="space-y-4">
-                  <label className="block text-sm font-medium"><span className="block mb-2">Novo e-mail</span><input
-                    type="email"
-                    placeholder="Novo e-mail"
-                    value={novoEmail}
-                    onChange={(e) => setNovoEmail(e.target.value)}
-                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
-                    required
-                  /></label>
-                  <label className="block text-sm font-medium"><span className="block mb-2">Senha atual</span><input
-                    type="password"
-                    placeholder="Confirme sua senha"
-                    value={senhaConfimar}
-                    onChange={(e) => setSenhaConfirmar(e.target.value)}
-                    className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
-                    required
-                  /></label>
-                  <button
-                    type="submit"
-                    className="w-full py-4 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all"
-                  >
-                    Alterar E-mail
-                  </button>
-                </form>
-              </div>
-
-{message && (
-                <p className={`p-3 rounded-xl text-center font-bold ${messageType === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger-soft text-danger border border-danger'}`}>
-                  {message}
-                </p>
-              )}
-            </div>
-          )}
+          {activeTab === 'seguranca' && <ProfileSecurity message={message} messageType={messageType} handleChangePassword={handleChangePassword} senhaAtual={senhaAtual} setSenhaAtual={setSenhaAtual} novaSenha={novaSenha} setNovaSenha={setNovaSenha} confirmarSenha={confirmarSenha} setConfirmarSenha={setConfirmarSenha} handleChangeEmail={handleChangeEmail} novoEmail={novoEmail} setNovoEmail={setNovoEmail} senhaConfimar={senhaConfimar} setSenhaConfirmar={setSenhaConfirmar} />}
 
           {/* Tab: Seus Produtos */}
           {activeTab === 'produtos' && (
@@ -593,7 +521,7 @@ const handleChangeEmail = async (e) => {
                             if (confirm('Tem certeza que deseja excluir este produto?')) {
                               try {
                                 const token = localStorage.getItem('token');
-                                const res = await fetch(getApiUrl(`/produtos/${produto.id_produto}`), {
+                                const res = await apiResponse(`/produtos/${produto.id_produto}`, {
                                   method: 'DELETE',
                                   headers: { 'Authorization': `Bearer ${token}` }
                                 });

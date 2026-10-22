@@ -34,6 +34,27 @@ test('migração de acordos de entrega traduz chaves e preserva idempotência no
   assert.match(queries[1], /REFERENCES pedido_entregas\(id\) ON DELETE CASCADE/)
 })
 
+test('PostgreSQL traduz favoritos, moderação e migração aditiva de sessões/avaliações', async () => {
+  const queries = [], columns = new Set()
+  class Pool {
+    async query(sql) {
+      queries.push(sql)
+      if (sql.startsWith('ALTER TABLE')) {
+        if (columns.has(sql)) throw Object.assign(new Error('duplicate column'), { code: '42701' })
+        columns.add(sql)
+      }
+      return { rows: [], rowCount: 0 }
+    }
+  }
+  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
+  const { initializeTrust } = require('../backend/database/trust')
+  await initializeTrust(pool); await initializeTrust(pool)
+  for (const sql of queries) assert.doesNotMatch(sql, /AUTO_INCREMENT|UNIQUE KEY/)
+  assert.ok(queries.some(sql => sql.includes('UNIQUE (usuario_id, produto_id)')))
+  assert.ok(queries.some(sql => sql.includes('session_version INT NOT NULL DEFAULT 0')))
+  assert.ok(queries.some(sql => sql.includes('pedido_id INT NULL')))
+})
+
 test('PostgreSQL traduz migração de endereços e checkout com booleanos e snapshots', async () => {
   const queries = []
   class Pool {

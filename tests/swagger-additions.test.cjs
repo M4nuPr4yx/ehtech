@@ -27,6 +27,7 @@ test('documenta todos os endpoints de negócio Express, sem inventar rotas', () 
   const expected = new Set()
   for (const [file, prefix, receiver] of [
     ['index.js', '', 'app'],
+    ...['auth', 'admin', 'notifications', 'products', 'reviews', 'profile', 'recovery', 'messages'].map(name => [`routes/${name}.js`, '', 'router']),
     ['routes/services.js', '/servicos', 'router'],
     ['routes/serviceContracts.js', '/contratacoes', 'router'],
     ['routes/orders.js', '/pedidos', 'router'],
@@ -37,7 +38,8 @@ test('documenta todos os endpoints de negócio Express, sem inventar rotas', () 
     ['routes/combos.js', '/combos', 'router'],
     ['routes/missions.js', '/missoes', 'router'],
     ['routes/components.js', '/componentes', 'router'],
-    ['routes/upload.js', '/upload', 'router']
+    ['routes/upload.js', '/upload', 'router'],
+    ['routes/trust.js', '', 'router']
   ]) {
     const source = fs.readFileSync(path.join(__dirname, '../backend', file), 'utf8')
     const matcher = new RegExp(receiver + '\\.(' + methods.join('|') + ')\\(\\s*["\x27]([^"\x27]+)["\x27]', 'g')

@@ -1,6 +1,6 @@
-# Compatibilidade somente com IA
+# Compatibilidade com IA opcional
 
-A tela `/compatibilidade` pesquisa o [catálogo ampliado](CATALOGO_COMPONENTES.md) e envia a seleção diretamente à IA. O resultado apresenta resumo, pontos de atenção e próximos passos. Não executa nem exibe a verificação manual anterior. As rotas legadas `/componentes/verificar` e `/componentes/ia/explicar` continuam disponíveis para integrações antigas, separadas do novo fluxo.
+A tela /compatibilidade pesquisa o catálogo ampliado e permite verificar requisitos básicos sem chave de IA ou banco em /componentes/verificar-basico. Complementar com IA envia a seleção ao provedor configurado e acrescenta resumo, pontos de atenção e próximos passos. A análise adicional é independente e pode errar. Regras, fontes e limites continuam visíveis. As rotas /componentes/verificar e /componentes/ia/explicar permanecem disponíveis para integrações anteriores.
 
 ## Configuração privada
 

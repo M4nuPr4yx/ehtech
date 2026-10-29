@@ -144,6 +144,7 @@ export default function Perfil() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('aba') === 'enderecos') setActiveTab('enderecos');
+    if (params.get('aba') === 'seguranca') setActiveTab('seguranca');
     if (params.get('aba') === 'historico') {
       setActiveTab('historico');
       if (params.get('pedido') === '1') {

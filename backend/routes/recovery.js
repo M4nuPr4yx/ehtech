@@ -120,7 +120,7 @@ router.post('/redefinir-senha', passwordResetLimiter, async (req, res) => {
     const changed = await require('../addresses').transaction(pool, async connection => {
       const [rows] = await connection.execute('SELECT id, email FROM password_resets WHERE token_hash = ? AND expires_at > NOW() FOR UPDATE', [tokenHash])
       if (!rows.length) return false
-      await connection.execute('UPDATE usuarios SET senha = ?, session_version = session_version + 1 WHERE email = ?', [hash, rows[0].email])
+      await connection.execute('UPDATE usuarios SET senha = ?, senha_definida = TRUE, session_version = session_version + 1 WHERE email = ?', [hash, rows[0].email])
       await connection.execute('DELETE FROM password_resets WHERE email = ?', [rows[0].email])
       return true
     })

@@ -5,7 +5,14 @@ export const SERVICE_CATEGORIES = [
   ['suporte', 'Suporte técnico'],
   ['redes', 'Redes e Wi-Fi'],
   ['dados', 'Dados e backup'],
-  ['consultoria', 'Consultoria']
+  ['consultoria', 'Consultoria'],
+  ['programacao', 'Programação e sites'],
+  ['design', 'Design e ilustração'],
+  ['audiovisual', 'Vídeo e áudio'],
+  ['fotografia', 'Fotografia'],
+  ['marketing', 'Marketing'],
+  ['redacao', 'Redação e tradução'],
+  ['aulas', 'Aulas e mentoria']
 ]
 
 export const MODALITIES = [

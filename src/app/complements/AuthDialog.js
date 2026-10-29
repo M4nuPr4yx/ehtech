@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import GoogleAccess from './GoogleAccess';
 export default function AuthDialog({ open, authDialogRef, activeTab, setActiveTab, setMessage, setModalOpen, message, username, setUsername, email, setEmail, senha, setSenha, confirmarSenha, setConfirmarSenha, handleSubmit }) {
 if (!open) return null;
 return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
@@ -122,6 +123,7 @@ return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-b
                 {activeTab === 'login' ? 'Entrar' : 'Cadastrar'}
               </button>
             </form>
+            <GoogleAccess />
           </div>
         </div>);
 }

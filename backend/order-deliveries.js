@@ -111,7 +111,7 @@ async function ensureDeliveries(connection, order, items, records = []) {
   }
 }
 
-async function changeDelivery(connection, orderId, group, userId, input) {
+async function changeDelivery(connection, orderId, group, userId, input, { codeSellerId = null } = {}) {
   if (typeof group !== 'string' || !/^[1-9]\d*:[1-9]\d*$/.test(group) || group.length > 80) throw problem(400, 'Grupo de entrega inválido.')
   const loaded = await readOrder(connection, orderId, userId, { lock: true })
   const current = loaded.view.entregas.find(item => item.grupo_id === group)
@@ -123,11 +123,12 @@ async function changeDelivery(connection, orderId, group, userId, input) {
   const data = Object.fromEntries(['proposta', 'acordo', 'despacho', 'proposta_em', 'aceito_em', 'recebido_em'].map(key => [key, next[key]]))
   const [updated] = await connection.execute('UPDATE pedido_entregas SET estado = ?, versao = ?, dados = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND versao = ?', [next.estado, next.versao, JSON.stringify(data), rows[0].id, current.versao])
   if (Number(updated.affectedRows) !== 1) throw problem(409, 'A entrega mudou. Recarregue antes de continuar.')
-  await connection.execute('INSERT INTO pedido_entrega_eventos (entrega_id, autor_id, acao, versao, dados) VALUES (?, ?, ?, ?, ?)', [rows[0].id, userId, input.acao, next.versao, JSON.stringify({ estado: next.estado, ...data })])
+  await connection.execute('INSERT INTO pedido_entrega_eventos (entrega_id, autor_id, acao, versao, dados) VALUES (?, ?, ?, ?, ?)', [rows[0].id, codeSellerId || userId, input.acao, next.versao, JSON.stringify({ estado: next.estado, ...data, ...(codeSellerId ? { confirmacao: 'codigo_do_comprador' } : {}) })])
+  if (input.acao === 'receber') await connection.execute('DELETE FROM pedido_recebimento_codigos WHERE entrega_id = ?', [rows[0].id])
   const complete = await readOrder(connection, loaded.order.id_pedido, loaded.order.comprador_id)
   await connection.execute('UPDATE pedidos_produto SET status = ?, total = ?, frete = ?, updated_at = CURRENT_TIMESTAMP WHERE id_pedido = ?', [complete.view.status, complete.view.total_parcial, complete.view.frete_conhecido, loaded.order.id_pedido])
   const descriptions = { propor: 'O vendedor enviou uma proposta de entrega. Revise valor, modalidade e prazo antes de aceitar.', aceitar: 'O comprador aceitou a proposta de entrega. O acordo foi registrado; o pagamento continua externo.', recusar: 'O comprador recusou a proposta de entrega. Envie uma nova proposta após combinar pelo chat.', despachar: next.estado === 'pronto_retirada' ? 'O vendedor informou que o produto está pronto para retirada.' : 'O vendedor informou o envio do produto.', receber: 'O comprador confirmou o recebimento. Esta entrega foi concluída.' }
-  const recipient = ['propor', 'despachar'].includes(input.acao) ? loaded.order.comprador_id : current.vendedor_id
+  const recipient = (codeSellerId || ['propor', 'despachar'].includes(input.acao)) ? loaded.order.comprador_id : current.vendedor_id
   await connection.execute('INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, NULL, ?, ?)', [recipient, `pedido_${input.acao}`, `Pedido #${loaded.order.id_pedido}: ${descriptions[input.acao]}`])
   return (await readOrder(connection, loaded.order.id_pedido, userId, { events: true })).view
 }

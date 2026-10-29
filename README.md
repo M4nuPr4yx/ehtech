@@ -40,7 +40,7 @@ Cadastre sua conta pelo site. O banco novo não inclui usuários nem senhas padr
 npm run admin:promote -- --email seu-email@example.com
 ```
 
-O comando promove uma conta já cadastrada no banco configurado. Acesse `/admin` e entre com a senha dessa conta. Reinicie o backend para criar os serviços de exemplo vinculados ao administrador. Anúncios novos ficam pendentes até aprovação.
+O comando promove uma conta já cadastrada no banco configurado. Acesse `/admin` e entre com a senha dessa conta. Produtos e serviços novos ficam pendentes até aprovação. Usuários publicam seus serviços em `/meus-servicos`; a administração analisa em `/admin/servicos`. O sistema não cria mais serviços de exemplo automaticamente. Veja [SERVICOS_DA_COMUNIDADE.md](docs/SERVICOS_DA_COMUNIDADE.md).
 
 Opcionalmente, em uma base **local de demonstração chamada `ehtech`**, após `db:init`:
 
@@ -52,6 +52,7 @@ Esse seed cria/atualiza 50 contas (`usuario1@gmail.com` a `usuario50@gmail.com`,
 
 ## Configuração opcional
 
+- **Login Google:** o botão “Logar com Google” abre a escolha de conta e retorna com login automático. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URI` na API. Sem configuração, o botão informa a pendência e o login comum permanece disponível. Passo a passo em [LOGIN_GOOGLE.md](docs/LOGIN_GOOGLE.md).
 - **Frontend:** não precisa de `.env.local` na instalação padrão. Use `.env.example` como referência para mudar `BACKEND_URL` (destino do proxy no servidor). `NEXT_PUBLIC_API_URL` substitui `/api` no navegador; mantenha vazio para o mesmo domínio. Nunca use `NEXT_PUBLIC_*` para segredos.
 - **E-mail:** configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASS` no backend. Sem SMTP, a recuperação de senha não envia o link.
 - **Compatibilidade:** catálogo e checagem básica de requisitos funcionam sem chave de IA e sem banco. A análise adicional com IA exige um provedor configurado. Dados ausentes ou variantes ambíguas permanecem não verificados. Consulte [COMPATIBILIDADE.md](docs/COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md).
@@ -59,6 +60,8 @@ Esse seed cria/atualiza 50 contas (`usuario1@gmail.com` a `usuario50@gmail.com`,
 - **Compartilhamento:** configure `SITE_URL` no frontend com a URL pública canônica. Anúncios aprovados têm metadados próprios e HTML inicial; `/sitemap.xml` lista mapas paginados. Áreas da conta e links secretos não entram nos mapas e usam `noindex`.
 
 ## Publicar na Vercel
+
+Se o projeto já está na Vercel, siga [ATUALIZAR_VERCEL.md](docs/ATUALIZAR_VERCEL.md) para enviar as atualizações e configurar o Google preservando o banco e o armazenamento existentes.
 
 Para demonstração acadêmica, a aplicação pode usar Vercel Hobby, Neon Free, Vercel Blob público e Gemini dentro das cotas de cada serviço. O Hobby é para uso pessoal e não comercial; revise os planos antes de operar o marketplace como negócio.
 

@@ -1,9 +1,10 @@
 const { Client } = require('pg')
-async function isolatedDatabase() {
+async function isolatedDatabase(prefix = 'ehtech_test') {
+  if (!['ehtech_test', 'ehtech_e2e'].includes(prefix)) throw Error('Prefixo de base temporária inválido.')
   const driver = process.env.TEST_DB_DRIVER || 'mysql'
   if (!['mysql', 'postgres'].includes(driver)) throw Error('TEST_DB_DRIVER deve ser mysql ou postgres.')
-  const database = `ehtech_test_${process.pid}_${Date.now()}`
-  if (!/^ehtech_test_\d+_\d+$/.test(database)) throw Error('Nome de base temporária inválido.')
+  const database = `${prefix}_${process.pid}_${Date.now()}`
+  if (!/^ehtech_(test|e2e)_\d+_\d+$/.test(database)) throw Error('Nome de base temporária inválido.')
   const config = driver === 'mysql' ? require('./mysql-config.cjs').mysqlTestConfig() : {
     host: process.env.TEST_PG_HOST || '127.0.0.1', port: Number(process.env.TEST_PG_PORT || 5432),
     user: process.env.TEST_PG_USER || 'postgres', password: process.env.TEST_PG_PASSWORD || '',

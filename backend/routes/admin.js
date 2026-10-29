@@ -96,7 +96,7 @@ router.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(novaSenha, 10)
-    const [result] = await pool.execute('UPDATE usuarios SET senha = ?, session_version = session_version + 1 WHERE id_usuario = ?', [hash, numericId])
+    const [result] = await pool.execute('UPDATE usuarios SET senha = ?, senha_definida = TRUE, session_version = session_version + 1 WHERE id_usuario = ?', [hash, numericId])
     if (!result.affectedRows) return res.status(404).json({ mensagem: 'Usuário não encontrado' })
     return res.json({ mensagem: "Senha alterada com sucesso" })
   } catch (error) {

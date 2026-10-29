@@ -48,13 +48,17 @@ export default function Header() {
     const handleKey = event => {
       if (event.key === 'Escape') setModalOpen(false);
       if (event.key !== 'Tab') return;
-      const fields = [...(authDialogRef.current?.querySelectorAll('button, a[href], input, select, textarea') || [])].filter(node => !node.disabled);
+      const fields = [...(authDialogRef.current?.querySelectorAll('button, a[href], input, select, textarea, iframe') || [])].filter(node => !node.disabled);
       const first = fields[0], last = fields.at(-1);
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
+    const keepFocus = event => {
+      if (authDialogRef.current && !authDialogRef.current.contains(event.target)) authDialogRef.current.querySelector('button, input, iframe')?.focus();
+    };
     document.addEventListener('keydown', handleKey);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', handleKey); previous?.focus(); };
+    document.addEventListener('focusin', keepFocus);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', handleKey); document.removeEventListener('focusin', keepFocus); previous?.focus(); };
   }, [modalOpen]);
   const [activeTab, setActiveTab] = useState('login');
   const [username, setUsername] = useState('');
@@ -245,6 +249,19 @@ export default function Header() {
     }
   };
 
+  const completeLogin = (data) => {
+    sessionStorage.removeItem('adminToken');
+    setUserRole(null);
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('userUsername', data.username || '');
+    window.dispatchEvent(new Event('ehtech:auth-change'));
+    fetchNotifications(data.token); fetchUnreadMessages(data.token);
+    setIsLoggedIn(true); setFeedback('Login bem-sucedido!'); setModalOpen(false);
+    setUsername(''); setEmail(''); setSenha(''); setConfirmarSenha(''); setMessage('');
+    const nextPath = new URLSearchParams(window.location.search).get('next');
+    if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) router.replace(nextPath);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -268,25 +285,7 @@ export default function Header() {
       const data = await res.json();
       setMessage(data.mensagem || data.error || '');
       if (activeTab === 'login' && data.token) {
-        sessionStorage.removeItem('adminToken');
-        setUserRole(null);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userUsername', data.username || username);
-        window.dispatchEvent(new Event('ehtech:auth-change'));
-        fetchNotifications(data.token);
-        fetchUnreadMessages(data.token);
-        setIsLoggedIn(true);
-        setFeedback('Login bem-sucedido!');
-        setModalOpen(false);
-        setUsername(''); 
-        setEmail(''); 
-        setSenha('');
-        setConfirmarSenha('');
-        const nextPath = new URLSearchParams(window.location.search).get('next');
-        // Só permite destinos internos para evitar redirecionamento externo.
-        if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) {
-          router.replace(nextPath);
-        }
+        completeLogin(data);
       } else if (activeTab === 'cadastro' && res.ok) {
         setFeedback(data.mensagem || 'Cadastro realizado! Agora você pode fazer login.');
         setActiveTab('login');

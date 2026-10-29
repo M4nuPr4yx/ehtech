@@ -111,6 +111,119 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       users.other.token = (await request('POST', '/login', { body: { email: users.other.email, senha: password } })).token
     })
 
+    await t.test('Google: configuração, desafio, cadastro, vínculo com senha, replay e desvinculação', async () => {
+      const google = require('../backend/google-identity'), googleFixture = require('./helpers/google-fixture.cjs').createGoogleFixture()
+      const originalFetch = global.fetch
+      process.env.GOOGLE_CLIENT_ID = ''
+      assert.equal((await request('GET', '/auth/google/config')).habilitado, false)
+      await request('POST', '/auth/google/desafio', { body: { acao: 'entrar' }, expected: 503 })
+      process.env.GOOGLE_CLIENT_ID = googleFixture.clientId
+      const codes = new Map()
+      const mocked = t.mock.method(global, 'fetch', (url, options) => {
+        if (String(url) === 'https://www.googleapis.com/oauth2/v3/certs') return Promise.resolve(Response.json({ keys: googleFixture.keys }))
+        if (String(url) === 'https://oauth2.googleapis.com/token') {
+          const body = new URLSearchParams(options.body), code = codes.get(body.get('code')); codes.delete(body.get('code'))
+          if (!code || google.digest(body.get('code_verifier') || '') !== google.digest(code.verifier) || body.get('client_secret') !== 'redirect-test-secret' || body.get('redirect_uri') !== process.env.GOOGLE_REDIRECT_URI) return Promise.resolve(Response.json({ error: 'invalid_grant' }, { status: 400 }))
+          return Promise.resolve(Response.json({ id_token: googleFixture.token({ nonce: code.nonce, email: code.email, sub: code.sub }) }))
+        }
+        return originalFetch(url, options)
+      })
+      try {
+        await require('../backend/database/google-identity').initializeGoogleIdentity(pool)
+        assert.equal((await request('GET', '/auth/google/config')).client_id, googleFixture.clientId)
+        async function challenge(token) {
+          const response = await fetch(origin + '/auth/google/desafio', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ acao: token ? 'vincular' : 'entrar' }) })
+          assert.equal(response.status, 200); assert.match(response.headers.get('set-cookie'), /HttpOnly/i); assert.match(response.headers.get('set-cookie'), /SameSite=Lax/i)
+          covered.add('POST /auth/google/desafio')
+          return { headers: { Cookie: response.headers.get('set-cookie').split(';')[0] }, nonce: (await response.json()).nonce }
+        }
+        const ch = await challenge(), credential = googleFixture.token({ nonce: ch.nonce })
+        await request('POST', '/auth/google/entrar', { body: { credential }, expected: 401 })
+        assert.equal((await request('POST', '/auth/google/entrar', { headers: ch.headers, body: { credential } })).proxima_etapa, 'cadastro')
+        await request('POST', '/auth/google/entrar', { headers: ch.headers, body: { credential, username: 'google_new', role: 'admin' }, expected: 400 })
+        const signed = await request('POST', '/auth/google/entrar', { headers: ch.headers, body: { credential, username: 'google_new' } })
+        assert.equal((await request('GET', '/perfil', { token: signed.token })).role, 'user')
+        await request('POST', '/auth/google/entrar', { headers: ch.headers, body: { credential }, expected: 401 })
+        const account = await request('GET', '/auth/google/conta', { token: signed.token })
+        assert.deepEqual(account, { vinculado: true, senha_definida: false, habilitado: true })
+        await request('DELETE', '/auth/google/vinculo', { token: signed.token, body: { senha: password }, expected: 409 })
+        const returning = await challenge()
+        const returned = await request('POST', '/auth/google/entrar', { headers: returning.headers, body: { credential: googleFixture.token({ nonce: returning.nonce, email: 'changed@gmail.com' }) } })
+        assert.equal(returned.userId, signed.userId, 'Retorno usa sub, mesmo com e-mail Google alterado')
+        const mailCount = deliveries.length
+        await request('POST', '/esqueci-senha', { body: { email: signed.email } })
+        const recoveryLink = deliveries.at(-1).html.match(/href="([^"]+)"/)[1]
+        await request('POST', '/redefinir-senha', { body: { token: new URL(recoveryLink).searchParams.get('token'), novaSenha: password } })
+        deliveries.splice(mailCount)
+        const passwordSession = await request('POST', '/login', { body: { email: signed.email, senha: password } })
+        assert.equal((await request('GET', '/auth/google/conta', { token: passwordSession.token })).senha_definida, true)
+        const existing = await challenge(), existingCredential = googleFixture.token({ nonce: existing.nonce, email: users.buyer.email, sub: 'google-buyer' })
+        assert.equal((await request('POST', '/auth/google/entrar', { headers: existing.headers, body: { credential: existingCredential } })).proxima_etapa, 'vincular')
+        await request('POST', '/auth/google/entrar', { headers: existing.headers, body: { credential: existingCredential, senha: 'incorrect' }, expected: 401 })
+        const [attempts] = await pool.execute('SELECT tentativas FROM google_auth_desafios WHERE cookie_hash = ?', [google.digest(existing.headers.Cookie.split('=')[1])])
+        assert.equal(Number(attempts[0].tentativas), 1)
+        const linked = await request('POST', '/auth/google/entrar', { headers: existing.headers, body: { credential: existingCredential, senha: password } })
+        assert.equal(linked.userId, users.buyer.id)
+        const oldBuyer = users.buyer.token
+        await request('DELETE', '/auth/google/vinculo', { token: oldBuyer, body: { senha: password } })
+        await request('GET', '/perfil', { token: oldBuyer, expected: 403 })
+        users.buyer.token = (await request('POST', '/login', { body: { email: users.buyer.email, senha: password } })).token
+        for (const store of limiterStores) await store.resetAll()
+        const profile = await challenge(users.buyer.token)
+        const profileCredential = googleFixture.token({ nonce: profile.nonce, email: users.buyer.email, sub: 'google-buyer' })
+        await request('POST', '/auth/google/vincular', { token: users.other.token, headers: profile.headers, body: { credential: profileCredential, senha: password }, expected: 401 })
+        const completeProfile = { token: users.buyer.token, headers: profile.headers, body: { credential: profileCredential, senha: password } }
+        await request('POST', '/auth/google/vincular', completeProfile)
+        const expired = await challenge()
+        await pool.execute('UPDATE google_auth_desafios SET expira_em = 0 WHERE cookie_hash = ?', [google.digest(expired.headers.Cookie.split('=')[1])])
+        await request('POST', '/auth/google/entrar', { headers: expired.headers, body: { credential: googleFixture.token({ nonce: expired.nonce }) }, expected: 401 })
+        await request('POST', '/auth/google/desafio', { body: { acao: 'vincular' }, expected: 401 })
+        const blocked = await challenge(), blockedCredential = googleFixture.token({ nonce: blocked.nonce, email: users.other.email, sub: 'google-other' })
+        for (let attempt = 0; attempt < 5; attempt++) await request('POST', '/auth/google/entrar', { headers: blocked.headers, body: { credential: blockedCredential, senha: 'incorrect' }, expected: 401 })
+        await request('POST', '/auth/google/entrar', { headers: blocked.headers, body: { credential: blockedCredential, senha: password }, expected: 401 })
+        for (const store of limiterStores) await store.resetAll()
+        process.env.GOOGLE_CLIENT_SECRET = ''; process.env.GOOGLE_REDIRECT_URI = origin + '/api/auth/google/callback'
+        await request('POST', '/auth/google/redirecionar', { body: { acao: 'entrar' }, expected: 503 })
+        process.env.GOOGLE_CLIENT_SECRET = 'redirect-test-secret'
+        async function redirectStart(token, destination = '/pedidos') {
+          const response = await fetch(origin + '/auth/google/redirecionar', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ acao: token ? 'vincular' : 'entrar', destino: destination }) })
+          assert.equal(response.status, 200); covered.add('POST /auth/google/redirecionar')
+          const url = new URL((await response.json()).url), cookieHeader = response.headers.get('set-cookie').split(';')[0]
+          assert.equal(url.origin, 'https://accounts.google.com'); assert.equal(url.searchParams.get('prompt'), 'select_account'); assert.equal(url.searchParams.get('response_type'), 'code'); assert.ok(!url.href.includes('redirect-test-secret'))
+          const hash = google.digest(cookieHeader.split('=')[1]), [rows] = await pool.execute('SELECT verificador FROM google_oauth_fluxos WHERE cookie_hash = ?', [hash])
+          const verifier = require('../backend/google-oauth').decrypt(rows[0].verificador, process.env.API_SEGREDO, hash)
+          assert.equal(crypto.createHash('sha256').update(verifier).digest('base64url'), url.searchParams.get('code_challenge'))
+          const code = crypto.randomBytes(16).toString('hex')
+          codes.set(code, { verifier, nonce: url.searchParams.get('nonce'), email: token ? users.other.email : 'redirect-new@gmail.com', sub: token ? 'redirect-profile' : 'redirect-new' })
+          return { headers: { Cookie: cookieHeader }, state: url.searchParams.get('state'), code }
+        }
+        async function callback(flow, override = {}) {
+          const response = await fetch(origin + '/auth/google/callback?' + new URLSearchParams({ state: flow.state, code: flow.code, ...override }), { headers: flow.headers, redirect: 'manual' })
+          assert.equal(response.status, 303); assert.equal(response.headers.get('referrer-policy'), 'no-referrer'); covered.add('GET /auth/google/callback')
+          assert.ok(!response.headers.get('location').includes(flow.code)); return response.headers.get('location')
+        }
+        const redirected = await redirectStart(undefined, '//attacker.invalid')
+        assert.match(await callback(redirected, { state: 'a'.repeat(64) }), /erro=acesso$/)
+        assert.equal(codes.has(redirected.code), true)
+        assert.equal(await callback(redirected), origin + '/login/google')
+        assert.match(await callback(redirected), /erro=acesso$/)
+        await request('GET', '/auth/google/retorno', { expected: 401 })
+        assert.deepEqual(await request('GET', '/auth/google/retorno', { headers: redirected.headers }), { acao: 'entrar', destino: '/perfil' })
+        const redirectSession = await request('POST', '/auth/google/concluir', { headers: redirected.headers, body: {} })
+        assert.match(redirectSession.username, /^usuario_[a-f0-9]{16}$/); assert.equal(redirectSession.destino, '/perfil')
+        await request('POST', '/auth/google/concluir', { headers: redirected.headers, body: {}, expected: 401 })
+        const cancelled = await redirectStart()
+        assert.match(await callback(cancelled, { error: 'access_denied' }), /erro=cancelado$/)
+        await request('GET', '/auth/google/retorno', { headers: cancelled.headers, expected: 401 })
+        const profileRedirect = await redirectStart(users.other.token)
+        await callback(profileRedirect)
+        assert.equal((await request('GET', '/auth/google/retorno', { headers: profileRedirect.headers })).acao, 'vincular')
+        await request('POST', '/auth/google/concluir', { token: users.buyer.token, headers: profileRedirect.headers, body: { senha: password }, expected: 401 })
+        await request('POST', '/auth/google/concluir', { token: users.other.token, headers: profileRedirect.headers, body: { senha: password } })
+        assert.equal((await request('GET', '/auth/google/conta', { token: users.other.token })).vinculado, true)
+      } finally { mocked.mock.restore(); process.env.GOOGLE_CLIENT_ID = '' }
+    })
+
     let components
     await t.test('catálogo, análise, revisão administrativa e desativação de modelos', async () => {
       components = (await request('GET', '/componentes')).items
@@ -419,7 +532,35 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
         const partial = await update(first.grupo_id, users.buyer.token, { acao: 'receber', versao: 3 })
         assert.equal(partial.status, 'em_entrega')
         await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: ids[0], nota: 5 }, expected: 403 })
-        const complete = await update(second.grupo_id, users.buyer.token, { acao: 'receber', versao: 5 })
+        const codePath = `${target(second.grupo_id)}/codigo`, receiptPath = `${target(second.grupo_id)}/recebimento`
+        await request('POST', `${target(first.grupo_id)}/codigo`, { token: users.buyer.token, body: { versao: 4 }, expected: 409 })
+        await request('POST', codePath, { token: users.other.token, body: { versao: 5 }, expected: 403 })
+        await request('POST', codePath, { token: users.admin.token, body: { versao: 5 }, expected: 404 })
+        const issue = () => request('POST', codePath, { token: users.buyer.token, body: { versao: 5 } })
+        const redeem = (codigo, expected = 200) => request('POST', receiptPath, { token: users.other.token, body: { versao: 5, codigo }, expected })
+        const oldCode = await issue(), newCode = await issue()
+        assert.match(newCode.codigo, /^\d{6}$/); assert.notEqual(newCode.codigo, oldCode.codigo)
+        await redeem(oldCode.codigo, 400)
+        const [attempts] = await pool.execute('SELECT tentativas FROM pedido_recebimento_codigos WHERE entrega_id = ?', [second.id])
+        assert.equal(Number(attempts[0].tentativas), 1, 'Contador deve persistir após código inválido')
+        await pool.execute('UPDATE pedido_recebimento_codigos SET expira_em = 0 WHERE entrega_id = ?', [second.id])
+        await redeem(newCode.codigo, 409)
+        const blockedCode = await issue(), wrongCode = blockedCode.codigo === '000000' ? '000001' : '000000'
+        for (let attempt = 0; attempt < 5; attempt++) await redeem(wrongCode, attempt === 4 ? 429 : 400)
+        await redeem(blockedCode.codigo, 429)
+        await request('POST', codePath, { token: users.buyer.token, body: { versao: 5 }, expected: 429 })
+        await pool.execute('UPDATE pedido_recebimento_codigos SET bloqueado_ate = 0 WHERE entrega_id = ?', [second.id])
+        const finalCode = await issue()
+        await request('POST', receiptPath, { token: users.buyer.token, body: { versao: 5, codigo: finalCode.codigo }, expected: 403 })
+        await request('POST', receiptPath, { token: users.seller.token, body: { versao: 5, codigo: finalCode.codigo }, expected: 404 })
+        const sellerComplete = await redeem(finalCode.codigo)
+        assert.equal(sellerComplete.itens.length, 1); assert.equal(sellerComplete.papel, 'vendedor')
+        assert.equal(sellerComplete.historico.find(item => item.dados.confirmacao === 'codigo_do_comprador').papel, 'vendedor')
+        assert.ok(!JSON.stringify(sellerComplete).includes('"digest"')); assert.ok(!JSON.stringify(sellerComplete).includes('"codigo":'))
+        await redeem(finalCode.codigo, 409)
+        const complete = await detail()
+        await request('POST', '/denuncias', { token: users.admin.token, body: { tipo: 'pedido', alvo_id: order.id_pedido, motivo: 'outro', detalhes: 'Administrador sem participação no pedido.' }, expected: 404 })
+        await request('POST', '/denuncias', { token: users.other.token, body: { tipo: 'pedido', alvo_id: order.id_pedido, motivo: 'outro', detalhes: 'Teste de relato após retirada confirmada.' }, expected: 201 })
         assert.equal(complete.status, 'concluido'); assert.equal(complete.status_pagamento, 'nao_iniciado')
         assert.ok(complete.entregas.every(item => item.estado === 'recebido'))
         assert.equal((await request('GET', `/avaliacoes/elegibilidade/${ids[0]}`, { token: users.buyer.token })).permitido, true)
@@ -545,6 +686,46 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('GET', '/servicos/inexistente', { expected: 404 })
       await request('GET', '/servicos?ordenacao=constructor')
       await request('GET', '/servicos?ordenacao=__proto__')
+    })
+    await t.test('serviços publicados por usuários: moderação, privacidade, revisões e snapshot', async () => {
+      const draft = { titulo: 'Design de identidade visual', descricao: 'Criação de uma identidade visual com orientações e arquivos finais.', categoria: 'design', preco_base: 150, tipo_preco: 'fixo', prazo: 'Até cinco dias úteis', modalidade: 'remoto', regiao: '', destaques: ['Arquivos finais'], entregaveis: 'Logotipo e guia de aplicação.', criterios_aceite: 'Entrega dos arquivos combinados e do guia.', revisoes: 2, politicas_versao: '2026-10-22' }
+      await request('POST', '/servicos/meus', { token: users.seller.token, body: { ...draft, prestador_id: users.admin.id }, expected: 400 })
+      const created = await request('POST', '/servicos/meus', { token: users.seller.token, body: draft, expected: 201 })
+      const id = created.id_servico, target = `/servicos/meus/${id}`
+      const own = async () => (await request('GET', '/servicos/meus', { token: users.seller.token })).find(item => item.id_servico === id)
+      assert.equal((await own()).prestador_id, users.seller.id)
+      assert.equal((await request('GET', '/servicos/meus', { token: users.buyer.token })).length, 0)
+      await request('GET', `/servicos/${created.slug}`, { expected: 404 })
+      await request('PUT', target, { token: users.other.token, body: { ...draft, versao: 0 }, expected: 404 })
+      await request('PATCH', `${target}/status`, { token: users.seller.token, body: { versao: 0, status: 'ativo' }, expected: 409 })
+      await request('GET', '/servicos/moderacao', { token: users.seller.token, expected: 403 })
+      assert.ok((await request('GET', '/servicos/moderacao', { token: users.admin.token })).some(item => item.id_servico === id && item.revisao_pendente))
+      const decide = async (decisao, motivo) => request('PATCH', `/servicos/moderacao/${id}`, { token: users.admin.token, body: { versao: (await own()).versao, decisao, ...(motivo ? { motivo } : {}) } })
+      await decide('aprovar')
+      assert.equal((await request('GET', `/servicos/${created.slug}`)).titulo, draft.titulo)
+      const contract = await request('POST', '/contratacoes', { token: users.buyer.token, body: { servico_id: id, descricao_problema: 'Preciso de identidade visual para um projeto fictício.', modalidade: 'remoto', urgencia: 'normal', disponibilidade: 'Durante a tarde' }, expected: 201 })
+      const changed = { ...draft, titulo: 'Design revisado para novos clientes', preco_base: 250, prazo: 'Até dez dias úteis', versao: (await own()).versao }
+      await request('PUT', target, { token: users.seller.token, body: changed })
+      await request('PUT', target, { token: users.seller.token, body: changed, expected: 409 })
+      assert.equal((await request('GET', `/servicos/${created.slug}`)).titulo, draft.titulo)
+      await decide('reprovar', 'Esclareça as condições dos arquivos.')
+      assert.equal((await request('GET', `/servicos/${created.slug}`)).titulo, draft.titulo)
+      await request('PUT', target, { token: users.seller.token, body: { ...changed, versao: (await own()).versao } })
+      await decide('aprovar')
+      assert.equal((await request('GET', `/servicos/${created.slug}`)).titulo, changed.titulo)
+      const snapshot = (await request('GET', '/contratacoes', { token: users.buyer.token })).find(item => item.id_contratacao === contract.id)
+      assert.equal(snapshot.servico_titulo, draft.titulo); assert.equal(snapshot.servico_snapshot.entregaveis, draft.entregaveis)
+      assert.equal(snapshot.servico_snapshot.preco_base, draft.preco_base); assert.equal(snapshot.servico_snapshot.prazo, draft.prazo)
+      assert.deepEqual(snapshot.servico_snapshot.destaques, draft.destaques)
+      for (const [tipo, alvo_id] of [['servico', id], ['contratacao', contract.id]]) await request('POST', '/denuncias', { token: users.buyer.token, body: { tipo, alvo_id, motivo: 'outro', detalhes: 'Teste de relato das condições de serviço.' }, expected: 201 })
+      await request('POST', '/denuncias', { token: users.other.token, body: { tipo: 'contratacao', alvo_id: contract.id, motivo: 'outro', detalhes: 'Não participa desta contratação privada.' }, expected: 404 })
+      await decide('suspender', 'Suspensão administrativa para teste.')
+      await request('GET', `/servicos/${created.slug}`, { expected: 404 })
+      await request('PATCH', `${target}/status`, { token: users.seller.token, body: { versao: (await own()).versao, status: 'ativo' }, expected: 409 })
+      await request('PUT', target, { token: users.seller.token, body: { ...draft, versao: (await own()).versao } }); await decide('aprovar')
+      await request('GET', `/servicos/${created.slug}`, { expected: 404 })
+      for (const status of ['ativo', 'pausado', 'arquivado']) await request('PATCH', `${target}/status`, { token: users.seller.token, body: { versao: (await own()).versao, status } })
+      assert.ok((await request('GET', '/contratacoes', { token: users.buyer.token })).some(item => item.id_contratacao === contract.id))
     })
     await t.test('contratação completa: solicitação, orçamento, aceite, execução, garantia e avaliação', async () => {
       const body = { servico_id: serviceId, descricao_problema: 'Preciso de suporte técnico para um computador de teste.', modalidade: 'remoto', urgencia: 'normal', orcamento_max: 200, disponibilidade: 'Durante a tarde' }
@@ -833,7 +1014,9 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('PATCH', `/admin/denuncias/${created.id}`, { token: buyer, body: { status: 'resolvida', justificativa: 'Tentativa sem permissão' }, expected: 403 })
       await request('GET', '/admin/denuncias?status=invalido', { token: admin, expected: 400 })
       const queue = await request('GET', '/admin/denuncias', { token: admin })
-      assert.equal(queue.itens.length, 3)
+      assert.equal(queue.itens.filter(item => ['produto', 'usuario', 'mensagem'].includes(item.tipo)).length, 3)
+      assert.ok(queue.itens.some(item => item.tipo === 'pedido'))
+      assert.ok(queue.itens.some(item => item.tipo === 'contratacao'))
       assert.ok(queue.itens.find(item => item.id === created.id).evidencia.includes('Mensagem fictícia'))
       await request('PATCH', `/admin/denuncias/${created.id}`, { token: admin, body: { status: 'em_analise', justificativa: 'Iniciada revisão da mensagem recebida.' } })
       await request('PATCH', `/admin/denuncias/${created.id}`, { token: admin, body: { status: 'resolvida', justificativa: 'Revisão concluída no ambiente de teste.' } })

@@ -1,0 +1,52 @@
+const { test, expect } = require('@playwright/test')
+
+test('serviços da comunidade: publicar, aprovar, revisar e pausar', async ({ page, request, browser }, info) => {
+  const api = process.env.E2E_API_URL, password = process.env.E2E_PASSWORD
+  const username = `serv_${info.project.name}_${Date.now()}`, email = `${username}@gmail.com`
+  expect((await request.post(api + '/cadastro', { data: { username, email, senha: password, confirmarSenha: password } })).status()).toBe(201)
+  const token = (await (await request.post(api + '/login', { data: { email, senha: password } })).json()).token
+  await page.goto('/')
+  await page.evaluate(value => localStorage.setItem('token', value), token)
+  await page.goto('/meus-servicos')
+  await page.getByRole('button', { name: 'Anunciar serviço', exact: true }).click()
+  const title = `Aula de programação ${info.project.name}`
+  await page.getByLabel('Título', { exact: true }).fill(title)
+  await page.getByLabel('Descrição', { exact: true }).fill('Aula individual de programação com exercícios para iniciantes.')
+  await page.getByRole('combobox', { name: 'Categoria', exact: true }).selectOption('aulas')
+  await page.getByLabel('Prazo estimado', { exact: true }).fill('Até cinco dias úteis')
+  await page.getByLabel('O que será entregue', { exact: true }).fill('Aula de uma hora e exercícios de programação.')
+  await page.getByLabel('Como o cliente poderá conferir o resultado', { exact: true }).fill('Participação na aula e recebimento dos exercícios.')
+  await page.getByRole('checkbox', { name: /Li as políticas/ }).check()
+  await page.getByRole('button', { name: 'Enviar para aprovação', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Anúncio enviado para aprovação')
+  const own = await request.get(api + '/servicos/meus', { headers: { Authorization: `Bearer ${token}` } })
+  const service = (await own.json()).find(item => item.titulo === title)
+  expect((await request.get(api + `/servicos/${service.slug}`)).status()).toBe(404)
+  const adminToken = (await (await request.post(api + '/admin/login', { data: { email: process.env.E2E_ADMIN_EMAIL, senha: password } })).json()).token
+  const context = await browser.newContext({ baseURL: process.env.E2E_BASE_URL, viewport: page.viewportSize(), isMobile: Boolean(info.project.use.isMobile), hasTouch: Boolean(info.project.use.hasTouch) })
+  const admin = await context.newPage()
+  try {
+    await admin.goto('/')
+    await admin.evaluate(value => sessionStorage.setItem('adminToken', value), adminToken)
+    await admin.goto('/admin/servicos')
+    await admin.locator('article').filter({ has: admin.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Registrar decisão', exact: true }).click()
+    await expect(admin.getByRole('status')).toContainText('Decisão registrada')
+    await page.goto(`/servicos/${service.slug}`)
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
+    await expect(page.getByText('Aula de uma hora e exercícios de programação.', { exact: true })).toBeVisible()
+    await page.screenshot({ path: info.outputPath('servico-publicado.png'), fullPage: true })
+    await page.goto('/meus-servicos')
+    await page.getByRole('button', { name: 'Editar serviço', exact: true }).click()
+    await page.getByLabel('Título', { exact: true }).fill(title + ' revisada')
+    await page.getByRole('checkbox', { name: /Li as políticas/ }).check()
+    await page.getByRole('button', { name: 'Enviar para aprovação', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText('Anúncio enviado para aprovação')
+    expect((await (await request.get(api + `/servicos/${service.slug}`)).json()).titulo).toBe(title)
+    await page.getByRole('button', { name: 'Pausar', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText('Disponibilidade atualizada')
+    expect((await request.get(api + `/servicos/${service.slug}`)).status()).toBe(404)
+    await page.goto('/politicas')
+    await expect(page.getByRole('heading', { name: 'Pagamento entre os usuários', exact: true })).toBeVisible()
+    await page.screenshot({ path: info.outputPath('politicas.png'), fullPage: true })
+  } finally { await context.close() }
+})

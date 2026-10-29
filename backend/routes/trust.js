@@ -54,11 +54,17 @@ function createTrustRouter(pool) {
   router.post('/denuncias', autenticarToken, limiter, action(async (req, res) => {
     const { tipo, motivo, detalhes } = req.body
     const target = id(req.body.alvo_id)
-    if (!['produto', 'usuario', 'mensagem'].includes(tipo) || !MOTIVES.includes(motivo) || typeof detalhes !== 'string' || detalhes.trim().length < 10 || detalhes.length > 2000) throw problem(400, 'Selecione um motivo e descreva a situação entre 10 e 2.000 caracteres.')
+    if (!['produto', 'usuario', 'mensagem', 'servico', 'pedido', 'contratacao'].includes(tipo) || !MOTIVES.includes(motivo) || typeof detalhes !== 'string' || detalhes.trim().length < 10 || detalhes.length > 2000) throw problem(400, 'Selecione um motivo e descreva a situação entre 10 e 2.000 caracteres.')
     let rows
     if (tipo === 'produto') [rows] = await pool.execute("SELECT id_produto, nome, descricao, vendedor_id FROM produtos WHERE id_produto = ? AND status_aprovacao = 'aprovado' AND vendedor_id <> ?", [target, req.user.id])
     if (tipo === 'usuario') [rows] = await pool.execute('SELECT id_usuario, username FROM usuarios WHERE id_usuario = ? AND id_usuario <> ?', [target, req.user.id])
     if (tipo === 'mensagem') [rows] = await pool.execute('SELECT id, remetente_id, destinatario_id, conteudo, created_at FROM mensagens WHERE id = ? AND destinatario_id = ? AND remetente_id <> ?', [target, req.user.id, req.user.id])
+    if (tipo === 'servico') [rows] = await pool.execute("SELECT id_servico, titulo, descricao, prestador_id FROM servicos WHERE id_servico = ? AND status = 'ativo' AND status_aprovacao = 'aprovado' AND prestador_id <> ?", [target, req.user.id])
+    if (tipo === 'contratacao') [rows] = await pool.execute('SELECT id_contratacao, servico_id, cliente_id, prestador_id, status, servico_snapshot, escopo_proposto FROM contratacoes_servico WHERE id_contratacao = ? AND (cliente_id = ? OR prestador_id = ?)', [target, req.user.id, req.user.id])
+    if (tipo === 'pedido') {
+      const { view } = await require('../order-deliveries').readOrder(pool, target, req.user.id)
+      rows = [{ id_pedido: view.id_pedido, papel: view.papel, status: view.status, itens: view.itens }]
+    }
     if (!rows?.length) throw problem(404, 'Conteúdo indisponível para denúncia.')
     const [duplicates] = await pool.execute("SELECT id FROM denuncias WHERE denunciante_id = ? AND tipo = ? AND alvo_id = ? AND status IN ('aberta', 'em_analise') LIMIT 1", [req.user.id, tipo, target])
     if (duplicates.length) throw problem(409, 'Você já tem uma denúncia aberta para este conteúdo.')

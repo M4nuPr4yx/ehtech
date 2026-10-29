@@ -14,6 +14,12 @@ async function initializeOrderDeliveries(pool) {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (entrega_id) REFERENCES pedido_entregas(id) ON DELETE CASCADE
   )`)
+  await pool.execute(`CREATE TABLE IF NOT EXISTS pedido_recebimento_codigos (
+    id INT AUTO_INCREMENT PRIMARY KEY, entrega_id INT NOT NULL UNIQUE,
+    comprador_id INT NOT NULL, salt VARCHAR(32) NOT NULL, digest VARCHAR(64) NOT NULL,
+    expira_em BIGINT NOT NULL, tentativas INT NOT NULL DEFAULT 0, bloqueado_ate BIGINT NOT NULL DEFAULT 0,
+    FOREIGN KEY (entrega_id) REFERENCES pedido_entregas(id) ON DELETE CASCADE
+  )`)
 }
 
 module.exports = { initializeOrderDeliveries }

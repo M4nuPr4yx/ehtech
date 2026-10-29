@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken')
 const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
 module.exports = function createAuthRouter(pool, { authLimiter, api_chave }) {
 const router = createRouter()
+router.use('/auth/google', require('./googleAuth')(pool, { authLimiter, api_chave }))
 router.post("/cadastro", authLimiter, async (req, res) => {
   const { username, email, senha, confirmarSenha } = req.body
 

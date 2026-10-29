@@ -64,6 +64,17 @@ function createOrdersRouter(pool) {
     catch (error) { res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível carregar o pedido.' }) }
   })
   const actionLimiter = require('express-rate-limit')({ windowMs: 10 * 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false, message: { mensagem: 'Muitas atualizações de pedidos. Aguarde alguns minutos.' } })
+  const codeLimiter = require('express-rate-limit')({ windowMs: 10 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { mensagem: 'Muitas solicitações de código. Aguarde alguns minutos.' } })
+  const codeAction = handler => async (req, res) => {
+      try {
+        if (!req.body || Buffer.byteLength(JSON.stringify(req.body)) > 1024) throw problem(400, 'Envie apenas os dados do código, até 1 KB.')
+        const result = await transaction(pool, connection => handler(connection, req.params.id, req.params.grupo, req.user.id, req.body))
+        if (result.failure) { if (result.failure.status === 429) res.set('Retry-After', '900'); return res.status(result.failure.status).json({ mensagem: result.failure.mensagem }) }
+        res.json(result)
+      } catch (error) { if (error.status === 429) res.set('Retry-After', '900'); res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível confirmar o recebimento.' }) }
+  }
+  router.post('/:id/entregas/:grupo/codigo', codeLimiter, codeAction(require('../delivery-code').issueCode))
+  router.post('/:id/entregas/:grupo/recebimento', codeLimiter, codeAction(require('../delivery-code').redeemCode))
   router.patch('/:id/entregas/:grupo', actionLimiter, async (req, res) => {
     try {
       if (!req.body || Buffer.byteLength(JSON.stringify(req.body)) > 4096) throw problem(400, 'Envie somente os dados desta ação, até 4 KB.')

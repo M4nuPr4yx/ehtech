@@ -11,6 +11,8 @@ export const getApiUrl = (endpoint = '') => {
   const browser = typeof window !== 'undefined';
   const deployment = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
   const origin = browser ? window.location.origin : deployment;
+  // O desafio Google usa cookie HttpOnly: mantenha o fluxo no proxy do próprio site.
+  if (browser && path.startsWith('/auth/google/')) return `/api${path}`;
   if (process.env.NEXT_PUBLIC_API_URL) {
     try {
       const configured = process.env.NEXT_PUBLIC_API_URL.trim().replace(/\/+$/, '');

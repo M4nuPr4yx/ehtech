@@ -4,6 +4,7 @@ import { apiResponse } from '../../lib/api-request.js';
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { ReportControl } from '../complements/TrustControls'
 import { useRouter } from 'next/navigation'
 import styles from './contratacoes.module.css'
 
@@ -215,9 +216,9 @@ export default function ContractsPage() {
                     </ol>
                   )}
 
-                  <div className={styles.requestGrid}>
+                  <ReportControl type="contratacao" targetId={contract.id_contratacao} label="Relatar problema na contratação" /><Link className="text-accent underline" href="/politicas#servicos">Pagamento e condições do serviço</Link><div className={styles.requestGrid}>
                     {contract.combo_snapshot && <div className={styles.description}><span>Combo solicitado: {contract.combo_snapshot.titulo}</span><p><Link href={`/produtos/${contract.combo_snapshot.produto_id}`}>{contract.combo_snapshot.produto_nome}</Link> · produto na solicitação: {currency(contract.combo_snapshot.produto_preco)}. Referência do conjunto: {currency(contract.combo_snapshot.total_estimado)}. O orçamento e a garantia desta contratação cobrem apenas o serviço; a compra do produto é separada.</p></div>}
-                    <div className={styles.description}><span>Necessidade informada</span><p>{contract.descricao_problema}</p></div>
+                    <div className={styles.description}><span>Condições do anúncio na solicitação</span><p>{contract.servico_snapshot?.entregaveis || 'Conforme orçamento acordado'}</p><p>{contract.servico_snapshot?.criterios_aceite}</p></div><div className={styles.description}><span>Necessidade informada</span><p>{contract.descricao_problema}</p></div>
                     <dl><div><dt>Modalidade</dt><dd>{contract.modalidade}</dd></div><div><dt>Urgência</dt><dd>{contract.urgencia}</dd></div><div><dt>Limite do cliente</dt><dd>{currency(contract.orcamento_max)}</dd></div><div><dt>Disponibilidade</dt><dd>{contract.disponibilidade}</dd></div></dl>
                   </div>
 
@@ -255,7 +256,7 @@ export default function ContractsPage() {
 
                   {reviewingId === contract.id_contratacao && (
                     <form className={styles.reviewEditor} onSubmit={(event) => submitReview(event, contract.id_contratacao)}>
-                      <header><div><span className={styles.eyebrow}>Reputação técnica</span><h3>Avaliar serviço concluído</h3></div><button type="button" onClick={() => setReviewingId(null)}>×</button></header>
+                      <header><div><span className={styles.eyebrow}>Avaliação do prestador</span><h3>Avaliar serviço concluído</h3></div><button type="button" onClick={() => setReviewingId(null)}>×</button></header>
                       <fieldset><legend>Qual nota você dá para o atendimento?</legend><div>{[1, 2, 3, 4, 5].map((rating) => <button type="button" key={rating} data-filled={rating <= review.nota} aria-label={`${rating} estrela${rating === 1 ? '' : 's'}`} aria-pressed={review.nota === rating} onClick={() => setReview({ ...review, nota: rating })}>★</button>)}</div></fieldset>
                       <label><span>Conte como foi a experiência (opcional)</span><textarea minLength={10} maxLength={1000} rows={3} value={review.comentario} onChange={(event) => setReview({ ...review, comentario: event.target.value })} placeholder="Comente sobre clareza, prazo e resultado do serviço." /></label>
                       <button type="submit" className={styles.primaryAction} disabled={saving}>{saving ? 'Publicando…' : 'Publicar avaliação'}</button>

@@ -149,7 +149,7 @@ router.put("/perfil/senha", autenticarToken, async (req, res) => {
     }
 
     const hash = await bcrypt.hash(novaSenha, 10)
-    await pool.execute('UPDATE usuarios SET senha = ?, session_version = session_version + 1 WHERE id_usuario = ?', [hash, req.user.id])
+    await pool.execute('UPDATE usuarios SET senha = ?, senha_definida = TRUE, session_version = session_version + 1 WHERE id_usuario = ?', [hash, req.user.id])
     return res.json({ mensagem: "Senha alterada com sucesso! Faça login novamente." })
   } catch (error) {
     console.error('[perfil/senha] Erro:', error.message)

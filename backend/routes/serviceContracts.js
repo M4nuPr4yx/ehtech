@@ -3,6 +3,7 @@ const crypto = require('crypto')
 const { autenticarToken } = require('../middleware/auth')
 const { integer } = require('../validation')
 const { findCombo } = require('../differentials')
+const { FIELDS, snapshotListing } = require('../service-listings')
 
 const MODALITIES = new Set(['presencial', 'remoto', 'hibrido'])
 const URGENCIES = new Set(['flexivel', 'normal', 'urgente'])
@@ -17,7 +18,7 @@ const STATUS_LABELS = {
 
 const contractFields = `c.id_contratacao, c.servico_id, c.cliente_id, c.prestador_id,
   c.descricao_problema, c.modalidade, c.urgencia, c.orcamento_max, c.disponibilidade,
-  c.status, c.valor_proposto, c.escopo_proposto, c.prazo_proposto, c.garantia_dias,
+  c.status, c.servico_snapshot, c.valor_proposto, c.escopo_proposto, c.prazo_proposto, c.garantia_dias,
   c.observacoes_prestador, c.garantia_codigo, c.garantia_inicio_em, c.garantia_fim_em,
   c.orcamento_enviado_em, c.aceito_em, c.iniciado_em,
   c.concluido_em, c.cancelado_em, c.created_at, c.updated_at, c.combo_snapshot,
@@ -38,8 +39,12 @@ function moneyValue(value, { required = false } = {}) {
 }
 
 function normalizeContract(row, userId) {
+  const snapshot = row.servico_snapshot ? JSON.parse(row.servico_snapshot) : null
   return {
     ...row,
+    servico_titulo: snapshot?.titulo || row.servico_titulo,
+    categoria: snapshot?.categoria || row.categoria,
+    servico_snapshot: snapshot,
     combo_snapshot: row.combo_snapshot ? JSON.parse(row.combo_snapshot) : null,
     orcamento_max: row.orcamento_max === null ? null : Number(row.orcamento_max),
     valor_proposto: row.valor_proposto === null ? null : Number(row.valor_proposto),
@@ -85,7 +90,7 @@ function createServiceContractsRouter(pool) {
         if (Number(combo.criador_id) === Number(req.user.id)) return res.status(400).json({ mensagem: 'Você não pode solicitar seu próprio combo.' })
       }
       const [services] = await pool.execute(
-        "SELECT id_servico, titulo, prestador_id FROM servicos WHERE id_servico = ? AND status = 'ativo' LIMIT 1",
+        `SELECT id_servico, ${FIELDS.join(', ')}, politicas_versao, prestador_id FROM servicos WHERE id_servico = ? AND status = 'ativo' AND status_aprovacao = 'aprovado' LIMIT 1`,
         [serviceId]
       )
       if (!services.length) return res.status(404).json({ mensagem: 'Serviço não encontrado.' })
@@ -103,9 +108,9 @@ function createServiceContractsRouter(pool) {
 
       const [result] = await pool.execute(
         `INSERT INTO contratacoes_servico
-          (servico_id, cliente_id, prestador_id, descricao_problema, modalidade, urgencia, orcamento_max, disponibilidade, combo_snapshot)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [serviceId, req.user.id, service.prestador_id, description, modality, urgency, maximumBudget, availability, combo ? JSON.stringify({ id: combo.id, titulo: combo.titulo, produto_id: combo.produto_id, produto_nome: combo.produto_nome, produto_preco: combo.produto_preco, servico_preco_base: combo.preco_base, total_estimado: combo.total_estimado }) : null]
+          (servico_id, cliente_id, prestador_id, descricao_problema, modalidade, urgencia, orcamento_max, disponibilidade, combo_snapshot, servico_snapshot)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [serviceId, req.user.id, service.prestador_id, description, modality, urgency, maximumBudget, availability, combo ? JSON.stringify({ id: combo.id, titulo: combo.titulo, produto_id: combo.produto_id, produto_nome: combo.produto_nome, produto_preco: combo.produto_preco, servico_preco_base: combo.preco_base, total_estimado: combo.total_estimado }) : null, JSON.stringify(snapshotListing(service))]
       )
       await notify(pool, service.prestador_id, 'servico_solicitado', `Nova solicitação de orçamento para “${service.titulo}”.`)
       return res.status(201).json({ id: result.insertId, status: 'solicitado', mensagem: 'Solicitação enviada ao prestador.' })

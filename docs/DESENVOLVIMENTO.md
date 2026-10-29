@@ -69,6 +69,15 @@ roda as duas variantes da integração.
 
 ## Testes no navegador
 
+Sem MySQL disponível, é possível executar a mesma jornada com PostgreSQL portátil descartável:
+`node tests/run-postgres-local.cjs --e2e`. Reutiliza `TEST_POSTGRES_BIN` ou a pasta portátil
+documentada acima. O runner cria base `ehtech_e2e_*`, usa somente loopback/portas livres e
+remove base, cluster e uploads ao terminar. Para isolar as novas jornadas:
+`node tests/run-postgres-local.cjs --e2e --production --grep "serviços da comunidade|jornada real"`.
+O modo `--production` compila e inicia o frontend de teste em `scratch/e2e-next`, evitando
+recarregamentos do Fast Refresh durante navegação entre páginas. Sem essa opção, usa desenvolvimento.
+Com PostgreSQL de teste já disponível, use `npm run test:e2e -- --postgres` e `TEST_PG_*`.
+
 `npm run test:e2e` executa Playwright com Chromium em desktop e viewport de celular.
 Antes da primeira execução, instale o navegador com `npx playwright install chromium`
 (no Linux/CI: `npx playwright install --with-deps chromium`). Reutiliza as credenciais
@@ -105,6 +114,7 @@ O plano detalhado das melhorias e o registro de execução estão em
 ## Referências por assunto
 
 - Escopo/priorização: [ROADMAP_DIFERENCIAIS.md](ROADMAP_DIFERENCIAIS.md).
+- Login Google, configuração e identidade de teste: [LOGIN_GOOGLE.md](LOGIN_GOOGLE.md).
 - Inspeção de usados, compra por missão e combos: [DIFERENCIAIS_IMPLEMENTADOS.md](DIFERENCIAIS_IMPLEMENTADOS.md).
 - Origem de envio, endereços reutilizáveis e filtros: [ORIGEM_E_FILTROS.md](ORIGEM_E_FILTROS.md).
 - Busca de pessoas e conversas diretas: [MENSAGENS_E_BUSCA.md](MENSAGENS_E_BUSCA.md).

@@ -5,12 +5,10 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const net = require('node:net')
 const { spawn, spawnSync } = require('node:child_process')
-const mysql = require('mysql2/promise')
 const root = path.join(__dirname, '..')
-const database = `ehtech_e2e_${process.pid}_${Date.now()}`
 const uploads = fs.mkdtempSync(path.join(os.tmpdir(), 'ehtech-e2e-uploads-'))
 const children = new Set()
-let adminConnection, pool, server, cleaning = false
+let fixture, pool, server, cleaning = false
 async function cleanup() {
   if (cleaning) return
   cleaning = true
@@ -22,11 +20,7 @@ async function cleanup() {
   }
   if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)) }
   if (pool) await pool.end()
-  if (adminConnection) {
-    if (!/^ehtech_e2e_\d+_\d+$/.test(database)) throw Error('Nome de base de teste inválido.')
-    await adminConnection.query(`DROP DATABASE IF EXISTS \`${database}\``)
-    await adminConnection.end()
-  }
+  if (fixture) await fixture.cleanup()
   // Somente o diretório temporário recém-criado, nunca o uploads da aplicação.
   if (path.dirname(uploads) === os.tmpdir() && path.basename(uploads).startsWith('ehtech-e2e-uploads-')) fs.rmSync(uploads, { recursive: true, force: true })
 }
@@ -44,11 +38,31 @@ async function unusedPort() {
 }
 async function main() {
   if (process.env.VERCEL || process.env.NODE_ENV === 'production') throw Error('E2E deve rodar em ambiente local/de CI de teste.')
-  const config = require('./helpers/mysql-config.cjs').mysqlTestConfig()
-  adminConnection = await mysql.createConnection(config)
-  await adminConnection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`)
+  process.env.TEST_DB_DRIVER = process.argv.includes('--postgres') ? 'postgres' : 'mysql'
+  fixture = await require('./helpers/database-fixture.cjs').isolatedDatabase('ehtech_e2e')
   for (const key of ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRESQL_URL', 'MYSQL_URL', 'CLEARDB_DATABASE_URL', 'PGHOST', 'VERCEL', 'BLOB_READ_WRITE_TOKEN']) process.env[key] = ''
-  Object.assign(process.env, { NODE_ENV: 'test', DB_HOST: config.host, DB_PORT: String(config.port), DB_USER: config.user, DB_PASSWORD: config.password, DB_DATABASE: database, DB_SSL: 'false', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, COMPAT_AI_PROVIDER: 'disabled', SHIPPING_RULES_JSON: '[]' })
+  Object.assign(process.env, { ...fixture.environment, NODE_ENV: 'test', API_SEGREDO: crypto.randomBytes(32).toString('hex'), UPLOADS_DIR: uploads, COMPAT_AI_PROVIDER: 'disabled', SHIPPING_RULES_JSON: '[]' })
+  process.env.GOOGLE_CLIENT_ID = ''
+  process.env.GOOGLE_CLIENT_SECRET = ''; process.env.GOOGLE_REDIRECT_URI = ''
+  let googleFixture
+  if (process.argv.includes('--google')) {
+    googleFixture = require('./helpers/google-fixture.cjs').createGoogleFixture()
+    process.env.GOOGLE_CLIENT_ID = googleFixture.clientId
+    process.env.GOOGLE_CLIENT_SECRET = 'e2e-google-secret'
+    const originalFetch = global.fetch
+    global.fetch = (url, options) => {
+      if (String(url) === 'https://www.googleapis.com/oauth2/v3/certs') return Promise.resolve(Response.json({ keys: googleFixture.keys }))
+      if (String(url) === 'https://oauth2.googleapis.com/token') {
+        try {
+          const body = new URLSearchParams(options.body)
+          const code = require('jsonwebtoken').verify(body.get('code'), crypto.createPublicKey(googleFixture.privateKey), { algorithms: ['RS256'], issuer: 'ehtech-test-authorizer', audience: googleFixture.clientId })
+          if (body.get('client_secret') !== process.env.GOOGLE_CLIENT_SECRET || body.get('redirect_uri') !== process.env.GOOGLE_REDIRECT_URI || crypto.createHash('sha256').update(body.get('code_verifier') || '').digest('base64url') !== code.code_challenge) throw Error('invalid code exchange')
+          return Promise.resolve(Response.json({ id_token: googleFixture.token({ nonce: code.nonce, email: code.email, sub: code.sub }) }))
+        } catch { return Promise.resolve(Response.json({ error: 'invalid_grant' }, { status: 400 })) }
+      }
+      return originalFetch(url, options)
+    }
+  }
   // Nenhum e-mail sai durante a validação.
   require('nodemailer').createTransport = () => ({ sendMail: async () => ({ accepted: [] }) })
   // Somente a consulta externa de CEP recebe uma fixture local; a API e o banco são reais.
@@ -71,7 +85,20 @@ async function main() {
   })
   const port = await unusedPort(), frontend = `http://127.0.0.1:${port}`
   const env = { ...process.env, NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1', EHTECH_E2E: '1', BACKEND_URL: backend, SITE_URL: frontend, NEXT_PUBLIC_API_URL: '', E2E_BASE_URL: frontend, E2E_API_URL: backend, E2E_ADMIN_EMAIL: adminEmail, E2E_PASSWORD: password, E2E_RESET_KEY: resetSecret }
-  const next = launch([require.resolve('next/dist/bin/next'), 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], env)
+  // Chave efêmera de teste, gerada nesta execução; nunca é credencial de produção.
+  if (googleFixture) {
+    env.E2E_GOOGLE_KEY = Buffer.from(googleFixture.privateKey).toString('base64')
+    process.env.GOOGLE_REDIRECT_URI = `${frontend}/api/auth/google/callback`
+    env.GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI
+  }
+  const production = process.argv.includes('--production')
+  const nextCli = require.resolve('next/dist/bin/next')
+  if (production) {
+    const build = launch([nextCli, 'build', '--webpack'], { ...env, NODE_ENV: 'production' })
+    const code = await new Promise((resolve, reject) => { build.once('error', reject); build.once('exit', resolve) })
+    if (code !== 0) throw Error('Build do frontend de teste falhou.')
+  }
+  const next = launch([nextCli, production ? 'start' : 'dev', ...(production ? [] : ['--webpack']), '--hostname', '127.0.0.1', '--port', String(port)], { ...env, NODE_ENV: production ? 'production' : 'development' })
   let ready = false
   for (let attempt = 0; attempt < 150; attempt++) {
     if (next.exitCode !== null) throw Error('Frontend de teste encerrou antes de iniciar.')
@@ -80,7 +107,7 @@ async function main() {
   }
   if (!ready) throw Error('Frontend de teste não ficou disponível.')
   const cli = path.join(path.dirname(require.resolve('@playwright/test/package.json')), 'cli.js')
-  const tests = launch([cli, 'test', ...process.argv.slice(2)], env)
+  const tests = launch([cli, 'test', ...process.argv.slice(2).filter(arg => !['--postgres', '--production', '--google'].includes(arg))], env)
   const exitCode = await new Promise((resolve, reject) => { tests.once('error', reject); tests.once('exit', code => resolve(code ?? 1)) })
   process.exitCode = exitCode
 }

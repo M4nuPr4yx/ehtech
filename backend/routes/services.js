@@ -35,9 +35,10 @@ function normalizeService(service) {
 
 function createServicesRouter(pool) {
   const router = express.Router()
+  router.use(require('./serviceListings')(pool))
   const fields = `s.id_servico, s.slug, s.titulo, s.descricao, s.categoria, s.preco_base,
     s.tipo_preco, s.prazo, s.modalidade, s.regiao, s.destaques, s.prestador_id,
-    s.created_at, COALESCE(u.nome, u.username, 'Especialista EHtech') AS prestador, u.foto AS prestador_foto,
+    s.entregaveis, s.criterios_aceite, s.revisoes, s.created_at, COALESCE(u.nome, u.username, 'Prestador') AS prestador, u.foto AS prestador_foto,
     COALESCE(reputacao.media, 0) AS prestador_nota, COALESCE(reputacao.total, 0) AS prestador_avaliacoes`
   const ratingJoin = `LEFT JOIN (
     SELECT prestador_id, ROUND(AVG(nota), 1) AS media, COUNT(*) AS total
@@ -51,7 +52,7 @@ function createServicesRouter(pool) {
     const category = typeof req.query.categoria === 'string' ? req.query.categoria.trim().slice(0, 60) : ''
     const modality = MODALITIES.has(req.query.modalidade) ? req.query.modalidade : ''
     const orderBy = Object.hasOwn(SORTS, req.query.ordenacao) ? SORTS[req.query.ordenacao] : SORTS.recentes
-    const conditions = ["s.status = 'ativo'"]
+    const conditions = ["s.status = 'ativo'", "s.status_aprovacao = 'aprovado'"]
     const values = []
 
     if (search) {
@@ -114,7 +115,7 @@ function createServicesRouter(pool) {
     try {
       const [rows] = await pool.execute(
         `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id ${ratingJoin}
-         WHERE s.slug = ? AND s.status = 'ativo' LIMIT 1`,
+         WHERE s.slug = ? AND s.status = 'ativo' AND s.status_aprovacao = 'aprovado' LIMIT 1`,
         [slug]
       )
       if (!rows.length) return res.status(404).json({ mensagem: 'Serviço não encontrado.' })

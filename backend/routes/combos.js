@@ -21,7 +21,7 @@ function createCombosRouter(pool) {
   router.use(autenticarToken)
   router.get('/opcoes', route(async (req, res) => {
     const [products] = await pool.execute("SELECT id_produto, nome FROM produtos WHERE vendedor_id = ? AND status_aprovacao = 'aprovado' ORDER BY id_produto DESC LIMIT 100", [req.user.id])
-    const [services] = await pool.execute("SELECT id_servico, titulo FROM servicos WHERE prestador_id = ? AND status = 'ativo' ORDER BY id_servico DESC LIMIT 100", [req.user.id])
+    const [services] = await pool.execute("SELECT id_servico, titulo FROM servicos WHERE prestador_id = ? AND status = 'ativo' AND status_aprovacao = 'aprovado' ORDER BY id_servico DESC LIMIT 100", [req.user.id])
     res.json({ produtos: products, servicos: services })
   }))
   router.get('/meus', route(async (req, res) => {
@@ -33,7 +33,7 @@ function createCombosRouter(pool) {
     if (!title || !description || !validId(req.body.produto_id) || !validId(req.body.servico_id)) throw problem(400, 'Informe título, descrição, produto e serviço válidos.')
     const id = await transaction(pool, async connection => {
       const [products] = await connection.execute("SELECT id_produto FROM produtos WHERE id_produto = ? AND vendedor_id = ? AND status_aprovacao = 'aprovado' FOR UPDATE", [req.body.produto_id, req.user.id])
-      const [services] = await connection.execute("SELECT id_servico FROM servicos WHERE id_servico = ? AND prestador_id = ? AND status = 'ativo' FOR UPDATE", [req.body.servico_id, req.user.id])
+      const [services] = await connection.execute("SELECT id_servico FROM servicos WHERE id_servico = ? AND prestador_id = ? AND status = 'ativo' AND status_aprovacao = 'aprovado' FOR UPDATE", [req.body.servico_id, req.user.id])
       if (!products.length || !services.length) throw problem(403, 'O anúncio aprovado e o serviço ativo precisam pertencer à sua conta.')
       const [existing] = await connection.execute('SELECT id FROM combos_instalacao WHERE produto_id = ? AND servico_id = ? AND ativo = TRUE', [req.body.produto_id, req.body.servico_id])
       if (existing.length) throw problem(409, 'Já existe um combo ativo para esse produto e serviço.')

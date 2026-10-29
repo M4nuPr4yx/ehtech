@@ -39,7 +39,7 @@ const comboSelect = `SELECT c.*, p.nome AS produto_nome, p.preco AS produto_prec
   s.regiao, s.prestador_id FROM combos_instalacao c
   JOIN produtos p ON p.id_produto = c.produto_id JOIN servicos s ON s.id_servico = c.servico_id
   WHERE c.ativo = TRUE AND p.status_aprovacao = 'aprovado' AND p.estoque > 0
-  AND s.status = 'ativo' AND p.vendedor_id = c.criador_id AND s.prestador_id = c.criador_id`
+  AND s.status = 'ativo' AND s.status_aprovacao = 'aprovado' AND p.vendedor_id = c.criador_id AND s.prestador_id = c.criador_id`
 const comboView = row => ({ ...row, produto_preco: Number(row.produto_preco), preco_base: row.preco_base === null ? null : Number(row.preco_base), total_estimado: row.preco_base === null ? null : (cents(row.produto_preco) + cents(row.preco_base)) / 100 })
 async function findCombo(pool, id) {
   if (!validId(id)) throw problem(400, 'Combo inválido.')

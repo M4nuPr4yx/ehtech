@@ -156,33 +156,6 @@ async function ensureContractWarrantyColumns(pool) {
   }
 }
 
-async function seedServices(pool) {
-  const [providers] = await pool.execute(
-    `SELECT id_usuario FROM usuarios
-     WHERE role IN ('vendedor', 'admin')
-     ORDER BY CASE WHEN role = 'vendedor' THEN 0 ELSE 1 END, id_usuario
-     LIMIT 8`
-  )
-
-  if (!providers.length) {
-    console.warn('[EHtech DB] Serviços não foram cadastrados: nenhum prestador disponível')
-    return
-  }
-
-  for (let index = 0; index < SERVICE_SEEDS.length; index += 1) {
-    const service = SERVICE_SEEDS[index]
-    const providerId = providers[index % providers.length].id_usuario
-    await pool.execute(
-      `INSERT IGNORE INTO servicos
-        (slug, titulo, descricao, categoria, preco_base, tipo_preco, prazo, modalidade, regiao, destaques, prestador_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [service.slug, service.titulo, service.descricao, service.categoria, service.precoBase,
-        service.tipoPreco, service.prazo, service.modalidade, service.regiao,
-        JSON.stringify(service.destaques), providerId]
-    )
-  }
-}
-
 async function initializeDatabase(pool) {
   // Bancos importados de versões antigas não tinham o estado de aprovação.
   try {
@@ -192,14 +165,15 @@ async function initializeDatabase(pool) {
   }
   for (const statement of TABLES) await pool.execute(statement)
   await ensureContractWarrantyColumns(pool)
+  await require('./service-listings').initializeServiceListings(pool, SERVICE_SEEDS)
   await require('./addresses').initializeAddresses(pool)
   await require('./product-origins').initializeProductOrigins(pool)
   await require('./order-deliveries').initializeOrderDeliveries(pool)
   await require('./trust').initializeTrust(pool)
+  await require('./google-identity').initializeGoogleIdentity(pool)
   await require('./passports').initializePassports(pool)
   await require('./components').initializeComponents(pool)
   await require('./differentials').initializeDifferentials(pool)
-  await seedServices(pool)
 }
 
 module.exports = { initializeDatabase }

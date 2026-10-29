@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { deliveryStatus } from '../../lib/order-status'
+import PickupCode from './PickupCode'
 
 const money = value => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 const button = 'rounded-xl bg-accent-fill px-4 py-3 font-bold text-accent-contrast disabled:opacity-50'
 const input = 'w-full rounded-xl border border-line bg-surface p-3 text-base text-foreground'
 
-export default function DeliveryPanel({ delivery, role, buyerId, disabled, onAction }) {
+export default function DeliveryPanel({ delivery, role, buyerId, disabled, onAction, onConfirmed }) {
   const initial = delivery.proposta || delivery.acordo
   const [modality, setModality] = useState(initial?.modalidade || 'entrega')
   const [value, setValue] = useState(initial?.valor_frete ?? '')
@@ -32,6 +33,7 @@ export default function DeliveryPanel({ delivery, role, buyerId, disabled, onAct
     {seller && delivery.estado === 'acordo_confirmado' && <form className="grid gap-4" onSubmit={event => { event.preventDefault(); act('despachar', { observacoes: notes, ...(delivery.acordo.modalidade === 'entrega' ? { transportadora: carrier, codigo_rastreio: tracking } : {}) }) }}><h3 className="font-bold">{delivery.acordo.modalidade === 'retirada' ? 'Preparar retirada' : 'Informar envio'}</h3>{delivery.acordo.modalidade === 'entrega' && <><label className="grid gap-2">Transportadora (opcional)<input className={input} maxLength={80} disabled={disabled} value={carrier} onChange={event => setCarrier(event.target.value)} /></label><label className="grid gap-2">Código de rastreio (opcional)<input className={input} maxLength={80} disabled={disabled} value={tracking} onChange={event => setTracking(event.target.value)} /></label></>}<label className="grid gap-2">Observações de envio / retirada<textarea className={input} maxLength={500} disabled={disabled} value={notes} onChange={event => setNotes(event.target.value)} /></label><p className="text-sm text-muted">Este registro é uma declaração do vendedor, sem consulta automática a transportadora ou confirmação de pagamento.</p><button className={button} disabled={disabled}>{delivery.acordo.modalidade === 'retirada' ? 'Marcar pronto para retirada' : 'Informar produto enviado'}</button></form>}
     {delivery.despacho && <div className="break-words rounded-xl bg-info-soft p-4 text-info"><p>{delivery.acordo?.modalidade === 'retirada' ? 'Retirada disponibilizada pelo vendedor.' : 'Envio informado pelo vendedor.'}</p>{delivery.despacho.transportadora && <p>Transportadora: {delivery.despacho.transportadora}</p>}{delivery.despacho.codigo_rastreio && <p>Rastreio informado: {delivery.despacho.codigo_rastreio}</p>}{delivery.despacho.observacoes && <p>{delivery.despacho.observacoes}</p>}</div>}
     {!seller && ['enviado', 'pronto_retirada'].includes(delivery.estado) && <div className="space-y-4"><label className="flex items-start gap-3"><input type="checkbox" checked={confirmed} disabled={disabled} onChange={event => setConfirmed(event.target.checked)} /><span>Confirmo que recebi os produtos deste grupo. Não confirme antes de receber.</span></label><button className={button} disabled={disabled || !confirmed} onClick={() => act('receber')}>Confirmar recebimento</button></div>}
+    {delivery.estado === 'pronto_retirada' && <PickupCode delivery={delivery} role={role} disabled={disabled} onConfirmed={onConfirmed} />}
     {delivery.estado === 'recebido' && <p role="status" className="rounded-xl bg-success-soft p-4 text-success">Recebimento confirmado em {new Date(delivery.recebido_em).toLocaleString('pt-BR')}. Esta entrega está concluída.</p>}
   </section>
 }

@@ -3,6 +3,7 @@ import { apiResponse } from '../../lib/api-request.js';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import TechnicalComponentPicker from '../complements/TechnicalComponentPicker';
 import OriginSelector from '../complements/OriginSelector';
 
@@ -280,6 +281,7 @@ export default function Anunciar() {
             <h1 className="text-3xl font-extrabold text-foreground">
               Criar anúncio
             </h1>
+            <nav className="mt-3 flex flex-wrap gap-3" aria-label="Tipo de anúncio"><span className="font-semibold">Produto</span><Link className="text-accent underline" href="/meus-servicos">Quero anunciar um serviço →</Link></nav>
             <p className="text-muted text-sm mt-1">
               Preencha os detalhes e adicione fotos. Seu anúncio será enviado para aprovação. Campos com * são obrigatórios.
             </p>

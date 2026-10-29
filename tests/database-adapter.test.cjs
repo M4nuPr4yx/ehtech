@@ -28,10 +28,11 @@ test('migração de acordos de entrega traduz chaves e preserva idempotência no
   const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
   const { initializeOrderDeliveries } = require('../backend/database/order-deliveries')
   await initializeOrderDeliveries(pool); await initializeOrderDeliveries(pool)
-  assert.equal(queries.length, 4)
+  assert.equal(queries.length, 6)
   for (const sql of queries) { assert.match(sql, /CREATE TABLE IF NOT EXISTS/); assert.match(sql, /id SERIAL PRIMARY KEY/); assert.doesNotMatch(sql, /AUTO_INCREMENT|UNIQUE KEY/) }
   assert.match(queries[0], /UNIQUE \(pedido_id, grupo_id\)/)
   assert.match(queries[1], /REFERENCES pedido_entregas\(id\) ON DELETE CASCADE/)
+  assert.match(queries[2], /pedido_recebimento_codigos/)
 })
 
 test('PostgreSQL traduz favoritos, moderação e migração aditiva de sessões/avaliações', async () => {

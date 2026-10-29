@@ -469,6 +469,7 @@ export default function Admin() {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link href="/admin/servicos" className="px-4 py-2 bg-surface border border-line text-muted rounded-xl text-sm font-semibold">Moderar serviços</Link>
             <Link href="/admin/componentes" className="px-4 py-2 bg-surface border border-line hover:border-accent text-muted rounded-xl text-sm font-semibold">Catálogo técnico</Link>
             <Link
               href="/"

@@ -82,9 +82,10 @@ function ServiceCatalog({ initial }) {
           <div className={styles.breadcrumb}><Link href="/">Início</Link><span>/</span><span>Serviços</span></div>
           <div className={styles.heroGrid} data-motion="fade">
             <div>
-              <span className={styles.eyebrow}>ESPECIALISTAS EM TECNOLOGIA</span>
-              <h1>Soluções de TI,<br /><em>sem complicação.</em></h1>
-              <p>Encontre profissionais para montar, configurar, proteger e melhorar seus equipamentos.</p>
+              <span className={styles.eyebrow}>SERVIÇOS DA COMUNIDADE</span>
+              <h1>Encontre quem faz.<br /><em>Ofereça o que você sabe.</em></h1>
+              <p>Programação, design, aulas, suporte e muito mais. Cada oferta é publicada por um usuário, que será o prestador responsável pelo atendimento.</p>
+              <Link href="/meus-servicos" className="mt-5 inline-block rounded-xl bg-accent-fill px-5 py-3 font-bold text-accent-contrast">Anunciar e gerenciar serviços →</Link>
             </div>
             <div className={styles.heroPanel}>
               <div><strong>Atendimento direto</strong><span>Converse com o profissional pelo chat</span></div>
@@ -99,7 +100,7 @@ function ServiceCatalog({ initial }) {
         <section className={styles.searchPanel} aria-label="Filtros de serviços">
           <label className={styles.search}>
             <span>Buscar serviço</span>
-            <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.5-4.5M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z" /></svg><input type="search" maxLength={100} placeholder="Ex.: montagem de PC, Wi-Fi, formatação..." value={draft.search} onChange={(event) => change('search', event.target.value)} /></div>
+            <div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.5-4.5M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z" /></svg><input type="search" maxLength={100} placeholder="Ex.: site, identidade visual, aula, manutenção…" value={draft.search} onChange={(event) => change('search', event.target.value)} /></div>
           </label>
           <label><span>Categoria</span><select value={draft.categoria} onChange={(event) => change('categoria', event.target.value)}>{SERVICE_CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label><span>Modalidade</span><select value={draft.modalidade} onChange={(event) => change('modalidade', event.target.value)}>{MODALITIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -128,7 +129,8 @@ function ServiceCatalog({ initial }) {
                   <span className={styles.category}>{categoryLabel(service.categoria)}</span>
                   <h3>{service.titulo}</h3>
                   <p className={styles.description}>{service.descricao}</p>
-                  <div className={styles.providerRating}><span>★</span><strong>{service.prestador_nota ? service.prestador_nota.toFixed(1) : 'Novo'}</strong><small>{service.prestador_avaliacoes ? `${service.prestador_avaliacoes} avaliações técnicas` : 'prestador sem avaliações'}</small></div>
+                  <p>Oferecido por {service.prestador}</p>
+                  <div className={styles.providerRating}><span>★</span><strong>{service.prestador_nota ? service.prestador_nota.toFixed(1) : 'Novo'}</strong><small>{service.prestador_avaliacoes ? `${service.prestador_avaliacoes} avaliações` : 'prestador sem avaliações'}</small></div>
                   <div className={styles.meta}><span>Prazo estimado</span><strong>{service.prazo}</strong></div>
                   <div className={styles.cardBottom}><div><span>Investimento</span><strong>{servicePrice(service)}</strong></div><i aria-hidden="true">→</i></div>
                 </Link>

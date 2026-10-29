@@ -1,0 +1,72 @@
+const { test, expect } = require('@playwright/test')
+const jwt = require('jsonwebtoken')
+
+test('Google: redirecionar, escolher conta, entrar automaticamente e vincular com senha', async ({ page, request }, info) => {
+  test.skip(!process.env.E2E_GOOGLE_KEY, 'Execute com --google para usar o provedor fictício.')
+  await request.post(`${process.env.E2E_API_URL}/__e2e/reset-limits`, { headers: { 'x-e2e-key': process.env.E2E_RESET_KEY } })
+  const suffix = info.project.name, password = process.env.E2E_PASSWORD
+  let identity = { email: `google_${suffix}@gmail.com`, sub: `google-${suffix}` }
+  // Simula somente a página Google e o seu código; o redirecionamento é navegação real.
+  await page.route('https://accounts.google.com/o/oauth2/v2/auth**', route => {
+    const url = new URL(route.request().url()), parameters = url.searchParams
+    expect(parameters.get('prompt')).toBe('select_account'); expect(parameters.get('code_challenge_method')).toBe('S256')
+    const code = jwt.sign({ ...identity, nonce: parameters.get('nonce'), code_challenge: parameters.get('code_challenge'), aud: process.env.GOOGLE_CLIENT_ID, iss: 'ehtech-test-authorizer' }, Buffer.from(process.env.E2E_GOOGLE_KEY, 'base64').toString(), { algorithm: 'RS256', expiresIn: 300 })
+    const callback = new URL(parameters.get('redirect_uri'))
+    expect(callback.origin).toBe(new URL(process.env.E2E_BASE_URL).origin)
+    callback.search = new URLSearchParams({ state: parameters.get('state'), code }).toString()
+    const cancelled = new URL(parameters.get('redirect_uri')); cancelled.search = new URLSearchParams({ state: parameters.get('state'), error: 'access_denied' }).toString()
+    return route.fulfill({ contentType: 'text/html', body: `<html lang="pt-BR"><title>Escolha de conta simulada</title><h1>Escolher conta Google de teste</h1><a href="${callback.href.replace(/&/g, '&amp;')}">Escolher conta de teste</a><a href="${cancelled.href.replace(/&/g, '&amp;')}">Cancelar acesso</a></html>` })
+  })
+  async function choose() {
+    await page.getByRole('button', { name: 'Logar com Google', exact: true }).click()
+    await expect(page).toHaveURL(/^https:\/\/accounts\.google\.com\/o\/oauth2\/v2\/auth/)
+    await page.getByRole('link', { name: 'Escolher conta de teste', exact: true }).click()
+  }
+  await page.goto('/?login=1&next=%2Fperfil')
+  await page.screenshot({ path: info.outputPath('botao-logar-google.png') })
+  await choose()
+  await expect(page).toHaveURL(/\/perfil$/)
+  const userId = await page.evaluate(() => JSON.parse(atob(localStorage.getItem('token').split('.')[1])).id)
+  expect(await page.evaluate(() => localStorage.getItem('userUsername'))).toMatch(/^usuario_[a-f0-9]{16}$/)
+  await page.getByRole('button', { name: 'Segurança', exact: true }).click()
+  await expect(page.getByText('Sua conta está vinculada ao Google.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Desvincular Google e sair' })).toHaveCount(0)
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.goto('/?login=1&next=%2Fperfil'); await choose()
+  await expect(page).toHaveURL(/\/perfil$/)
+  expect(await page.evaluate(() => JSON.parse(atob(localStorage.getItem('token').split('.')[1])).id)).toBe(userId)
+  const existingEmail = `vinculo_${suffix}@gmail.com`
+  expect((await request.post(`${process.env.E2E_API_URL}/cadastro`, { data: { username: `vinculo_${suffix}`, email: existingEmail, senha: password, confirmarSenha: password } })).status()).toBe(201)
+  identity = { email: existingEmail, sub: `vinculo-${suffix}` }
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.goto('/?login=1&next=%2Fperfil'); await choose()
+  await expect(page).toHaveURL(/\/login\/google$/)
+  await page.getByRole('link', { name: 'Recuperar a senha da EHtech', exact: true }).click()
+  await expect(page).toHaveURL(/\/esqueci-senha$/)
+  await page.goto('/?login=1&next=%2Fperfil'); await choose()
+  await page.getByLabel('Senha atual da EHtech', { exact: true }).fill('senha-incorreta')
+  await page.getByRole('button', { name: 'Confirmar vínculo com Google' }).click()
+  await expect(page.getByText('Senha da EHtech incorreta. Confirme sua senha para vincular o Google.', { exact: true })).toBeVisible()
+  await page.getByLabel('Senha atual da EHtech', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Confirmar vínculo com Google' }).click()
+  await expect(page).toHaveURL(/\/perfil$/)
+  await page.getByRole('button', { name: 'Segurança', exact: true }).click()
+  await page.getByLabel('Senha da EHtech para desvincular', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Desvincular Google e sair' }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('token'))).toBeNull()
+  await page.getByRole('button', { name: 'Logar com Google', exact: true }).click()
+  await page.getByRole('link', { name: 'Cancelar acesso', exact: true }).click()
+  await expect(page.getByText('Você cancelou o acesso pelo Google. Pode tentar novamente.', { exact: true })).toBeVisible()
+})
+
+test('Google sem configuração: botão visível e login comum disponível', async ({ page }, info) => {
+  test.skip(Boolean(process.env.E2E_GOOGLE_KEY), 'Este cenário usa Google desabilitado.')
+  await page.goto('/?login=1')
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('button', { name: 'Logar com Google', exact: true })).toBeVisible()
+  await dialog.screenshot({ path: info.outputPath('botao-google-no-login.png') })
+  await dialog.getByRole('button', { name: 'Logar com Google', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('ainda não foi configurado')
+  await expect(dialog.getByRole('button', { name: 'Entrar', exact: true })).toBeEnabled()
+})

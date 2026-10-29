@@ -5,6 +5,7 @@ import { apiResponse } from '../../../lib/api-request.js';
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { ReportControl } from '../../complements/TrustControls'
 import ServiceIcon from '../ServiceIcon'
 import { categoryLabel, modalityLabel, servicePrice } from '../serviceData'
 import styles from '../servicos.module.css'
@@ -89,14 +90,14 @@ export default function ServiceDetailPage() {
             </div>
             <section className={styles.detailContent}><h2>Sobre o serviço</h2><p>{service.descricao}</p></section>
             <section className={styles.detailContent}><h2>O que está incluído</h2><ul>{service.destaques.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul></section>
-            <section className={styles.note}><strong>Contratação consciente</strong><p>Use o orçamento estruturado para registrar diagnóstico, escopo, prazo, garantia e valor antes do atendimento.</p></section>
+            <section className={styles.detailContent}><h2>Entregáveis e aceite</h2><p>{service.entregaveis || 'Combine os entregáveis no orçamento.'}</p><p>{service.criterios_aceite || 'Combine como conferir o resultado antes de aceitar.'}</p><p>Revisões incluídas: {service.revisoes || 0}</p></section><ReportControl type="servico" targetId={service.id_servico} label="Denunciar serviço" /><section className={styles.note}><strong>Contratação consciente</strong><p>Registre escopo, prazo, condições e valor antes do atendimento. O serviço é prestado pelo usuário anunciante. O pagamento é externo. Consulte as políticas antes de contratar.</p></section>
           </article>
 
           <aside className={styles.hireCard}>
             <span className={styles.hireLabel}>Investimento estimado</span>
             <strong className={styles.hirePrice}>{servicePrice(service)}</strong>
-            <p>O valor final pode variar conforme o diagnóstico e os materiais necessários.</p>
-            <div className={styles.provider}><span>{initials}</span><div><small>Serviço oferecido por</small><strong>{service.prestador}</strong><em>{service.prestador_avaliacoes ? `★ ${service.prestador_nota.toFixed(1)} · ${service.prestador_avaliacoes} avaliações técnicas` : '★ Novo prestador na categoria de serviços'}</em></div></div>
+            <p>Confirme o valor e o que está incluído no orçamento do prestador.</p><Link className="text-accent underline" href="/politicas#servicos">Condições de serviços e pagamento</Link>
+            <div className={styles.provider}><span>{initials}</span><div><small>Serviço oferecido por</small><strong>{service.prestador}</strong><em>{service.prestador_avaliacoes ? `★ ${service.prestador_nota.toFixed(1)} · ${service.prestador_avaliacoes} avaliações de serviços` : '★ Novo prestador na categoria de serviços'}</em></div></div>
             <dl><div><dt>Modalidade</dt><dd>{modalityLabel(service.modalidade)}</dd></div><div><dt>Região</dt><dd>{service.regiao}</dd></div><div><dt>Prazo</dt><dd>{service.prazo}</dd></div></dl>
             <button type="button" className={styles.quoteButton} onClick={openQuoteForm}>Solicitar orçamento <span>→</span></button>
             <Link href={`/mensagens?vendedor=${service.prestador_id}`} className={styles.contact}>Conversar com o prestador <span>→</span></Link>

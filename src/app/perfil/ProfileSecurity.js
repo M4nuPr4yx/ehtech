@@ -1,7 +1,9 @@
 'use client';
+import GoogleAccount from './GoogleAccount';
 
 export default function ProfileSecurity({ handleChangePassword, senhaAtual, setSenhaAtual, novaSenha, setNovaSenha, confirmarSenha, setConfirmarSenha, handleChangeEmail, novoEmail, setNovoEmail, senhaConfimar, setSenhaConfirmar, message, messageType }) {
 return (<div className="space-y-8">
+              <GoogleAccount />
               {/* Alterar Senha */}
               <div>
                 <h2 className="text-xl font-bold text-foreground mb-4">Alterar Senha</h2>

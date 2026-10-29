@@ -3,7 +3,7 @@ import Link from 'next/link';
 const paths = [
   { title: 'Encontre um equipamento', text: 'Busque por nome ou categoria, confira os detalhes do anúncio e converse com o vendedor para combinar a compra.', href: '/produtos', action: 'Explorar produtos' },
   { title: 'Venda o que você não usa', text: 'Crie um anúncio com fotos, preço e descrição. Após a aprovação, ele aparece no catálogo e você recebe interessados pelo chat.', href: '/anunciar', action: 'Criar anúncio' },
-  { title: 'Conte com ajuda técnica', text: 'Escolha um serviço e peça um orçamento. Alinhe o valor e o prazo, depois acompanhe o atendimento nas suas contratações.', href: '/servicos', action: 'Encontrar um serviço' },
+  { title: 'Contrate ou ofereça um serviço', text: 'Escolha um serviço e peça um orçamento. Alinhe o valor e o prazo, depois acompanhe o atendimento nas suas contratações.', href: '/servicos', action: 'Encontrar um serviço' },
 ];
 
 export default function Sobre() {
@@ -12,7 +12,7 @@ export default function Sobre() {
       <header className="max-w-2xl mb-10">
         <p className="text-xs font-semibold tracking-widest uppercase text-accent mb-3">Comece por aqui</p>
         <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">Como funciona a EHtech</h1>
-        <p className="text-muted leading-relaxed">Um lugar para encontrar produtos, anunciar equipamentos e contratar serviços de tecnologia. Escolha o que você precisa fazer.</p>
+        <p className="text-muted leading-relaxed">Um lugar para encontrar produtos, anunciar equipamentos e contratar serviços de programação, design, aulas e muito mais. Escolha o que você precisa fazer.</p>
       </header>
       <section className="grid md:grid-cols-3 gap-5" aria-label="Primeiros passos">
         {paths.map(item => <article key={item.href} className="rounded-2xl border border-line bg-surface p-6 flex flex-col">

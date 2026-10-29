@@ -101,3 +101,10 @@
 @media (max-width: 759px) { .shell { width: calc(100% - 36px); } .hero { grid-template-columns: 1fr; gap: 32px; padding: 36px 0; } .hero h1 { font-size: 44px; max-width: 530px; } .description { margin: 18px 0 24px; } .showcase { max-width: 530px; width: 100%; } .heroCaption { display: flex; } .heroCaption strong { margin-top: 0; } .productGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .services { grid-template-columns: 1fr; gap: 20px; padding: 26px; } .services h2 { font-size: 28px; } .sell { align-items: start; flex-direction: column; gap: 22px; } .sectionHeading h2 { font-size: 23px; } }
 @media (max-width: 420px) { .hero h1 { font-size: 39px; } .heroCaption { display: block; } .heroCaption strong { margin-top: 10px; } .departmentGrid { gap: 0 14px; } .department { gap: 9px; } .departmentIcon { width: 32px; height: 32px; border-radius: 7px; } .department small { display: none; } .department strong { font-size: 12px; } .department > span:last-child { display: none; } .productBody { padding: 13px; } .productBottom strong { font-size: 17px; } .sectionHeading > a { max-width: 90px; text-align: right; } .serviceGrid { grid-template-columns: 1fr; gap: 0; } }
 @media (prefers-reduced-motion: reduce) { .heroPhoto img, .productPhoto img, .department > span:last-child { transition: none; transform: none !important; } }
+/* Restore the selected theme inside painted surfaces. */
+.search, .heroProduct, .pcNote, .quickStart > div a, .productCard, .departmentIcon, .services, .skeleton {
+  --foreground: var(--theme-foreground);
+  --muted: var(--theme-muted);
+  --accent: var(--theme-accent);
+  color: var(--foreground);
+}

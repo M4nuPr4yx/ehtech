@@ -142,7 +142,25 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 ::selection { background: var(--accent-fill); color: var(--accent-contrast); }
 .site-background { isolation: isolate; background: transparent; }
-body { position: relative; isolation: isolate; }
+body { position: relative; isolation: isolate; background: #020c06; }
+/* Text over the fixed dark image needs its own palette. Painted surfaces
+   restore the selected theme through aliases resolved on the root element. */
+:root {
+  --theme-foreground: var(--foreground);
+  --theme-muted: var(--muted);
+  --theme-accent: var(--accent);
+}
+#conteudo { --foreground: #edf2f7; --muted: #b8c6d4; --accent: #b8e344; color: var(--foreground); }
+@layer base {
+#conteudo :where(.bg-surface, .bg-surface-raised, .bg-surface-hover, .bg-background,
+  .bg-accent-soft, .bg-info-soft, .bg-warning-soft, .bg-danger-soft, .bg-success-soft,
+  .theme-surface, input, select, textarea) {
+  --foreground: var(--theme-foreground);
+  --muted: var(--theme-muted);
+  --accent: var(--theme-accent);
+  color: var(--foreground);
+}
+}
 .brand-logo { filter: none; }
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 2px 14px rgb(0 0 0 / .04); }
 .app-navigation, .account-navigation { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; padding: 8px 0; }

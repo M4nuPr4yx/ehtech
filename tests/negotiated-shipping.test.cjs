@@ -59,6 +59,14 @@ test('interface não formata frete pendente como grátis e restaura seleção po
   assert.equal(freightLabel({ valor: null }), 'Valor a combinar')
   assert.match(freightLabel({ valor: 0 }), /0,00/)
   assert.deepEqual(deliverySelections([{ grupo_id: '2:1', vendedor_id: 2, id: 'local' }, { grupo_id: '2:2', vendedor_id: 2, id: 'a-combinar' }]), { '2:1': 'local', '2:2': 'a-combinar' })
+  const groups = [
+    { grupo_id: '2:1', opcoes: [{ id: 'a-combinar', tipo: 'a_combinar', valor: null }] },
+    { grupo_id: '2:2', opcoes: [{ id: 'tarifa', valor: 15 }] },
+    { grupo_id: '3:3', opcoes: [] },
+    { grupo_id: '4:4', opcoes: [{ id: 'gratis', valor: 0 }] },
+  ]
+  assert.deepEqual(deliverySelections([], groups), { '2:1': 'a-combinar' })
+  assert.deepEqual(deliverySelections([{ grupo_id: '2:2', id: 'tarifa' }], groups), { '2:1': 'a-combinar', '2:2': 'tarifa' })
 })
 
 test('contrato permite total pendente sem tornar subtotal ou tarifas conhecidas nulos', () => {

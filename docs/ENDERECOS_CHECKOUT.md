@@ -28,6 +28,10 @@ Configure `SHIPPING_RULES_JSON` no ambiente do backend com as condições comerc
 
 ### Entrega e frete a combinar
 
+No anúncio, **Comprar agora** adiciona o produto se ainda não está no carrinho e abre o checkout, preservando os outros itens e sem aumentar novamente a quantidade já escolhida. **Adicionar ao Carrinho** mantém a navegação e oferece acesso ao carrinho. O próprio vendedor e anúncios sem estoque não oferecem compra.
+
+Quando a única opção de um grupo é frete a combinar, ela aparece selecionada como sugestão. O comprador confirma em **Continuar com frete a combinar**, revisa as condições e só então usa **Confirmar e registrar pedido**. A sugestão não salva a entrega nem cria pedido. Tarifas com preço, inclusive zero, não são pré-selecionadas. **Conversar antes de continuar (opcional)** abre o chat; não registra a compra. Ao voltar ao checkout, a opção pode ser revisada. Conversar não é pré-requisito para registrar o pedido e negociar depois.
+
 Sem tarifa aplicável ao vendedor/origem/destino, o sistema agora oferece **Entrega e frete a combinar** (`id: a-combinar`, `tipo: a_combinar`, `valor: null`). O comprador precisa selecionar essa opção e revisar antes de registrar o pedido. Endereços próximos ou na mesma cidade não definem preço nem confirmam atendimento: disponibilidade, prazo e valor serão combinados pelo chat. A origem válida do anúncio e a confirmação do endereço próprio continuam obrigatórias.
 
 Tarifas configuradas aplicáveis são preservadas: a negociação só aparece nos grupos sem cotação. Em carrinhos mistos, fretes conhecidos permanecem somados separadamente; nunca substituímos frete pendente por R$ 0,00 na tela ou API. Checkout, revisão, confirmação e histórico identificam a pendência e oferecem contato com o vendedor. A notificação do vendedor informa a necessidade de acordo. Alterar a tabela depois da seleção exige nova revisão do checkout.

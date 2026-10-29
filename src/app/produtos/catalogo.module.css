@@ -93,3 +93,10 @@
 .heroGlow { display: none; }
 .hero h1 { line-height: 1.15; }
 .description { font-size: 14px; height: auto; }
+/* Restore the selected theme inside painted surfaces. */
+.searchRow, .chips button, .filters, .sort select, .card, .soldOut, .activeFilters span, .pagination button {
+  --foreground: var(--theme-foreground);
+  --muted: var(--theme-muted);
+  --accent: var(--theme-accent);
+  color: var(--foreground);
+}

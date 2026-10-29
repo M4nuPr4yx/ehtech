@@ -82,3 +82,10 @@
 .aiPoint p { margin-top: 6px; }
 .aiAction { color: var(--muted); font-size: 13px; }
 .aiAction span { font-weight: 650; color: var(--foreground); }
+/* Restore the selected theme inside painted surfaces. */
+.hero, .panel, .pickerList {
+  --foreground: var(--theme-foreground);
+  --muted: var(--theme-muted);
+  --accent: var(--theme-accent);
+  color: var(--foreground);
+}

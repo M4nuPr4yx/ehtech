@@ -233,20 +233,27 @@ export default function ProdutoDetalhes({ initialProduct }) {
     }
   };
 
-  const addToCart = () => {
+  const addToCart = (checkout = false) => {
     if (!isLoggedIn) {
       router.push(`/?login=1&next=${encodeURIComponent(`/produtos/${produto.id_produto}`)}`);
       return;
     }
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existing = cart.findIndex(item => item.id_produto === produto.id_produto);
-    if (existing >= 0) {
-      cart[existing].quantidade += 1;
-    } else {
-      cart.push({ ...produto, quantidade: 1 });
+    if (isOwner || Number(produto.estoque) < 1) return;
+    try {
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      if (!Array.isArray(cart)) throw new Error('Carrinho inválido');
+      const existing = cart.findIndex(item => Number(item.id_produto) === Number(produto.id_produto));
+      if (existing >= 0) {
+        if (!checkout) cart[existing].quantidade = Math.min(Number(cart[existing].quantidade) + 1, Number(produto.estoque), 99);
+      } else {
+        cart.push({ ...produto, quantidade: 1 });
+      }
+      localStorage.setItem('cart', JSON.stringify(cart));
+      if (checkout) router.push('/checkout');
+      else setCartMessage('Produto adicionado ao carrinho!');
+    } catch {
+      setCartMessage('Não foi possível atualizar o carrinho neste navegador. Verifique se o armazenamento está disponível e tente novamente.');
     }
-    localStorage.setItem('cart', JSON.stringify(cart));
-    setCartMessage('Produto adicionado ao carrinho!');
   };
 
   const formatPrice = (price) => {
@@ -295,6 +302,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
       {cartMessage && (
         <div className="fixed right-5 top-24 z-50 rounded-xl border border-success bg-success-soft px-4 py-3 text-sm font-medium text-success shadow-xl" role="status">
           {cartMessage}
+          {cartMessage === 'Produto adicionado ao carrinho!' && <Link href="/carrinho" className="ml-3 font-bold underline">Ir para o carrinho →</Link>}
           <button type="button" onClick={() => setCartMessage('')} className="ml-3 text-success hover:text-foreground" aria-label="Fechar mensagem">×</button>
         </div>
       )}
@@ -419,10 +427,12 @@ export default function ProdutoDetalhes({ initialProduct }) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
+                  {!isOwner && <button type="button" onClick={() => addToCart(true)} disabled={Number(produto.estoque) < 1} className="flex-1 rounded-xl bg-accent-fill px-6 py-3 font-bold text-accent-contrast transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">{Number(produto.estoque) < 1 ? 'Sem estoque' : 'Comprar agora'}</button>}
                   <button
-                    onClick={addToCart}
-                    className="flex-1 py-3 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-xl transition-all"
+                    onClick={() => addToCart()}
+                    disabled={isOwner || Number(produto.estoque) < 1}
+                    className="flex-1 rounded-xl border border-line bg-surface px-6 py-3 font-bold text-foreground transition hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Adicionar ao Carrinho
                   </button>

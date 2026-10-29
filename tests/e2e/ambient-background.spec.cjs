@@ -17,6 +17,12 @@ test('fundo com imagem local anima suavemente e respeita movimento reduzido nos 
     await expect(page.getByRole('heading', { name: 'O que você quer fazer?' })).toBeVisible()
     const colors = { Escuro: 'rgb(237, 242, 247)', Oceano: 'rgb(237, 246, 252)', Aurora: 'rgb(244, 240, 252)', Claro: 'rgb(32, 43, 54)' }
     await expect(page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Início', exact: true })).toHaveCSS('color', colors[theme])
+    await expect(background).toHaveCSS('background-color', 'rgb(2, 12, 6)')
+    await expect(scene).toHaveCSS('opacity', '0.92')
+    await expect(page.getByRole('heading', { name: 'O que você quer fazer?' })).toHaveCSS('color', 'rgb(237, 242, 247)')
+    const card = page.getByRole('link', { name: 'Comprar produtos Busque, filtre e converse com o vendedor.' })
+    await expect(card).toHaveCSS('color', colors[theme])
+    await expect(page.getByRole('searchbox', { name: 'Buscar produtos', exact: true })).toHaveCSS('color', colors[theme])
     await page.screenshot({ path: info.outputPath(`fundo-${theme}.png`) })
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()

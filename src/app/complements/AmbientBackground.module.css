@@ -4,13 +4,10 @@
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
-  background: var(--background);
-  --scene-opacity: .17;
-  --glow-opacity: .12;
+  background: #020c06;
+  --scene-opacity: .92;
+  --glow-opacity: .2;
 }
-:global([data-theme='dark']) .background { --scene-opacity: .92; --glow-opacity: .2; }
-:global([data-theme='ocean']) .background { --scene-opacity: .74; --glow-opacity: .14; }
-:global([data-theme='aurora']) .background { --scene-opacity: .68; --glow-opacity: .12; }
 .scene, .glow, .particles { position: absolute; inset: -3%; }
 .scene {
   background: url('/backgrounds/green-circuit.webp') center top / cover no-repeat;

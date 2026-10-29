@@ -25,3 +25,10 @@
 .extras { margin-top: 25px; }
 .card summary { cursor: pointer; padding: 14px 0; font-weight: 650; }
 .page :is(a,button,input,select,textarea,summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Restore the selected theme inside painted surfaces. */
+.hero, .card {
+  --foreground: var(--theme-foreground);
+  --muted: var(--theme-muted);
+  --accent: var(--theme-accent);
+  color: var(--foreground);
+}

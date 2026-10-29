@@ -138,3 +138,10 @@
 .heroGlow { display: none; }
 .hero h1 { line-height: 1.15; }
 .description { font-size: 14px; height: auto; }
+/* Restore the selected theme inside painted surfaces. */
+.searchPanel, .chips button, .card, .detailHero, .hireCard, .note, .quoteModal, .detailState {
+  --foreground: var(--theme-foreground);
+  --muted: var(--theme-muted);
+  --accent: var(--theme-accent);
+  color: var(--foreground);
+}

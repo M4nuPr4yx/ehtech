@@ -11,7 +11,17 @@ test.beforeEach(async ({ request }) => {
   expect(reset.ok()).toBeTruthy()
 })
 test('teclado, foco do modal e regras básicas disponíveis sem IA', async ({ page }, info) => {
-  await page.goto('/')
+  let releaseCatalog
+  const catalogWait = new Promise(resolve => { releaseCatalog = resolve })
+  const catalogRoute = async route => { await catalogWait; await route.continue() }
+  await page.route('**/api/produtos/catalogo?*', catalogRoute)
+  try {
+    await page.goto('/')
+    await expect(page.getByRole('status').filter({ hasText: 'Buscando anúncios da comunidade…' })).toBeVisible()
+    await accessible(page, info, 'inicio-carregando')
+  } finally { releaseCatalog() }
+  await expect(page.getByRole('status').filter({ hasText: 'Buscando anúncios da comunidade…' })).toBeHidden()
+  await page.unroute('**/api/produtos/catalogo?*', catalogRoute)
   await accessible(page, info, 'inicio')
   for (const theme of ['Escuro', 'Oceano', 'Aurora', 'Claro']) {
     await page.getByRole('button', { name: 'Escolher tema', exact: true }).click()

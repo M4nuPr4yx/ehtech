@@ -7,18 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import UserSearch from '../complements/UserSearch';
 import { ConversationSafety, ReportControl } from '../complements/TrustControls';
-
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  return (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('/uploads/') ||
-    trimmed.startsWith('data:image/')
-  );
-};
+import { isValidImageUrl } from '../complements/imageHelper';
 
 function formatMessageTime(dateString) {
   if (!dateString) return '';

@@ -1,5 +1,6 @@
 import profileDefaults from '../../../shared/profile-defaults.cjs';
 export const DEFAULT_PROFILE_PHOTO = profileDefaults.foto;
+export const isDefaultProfilePhoto = profileDefaults.isDefaultProfilePhoto;
 
 /**
  * Helper para tratamento de imagens únicas e múltiplas em produtos do EHtech
@@ -10,7 +11,7 @@ export const isValidImageUrl = (url) => {
   const trimmed = url.trim();
   if (!trimmed) return false;
   return (
-    trimmed === DEFAULT_PROFILE_PHOTO ||
+    isDefaultProfilePhoto(trimmed) ||
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
     trimmed.startsWith('/uploads/') ||

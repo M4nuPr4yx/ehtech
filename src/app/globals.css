@@ -141,7 +141,8 @@ input, select, textarea { accent-color: var(--accent); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 ::selection { background: var(--accent-fill); color: var(--accent-contrast); }
-.site-background { isolation: isolate; background: var(--background); }
+.site-background { isolation: isolate; background: transparent; }
+body { position: relative; isolation: isolate; }
 .brand-logo { filter: none; }
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 2px 14px rgb(0 0 0 / .04); }
 .app-navigation, .account-navigation { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; padding: 8px 0; }

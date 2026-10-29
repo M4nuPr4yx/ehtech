@@ -4,7 +4,7 @@ const { hashPassword, verifyPassword, validPasswordInput } = require('../passwor
 const { createPasswordAttempts } = require('../password-attempts')
 const jwt = require('jsonwebtoken')
 const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
-const { foto: defaultPhoto } = require('../../shared/profile-defaults.cjs')
+const { foto: defaultPhoto, profilePhoto } = require('../../shared/profile-defaults.cjs')
 module.exports = function createAuthRouter(pool, { authLimiter, api_chave }) {
 const router = createRouter()
 const reservePasswordAttempt = createPasswordAttempts(pool, api_chave)
@@ -108,7 +108,7 @@ router.post("/login", authLimiter, async (req, res) => {
       email: user.email,
       userId: user.id_usuario,
       nome: user.nome || null,
-      foto: user.foto || defaultPhoto
+      foto: profilePhoto(user)
     })
   } catch (error) {
     return loginFailure(res, error)

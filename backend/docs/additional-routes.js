@@ -9,6 +9,7 @@ const obj = (properties, required = []) => ({ type: 'object', properties, ...(re
 const arr = (items) => ({ type: 'array', items })
 const ref = (name) => ({ $ref: '#/components/schemas/' + name })
 const text = str('Texto')
+const photo = str('Foto personalizada ou uma das seis paisagens WebP locais em /profile/, estável pelo ID da conta. Padrões antigos entram na distribuição sem migração; personalizações são preservadas.')
 const id = int('Identificador', { example: 1 })
 const password = str('Senha de no mínimo 8 caracteres e até 1024 bytes em UTF-8; não é truncada', { format: 'password', minLength: 8, maxLength: 1024, writeOnly: true })
 const email = str('E-mail válido', { format: 'email', example: 'conta.teste@gmail.com' })
@@ -27,14 +28,14 @@ const body = (properties, required, example) => ({
 const query = (name, schema) => ({ name, in: 'query', required: false, schema })
 const paths = {}
 const schemas = {
-  DocPerfilPublico: obj({ id_usuario: id, username: text, nome: { ...text, nullable: true }, foto: { ...text, nullable: true }, data_criacao: text }),
-  DocPerfil: obj({ id_usuario: id, username: text, email, role: text, nome: { ...text, nullable: true }, foto: { ...text, nullable: true }, data_criacao: text }),
+  DocPerfilPublico: obj({ id_usuario: id, username: text, nome: { ...text, nullable: true }, foto: photo, data_criacao: text }),
+  DocPerfil: obj({ id_usuario: id, username: text, email, role: text, nome: { ...text, nullable: true }, foto: photo, data_criacao: text }),
   DocNotificacao: obj({ id, produto_id: { ...id, nullable: true }, tipo: text, mensagem: text, lida: { oneOf: [bool, { type: 'integer' }] }, created_at: text }),
   DocServico: obj({
     id_servico: id, slug: text, titulo: text, descricao: text, categoria: text,
     preco_base: { type: 'number', nullable: true }, tipo_preco: text, prazo: text,
     modalidade: modality, regiao: text, destaques: arr(text), prestador_id: id,
-    prestador: text, prestador_foto: { ...text, nullable: true },
+    prestador: text, prestador_foto: photo,
     prestador_nota: num('Média das avaliações'), prestador_avaliacoes: int('Total de avaliações'), created_at: text
   }),
   DocContratacao: obj({
@@ -146,7 +147,7 @@ add('post', '/redefinir-senha', 'Recuperação de senha', 'Salvar nova senha usa
 })
 
 add('get', '/perfil', 'Perfil', 'Consultar meu perfil', { errors: [404], output: ref('DocPerfil') })
-add('put', '/perfil', 'Perfil', 'Atualizar meu nome', { errors: [400], input: body({ nome: str('Nome público, normalizado em NFC; espaços externos removidos e espaços internos agrupados. Rejeita marcação e caracteres de controle.', { minLength: 2, maxLength: 80 }) }, ['nome']), output: obj({ mensagem: text, nome: text }), description: 'Qualquer papel autenticado pode alterar somente o próprio nome. Não altera username, e-mail, permissões ou sessão. Fotos ausentes em perfis usam /profile/default-environment.webp, asset local CC0; fotos personalizadas são preservadas.' })
+add('put', '/perfil', 'Perfil', 'Atualizar meu nome', { errors: [400], input: body({ nome: str('Nome público, normalizado em NFC; espaços externos removidos e espaços internos agrupados. Rejeita marcação e caracteres de controle.', { minLength: 2, maxLength: 80 }) }, ['nome']), output: obj({ mensagem: text, nome: text }), description: 'Qualquer papel autenticado pode alterar somente o próprio nome. Não altera username, e-mail, permissões ou sessão. Fotos ausentes ou padrões anteriores usam uma das seis paisagens locais em /profile/, selecionada de forma estável pelo ID da conta; fotos personalizadas são preservadas.' })
 add('get', '/usuarios/{id}/publico', 'Perfil', 'Consultar perfil público do vendedor', { auth: false, errors: [400, 404], output: ref('DocPerfilPublico') })
 add('get', '/usuarios/busca', 'Mensagens', 'Procurar pessoas para iniciar conversa direta', { errors: [400], parameters: [{ name: 'q', in: 'query', required: true, schema: str('Nome público ou username; @ inicial é opcional. Após remover @ e espaços: 2 a 80 caracteres.', { minLength: 2, maxLength: 81 }) }, query('page', int('Página', { minimum: 1, maximum: 100, default: 1 }))], output: obj({ items: arr(obj({ id_usuario: id, username: text, nome: { ...text, nullable: true }, foto: { ...text, nullable: true } })), total: int('Correspondências'), page: id, limit: int('12 resultados por página'), totalPages: id }), description: 'Autenticado, sem cache e com o rate limit global existente. Busca literal sem distinguir maiúsculas em username/nome; não pesquisa e-mail. Exclui a própria conta. Retorna somente ID, username, nome e foto públicos, sem e-mail, senha, papel, endereços ou mensagens. Prioriza username exato/prefixo e nome exato; desempate por username/ID. Inclui contas sem anúncios. Até 12 resultados por página e 100 páginas; refine a busca para mais precisão.' })
 add('put', '/perfil/senha', 'Perfil', 'Alterar minha senha', { description: 'Revoga todas as sessões anteriores da conta, inclusive a sessão usada nesta requisição. Exige novo login.', errors: [400, 404], input: body({ senhaAtual: str('Senha atual', { format: 'password', writeOnly: true }), novaSenha: password }, ['senhaAtual', 'novaSenha']) })
@@ -156,7 +157,7 @@ add('put', '/perfil/email', 'Perfil', 'Alterar meu e-mail', {
 })
 add('put', '/perfil/foto', 'Perfil', 'Atualizar ou remover minha foto', {
   errors: [400], output: obj({ mensagem: text, foto: { ...text, nullable: true } }),
-  description: 'Arquivo JPG/JPEG, PNG ou WEBP de até 5 MiB, campo foto. Alternativamente envie JSON com foto (URL http, caminho /uploads/ ou data:image/). JSON com foto=null remove a referência do perfil.',
+  description: 'Arquivo JPG/JPEG, PNG ou WEBP de até 5 MiB, campo foto. Alternativamente envie JSON com foto (URL http, caminho /uploads/ ou data:image/). JSON com foto=null remove a referência personalizada e retorna a paisagem padrão estável dessa conta. As seis paisagens WebP locais são selecionadas pelo ID; fotos personalizadas são preservadas. Perfil privado/público, login, busca, chat e prestador de serviço usam a mesma seleção.',
   input: { required: true, content: { 'multipart/form-data': { schema: obj({ foto: binary }, ['foto']) }, 'application/json': { schema: obj({ foto: { ...text, nullable: true } }), example: { foto: null } } } }
 })
 

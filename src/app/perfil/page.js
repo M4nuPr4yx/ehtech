@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
-import { DEFAULT_PROFILE_PHOTO, getMainImage, isValidImageUrl } from '../complements/imageHelper';
+import { DEFAULT_PROFILE_PHOTO, getMainImage, isValidImageUrl, isDefaultProfilePhoto } from '../complements/imageHelper';
 import AddressBook, { AddressDetails } from '../complements/AddressBook';
 import { freightLabel } from '../../lib/shipping';
 import { orderStatus } from '../../lib/order-status';
@@ -466,7 +466,7 @@ const handleChangeEmail = async (e) => {
                   >
                     Alterar Foto
                   </button>
-                  {perfil.foto && perfil.foto !== DEFAULT_PROFILE_PHOTO && (
+                  {perfil.foto && !isDefaultProfilePhoto(perfil.foto) && (
                     <button
                       onClick={handleRemovePhoto}
                       className="px-4 py-2 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded-lg text-sm transition-all"
@@ -477,15 +477,13 @@ const handleChangeEmail = async (e) => {
                 </div>
               </div>
               
-              <form onSubmit={handleSaveName} className="space-y-3 rounded-xl bg-surface-raised p-4">
-                <label htmlFor="profile-name" className="block text-sm font-semibold">Seu nome</label>
-                <div className="flex items-center gap-3">
-                  <input ref={nameInputRef} id="profile-name" name="nome" autoComplete="name" value={nome} onChange={event => setNome(event.target.value)} readOnly={!editingName} tabIndex={editingName ? 0 : -1} required minLength={2} maxLength={80} disabled={savingName} aria-describedby="profile-name-help" onKeyDown={event => { if (event.key === 'Escape' && !savingName) { event.preventDefault(); setNome(perfil.nome || perfil.username || ''); setEditingName(false); } }} className={`min-w-0 flex-1 rounded-xl border p-3 ${editingName ? 'border-line bg-surface' : 'border-transparent bg-transparent'}`} />
+              <form onSubmit={handleSaveName} className="mx-auto flex w-full max-w-sm items-center gap-2 rounded-xl bg-surface-raised px-3 py-1.5">
+                <label htmlFor="profile-name" className="sr-only">Seu nome</label>
+                  <input ref={nameInputRef} id="profile-name" name="nome" autoComplete="name" value={nome} onChange={event => setNome(event.target.value)} readOnly={!editingName} tabIndex={editingName ? 0 : -1} required minLength={2} maxLength={80} disabled={savingName} onKeyDown={event => { if (event.key === 'Escape' && !savingName) { event.preventDefault(); setNome(perfil.nome || perfil.username || ''); setEditingName(false); } }} className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 ${editingName ? 'border-line bg-surface' : 'border-transparent bg-transparent'}`} />
                   <button type={editingName ? 'submit' : 'button'} onClick={editingName ? undefined : event => { event.preventDefault(); setEditingName(true); setMessage(''); }} aria-label={editingName ? 'Salvar nome' : 'Editar nome'} title={editingName ? 'Salvar nome' : 'Editar nome'} disabled={savingName} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-fill text-accent-contrast hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
                     {editingName ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z" /><path d="M7 3v6h10V3M7 21v-8h10v8" /></svg> : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" /></svg>}
                   </button>
-                </div>
-                <p id="profile-name-help" className="text-sm text-muted">{savingName ? 'Salvando seu nome…' : editingName ? 'Use de 2 a 80 caracteres e toque no ícone de salvar.' : 'Toque no lápis para alterar seu nome.'}</p>
+                <span role="status" className="sr-only">{savingName ? 'Salvando seu nome…' : ''}</span>
               </form>
               {message && <p role={messageType === 'error' ? 'alert' : 'status'} className={messageType === 'error' ? 'text-danger' : 'text-success'}>{message}</p>}
               <div className="bg-surface-raised rounded-xl p-4">

@@ -1,6 +1,6 @@
-.page, .detailPage { min-height: 80vh; background-color: var(--background); background-image: none; background-repeat: var(--background); background-position: var(--background); background-size: var(--background); color: var(--foreground); }
+.page, .detailPage { min-height: 80vh; background: transparent; color: var(--foreground); }
 .shell, .detailShell { width: min(1220px, calc(100% - 48px)); margin: 0 auto; }
-.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); padding: 32px 0 50px; background: var(--background); }
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); padding: 32px 0 50px; background: transparent; }
 .heroGlow { position: absolute; width: 520px; height: 520px; right: 4%; top: -300px; border-radius: 50%; background: var(--surface); filter: blur(70px); pointer-events: none; }
 .breadcrumb { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin-bottom: 34px; min-width: 0; overflow: hidden; }
 .breadcrumb a { color: var(--muted); flex-shrink: 0; }

@@ -113,6 +113,9 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
         await request('POST', '/cadastro', { body: { username: `test_${name}`, email, senha: password, confirmarSenha: password }, expected: 201 })
         if (name === 'admin') await pool.execute("UPDATE usuarios SET role = 'admin' WHERE email = ?", [email])
         const session = await request('POST', '/login', { body: { email, senha: password } })
+        assert.equal(session.foto, require('../shared/profile-defaults.cjs').defaultProfilePhoto(session.userId))
+        const own = await request('GET', '/perfil', { token: session.token })
+        assert.equal(own.foto, session.foto)
         users[name] = { id: session.userId, token: session.token, email }
       }
       await request('POST', '/cadastro', { body: { username: 'test_buyer', email: 'unique.test@gmail.com', senha: password, confirmarSenha: password }, expected: 409 })
@@ -268,7 +271,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
         assert.equal((await pool.execute('SELECT id_usuario FROM usuarios WHERE email = ?', ['redirect-new@gmail.com']))[0].length, 0)
         for (const nome of ['', 'A', {}, 'X'.repeat(81), '<b>Ana</b>', 'Ana\nSilva']) await request('POST', '/auth/google/concluir', { headers: redirected.headers, body: { nome }, expected: 400 })
         const redirectSession = await request('POST', '/auth/google/concluir', { headers: redirected.headers, body: { nome: '  Ana  Google ' } })
-        assert.equal(redirectSession.nome, 'Ana Google'); assert.equal(redirectSession.foto, '/profile/default-environment.webp')
+        assert.equal(redirectSession.nome, 'Ana Google'); assert.equal(redirectSession.foto, require('../shared/profile-defaults.cjs').defaultProfilePhoto(redirectSession.userId))
         assert.match(redirectSession.username, /^usuario_[a-f0-9]{16}$/); assert.equal(redirectSession.destino, '/perfil')
         await request('POST', '/auth/google/concluir', { headers: redirected.headers, body: {}, expected: 401 })
         // Conta do fluxo antigo: pede nome uma única vez, conserva ID, vínculo e foto.
@@ -743,6 +746,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('PUT', `/mensagens/${id}/lidas`, { token: users.buyer.token, body: {} })
       const conversations = await request('GET', '/mensagens/conversas', { token: users.buyer.token })
       assert.ok(conversations.some(item => item.partner_id === id))
+      assert.equal(conversations.find(item => item.partner_id === id).partner_foto, require('../shared/profile-defaults.cjs').defaultProfilePhoto(id))
       assert.ok((await request('GET', '/notificacoes', { token: contact.token })).some(item => item.tipo === 'nova_mensagem'))
     })
 
@@ -752,6 +756,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await pool.execute("INSERT INTO servicos (slug,titulo,descricao,categoria,preco_base,tipo_preco,prazo,modalidade,regiao,destaques,prestador_id) VALUES ('suporte-teste','Suporte de teste','Atendimento técnico de teste','suporte',100,'fixo','1 dia','remoto','Brasil','[]',?)", [users.seller.id])
       const catalog = await request('GET', '/servicos?search=teste&categoria=suporte&modalidade=remoto&ordenacao=menor-preco')
       assert.equal(catalog.total, 1)
+      assert.equal(catalog.items[0].prestador_foto, require('../shared/profile-defaults.cjs').defaultProfilePhoto(users.seller.id))
       serviceId = catalog.items[0].id_servico
       const lastPage = await request('GET', '/servicos?search=teste&page=99999')
       assert.equal(lastPage.page, lastPage.totalPages)
@@ -1122,7 +1127,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('PUT', '/perfil', { token: users.buyer.token, body: { nome: 'Outro', id_usuario: users.seller.id }, expected: 400 })
       assert.equal((await request('GET', '/perfil', { token: users.seller.token })).nome, 'Nome Alterado')
       const restored = await request('PUT', '/perfil/foto', { token: users.buyer.token, body: { foto: null } })
-      assert.equal(restored.foto, '/profile/default-environment.webp')
+      assert.equal(restored.foto, require('../shared/profile-defaults.cjs').defaultProfilePhoto(users.buyer.id))
       await request('PUT', '/perfil', { token: users.buyer.token, body: { nome: 'Cliente de teste' } })
       assert.equal((await request('GET', '/perfil', { token: users.buyer.token })).nome, 'Cliente de teste')
       const publicProfile = await request('GET', `/usuarios/${users.buyer.id}/publico`)

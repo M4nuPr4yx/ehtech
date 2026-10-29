@@ -10,6 +10,10 @@ As cores compartilhadas ficam em `src/app/globals.css`: fundo, superfícies, tex
 
 A aplicação inicial do tema fica em `src/lib/theme.js`; o seletor, em `src/app/complements/ThemeSwitcher.js`. Somente os identificadores previstos são aceitos. Se o navegador bloquear o armazenamento, a escolha continua funcionando durante a sessão.
 
+O fundo usa a imagem de circuitos verdes fornecida pelo usuário, em `public/backgrounds/green-circuit.webp`, com deslocamento lento, brilho e pontos de luz em CSS. A camada é decorativa, não recebe cliques nem foco e não usa vídeo, canvas ou temporizador JavaScript. O tema Claro reduz a intensidade da imagem; os temas escuros a deixam mais evidente, preservando as superfícies dos cartões. `prefers-reduced-motion: reduce` deixa as camadas estáticas.
+
+No perfil, o nome aparece em uma caixa compacta com lápis ao lado, sem rótulo ou legenda visíveis. O rótulo continua disponível ao leitor de tela. Editar libera o campo; salvar conclui e Escape descarta o rascunho. As fotos padrão usam seis paisagens locais, distribuídas de forma estável pelo ID da conta. Foto personalizada permanece intacta; remover a personalização restaura a paisagem dessa conta. A distribuição inclui contas antigas que ainda usavam o padrão anterior, sem migração de dados.
+
 Elementos interativos têm contorno de foco visível. Movimento reduzido desativa
 transições e reduz animações, inclusive na troca de tema. A janela de autenticação
 fica em `AuthDialog.js`; entrada administrativa em `AdminLogin.js` e segurança de

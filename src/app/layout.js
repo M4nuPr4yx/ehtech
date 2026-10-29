@@ -23,12 +23,14 @@ import Header from "./complements/Header";
 import Footer from "./complements/Footer";
 import { themeBootstrap } from "../lib/theme";
 import MotionEnhancements from './complements/MotionEnhancements';
+import AmbientBackground from './complements/AmbientBackground';
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
       <body className={`${manrope.variable} antialiased`}>
+        <AmbientBackground />
         <a className="skip-link" href="#conteudo">Ir para o conteúdo</a>
         <Header />
         <main id="conteudo" tabIndex={-1}>{children}</main>

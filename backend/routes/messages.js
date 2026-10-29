@@ -1,6 +1,7 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
 const { integer } = require('../validation')
+const { profilePhoto } = require('../../shared/profile-defaults.cjs')
 module.exports = function createMessagesRouter(pool, { criarNotificacao }) {
 const router = createRouter()
 router.post("/mensagens", autenticarToken, async (req, res) => {
@@ -90,7 +91,7 @@ router.get("/mensagens/conversas", autenticarToken, async (req, res) => {
       ORDER BY m.created_at DESC
     `, [currentUserId, currentUserId, currentUserId])
 
-    return res.json(rows.map(row => ({ ...row, unread_count: Number(row.unread_count) })))
+    return res.json(rows.map(row => ({ ...row, partner_foto: profilePhoto({ id_usuario: row.partner_id, foto: row.partner_foto }), unread_count: Number(row.unread_count) })))
   } catch (error) {
     console.error('[mensagens/conversas] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao listar conversas" })
@@ -150,7 +151,7 @@ router.get("/mensagens/:outroUsuarioId", autenticarToken, async (req, res) => {
 
     const [[receipt]] = await pool.execute('SELECT MAX(id) AS ultimo FROM mensagens WHERE remetente_id = ? AND destinatario_id = ? AND lida = TRUE', [req.user.id, outroId])
     return res.json({
-      parceiro: partnerRows[0],
+      parceiro: { ...partnerRows[0], foto: profilePhoto(partnerRows[0]) },
       lidas_ate: Number(receipt.ultimo) || 0,
       ...require('../message-pagination').pageResult(messages, page)
     })

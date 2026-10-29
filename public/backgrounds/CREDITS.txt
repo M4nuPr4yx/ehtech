@@ -1,0 +1,4 @@
+green-circuit.webp
+Imagem fornecida pelo usuário em 29/10/2026 como base do fundo animado da EHtech.
+Arquivo original preservado sem transformação de pixels. Animação e adaptação aos temas feitas por CSS.
+Não foi atribuída licença de terceiros ou licença aberta ao arquivo fornecido.

@@ -1,6 +1,7 @@
 const express = require('express')
 const { integer } = require('../validation')
 const { publicCatalogCache } = require('../public-catalog-cache')
+const { profilePhoto } = require('../../shared/profile-defaults.cjs')
 
 const SORTS = {
   recentes: 's.id_servico DESC',
@@ -27,6 +28,7 @@ function parseHighlights(value) {
 function normalizeService(service) {
   return {
     ...service,
+    prestador_foto: profilePhoto({ id_usuario: service.prestador_id, foto: service.prestador_foto }),
     preco_base: service.preco_base === null ? null : Number(service.preco_base),
     prestador_nota: Number(service.prestador_nota) || 0,
     prestador_avaliacoes: Number(service.prestador_avaliacoes) || 0,

@@ -1,4 +1,4 @@
-.catalog { position: relative; isolation: isolate; background-color: var(--background); background-image: none; background-repeat: var(--background); background-position: var(--background); background-size: var(--background); color: var(--foreground); min-height: 80vh; padding: 28px 0 72px; }
+.catalog { position: relative; isolation: isolate; background: transparent; color: var(--foreground); min-height: 80vh; padding: 28px 0 72px; }
 .shell { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
 .breadcrumb { display: flex; gap: 12px; color: var(--muted); font-size: 12px; margin-bottom: 32px; }
 .breadcrumb a:hover { color: var(--accent); }

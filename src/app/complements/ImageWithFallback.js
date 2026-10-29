@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { canOptimizeImage } from './imagePolicy.mjs';
+import { isValidImageUrl } from './imageHelper';
 
 /**
  * Componente para exibir imagens de forma robusta
@@ -24,20 +25,7 @@ function ImageContent({ src, alt, className, style, loading = 'lazy', sizes = '(
     </svg>
   );
 
-  // Verifica se é uma URL/image base64 válida
-  const isValidImageSrc = (value) => {
-    if (!value || typeof value !== 'string') return false;
-    const trimmed = value.trim();
-    if (!trimmed) return false;
-    return (
-      trimmed.startsWith('http://') ||
-      trimmed.startsWith('https://') ||
-      trimmed.startsWith('/uploads/') ||
-      trimmed.startsWith('data:image/')
-    );
-  };
-
-  if (error || !isValidImageSrc(src)) {
+  if (error || !isValidImageUrl(src)) {
     return (
       <div className={className} role="img" aria-label={alt ? `${alt}: foto indisponível` : 'Foto indisponível'} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {placeholder}

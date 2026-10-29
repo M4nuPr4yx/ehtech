@@ -4,3 +4,34 @@ Fonte: https://commons.wikimedia.org/wiki/File:Glendalough_Lower_Lake_Photo.jpg
 Original: https://upload.wikimedia.org/wikipedia/commons/e/eb/Glendalough_Lower_Lake_Photo.jpg
 Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
 Adaptação EHtech: recorte quadrado 384 × 384, WebP, sem metadados.
+
+Variações adicionadas em 29/10/2026 — recorte quadrado 384 × 384 e WebP sem metadados.
+environment-clouds.webp
+Fotografia: Landscape of lake and clouds.jpg; Mshuang2.
+Fonte: https://commons.wikimedia.org/wiki/File:Landscape_of_lake_and_clouds.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/b/bf/Landscape_of_lake_and_clouds.jpg
+Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+
+environment-sunset.webp
+Fotografia: Beach at Sunset - 50134955282.jpg; Alabama Extension / Bruce Dupree.
+Fonte: https://commons.wikimedia.org/wiki/File:Beach_at_Sunset_-_50134955282.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/d/d1/Beach_at_Sunset_-_50134955282.jpg
+Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+
+environment-forest.webp
+Fotografia: Landscape of a wild forest.jpg; SpessiG.
+Fonte: https://commons.wikimedia.org/wiki/File:Landscape_of_a_wild_forest.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/c/c9/Landscape_of_a_wild_forest.jpg
+Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+
+environment-autumn.webp
+Fotografia: Colorful autumn forest.jpg; AdvaitaMakaranda.
+Fonte: https://commons.wikimedia.org/wiki/File:Colorful_autumn_forest.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/0/05/Colorful_autumn_forest.jpg
+Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+
+environment-waterfall.webp
+Fotografia: Waterfall image, owu.jpg; Shekinahglory2000.
+Fonte: https://commons.wikimedia.org/wiki/File:Waterfall_image%2C_owu.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/9/99/Waterfall_image%2C_owu.jpg
+Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/

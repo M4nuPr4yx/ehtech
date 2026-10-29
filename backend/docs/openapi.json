@@ -781,7 +781,7 @@
           "email": { "type": "string", "format": "email" },
           "userId": { "type": "integer" },
           "nome": { "type": "string", "nullable": true, "description": "Nome público, quando definido no perfil." },
-          "foto": { "type": "string", "description": "Foto personalizada ou /profile/default-environment.webp quando ausente." }
+          "foto": { "type": "string", "description": "Foto personalizada ou uma das seis paisagens locais em /profile/, escolhida de forma estável pelo ID da conta. Padrões antigos entram na distribuição sem migrar dados; fotos personalizadas são preservadas." }
         }
       },
       "NovoProduto": {

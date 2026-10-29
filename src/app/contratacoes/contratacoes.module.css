@@ -1,4 +1,4 @@
-.page { min-height: 82vh; padding: 30px 0 80px; background-color: var(--background); background-image: none; background-repeat: var(--background); background-position: var(--background); background-size: var(--background); color: var(--foreground); }
+.page { min-height: 82vh; padding: 30px 0 80px; background: transparent; color: var(--foreground); }
 .shell { width: min(1180px,calc(100% - 48px)); margin: 0 auto; }
 .breadcrumb { display: flex; gap: 9px; color: var(--muted); font-size: 12px; margin-bottom: 25px; }
 .breadcrumb a { color: var(--muted); }

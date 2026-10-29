@@ -7,7 +7,7 @@ const { autenticarToken } = require('../middleware/auth')
 const { transaction, problem } = require('../addresses')
 const { isAllowedUserEmail } = require('../user-validation')
 const { normalizeProfileName, NAME_MESSAGE } = require('../profile-name')
-const { foto: defaultPhoto } = require('../../shared/profile-defaults.cjs')
+const { foto: defaultPhoto, profilePhoto } = require('../../shared/profile-defaults.cjs')
 
 const COOKIE = 'ehtech_google', TTL = 10 * 60 * 1000
 function cookie(req) {
@@ -97,7 +97,7 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
       await connection.execute('DELETE FROM google_auth_desafios WHERE cookie_hash = ?', [hash])
       if (linking) return { mensagem: 'Google vinculado com sucesso.' }
       const token = jwt.sign({ id: user.id_usuario, username: user.username, email: user.email, role: user.role || 'user', session_version: Number(user.session_version) }, api_chave, { expiresIn: '8h', algorithm: 'HS256' })
-      return { mensagem: 'Login OK', token, username: user.username, nome: user.nome || null, email: user.email, userId: user.id_usuario, foto: user.foto || defaultPhoto }
+      return { mensagem: 'Login OK', token, username: user.username, nome: user.nome || null, email: user.email, userId: user.id_usuario, foto: profilePhoto(user) }
     })
     if (!result.failure && !result.proxima_etapa) { const options = cookieOptions(); delete options.maxAge; res.clearCookie(COOKIE, options) }
     return result

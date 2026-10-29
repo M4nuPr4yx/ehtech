@@ -1,4 +1,4 @@
-.page { min-height: 80vh; padding: 38px 22px 80px; background: var(--background); color: var(--foreground); }
+.page { min-height: 80vh; padding: 38px 22px 80px; background: transparent; color: var(--foreground); }
 .shell { max-width: 1150px; margin: auto; }
 .hero, .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 25px; margin-bottom: 20px; min-width: 0; overflow-wrap: anywhere; }
 .hero h1 { font-size: clamp(28px,4vw,42px); font-weight: 750; margin: 12px 0; }

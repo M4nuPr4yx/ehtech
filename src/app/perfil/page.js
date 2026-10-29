@@ -27,7 +27,9 @@ export default function Perfil() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [nome, setNome] = useState('');
+  const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
+  const nameInputRef = useRef(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -157,18 +159,25 @@ export default function Perfil() {
   }, []);
 
   const handleSaveName = async event => {
-    event.preventDefault(); setSavingName(true); setMessage('');
+    event.preventDefault();
+    if (!editingName || savingName) return;
+    setSavingName(true); setMessage('');
     try {
       const res = await apiResponse('/perfil', { method: 'PUT', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.mensagem || 'Não foi possível salvar seu nome.');
       setPerfil(current => ({ ...current, nome: data.nome })); setNome(data.nome);
+      setEditingName(false);
       localStorage.setItem('userUsername', data.nome);
       window.dispatchEvent(new Event('ehtech:profile-name'));
       setMessage('Nome atualizado com sucesso!'); setMessageType('success');
     } catch (error) { setMessage(error.message); setMessageType('error'); }
     finally { setSavingName(false); }
   };
+
+  useEffect(() => {
+    if (editingName) nameInputRef.current?.focus();
+  }, [editingName]);
 
 const handleLogout = () => {
     localStorage.removeItem('token');
@@ -470,9 +479,13 @@ const handleChangeEmail = async (e) => {
               
               <form onSubmit={handleSaveName} className="space-y-3 rounded-xl bg-surface-raised p-4">
                 <label htmlFor="profile-name" className="block text-sm font-semibold">Seu nome</label>
-                <input id="profile-name" name="nome" autoComplete="name" value={nome} onChange={event => setNome(event.target.value)} required minLength={2} maxLength={80} disabled={savingName} aria-describedby="profile-name-help" className="w-full rounded-xl border border-line bg-surface p-3" />
-                <p id="profile-name-help" className="text-sm text-muted">É assim que seu nome aparece no perfil. Use de 2 a 80 caracteres.</p>
-                <button disabled={savingName} className="rounded-xl bg-accent-fill px-4 py-3 font-bold text-accent-contrast disabled:opacity-50">{savingName ? 'Salvando…' : 'Salvar nome'}</button>
+                <div className="flex items-center gap-3">
+                  <input ref={nameInputRef} id="profile-name" name="nome" autoComplete="name" value={nome} onChange={event => setNome(event.target.value)} readOnly={!editingName} tabIndex={editingName ? 0 : -1} required minLength={2} maxLength={80} disabled={savingName} aria-describedby="profile-name-help" onKeyDown={event => { if (event.key === 'Escape' && !savingName) { event.preventDefault(); setNome(perfil.nome || perfil.username || ''); setEditingName(false); } }} className={`min-w-0 flex-1 rounded-xl border p-3 ${editingName ? 'border-line bg-surface' : 'border-transparent bg-transparent'}`} />
+                  <button type={editingName ? 'submit' : 'button'} onClick={editingName ? undefined : event => { event.preventDefault(); setEditingName(true); setMessage(''); }} aria-label={editingName ? 'Salvar nome' : 'Editar nome'} title={editingName ? 'Salvar nome' : 'Editar nome'} disabled={savingName} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-fill text-accent-contrast hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50">
+                    {editingName ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z" /><path d="M7 3v6h10V3M7 21v-8h10v8" /></svg> : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" /></svg>}
+                  </button>
+                </div>
+                <p id="profile-name-help" className="text-sm text-muted">{savingName ? 'Salvando seu nome…' : editingName ? 'Use de 2 a 80 caracteres e toque no ícone de salvar.' : 'Toque no lápis para alterar seu nome.'}</p>
               </form>
               {message && <p role={messageType === 'error' ? 'alert' : 'status'} className={messageType === 'error' ? 'text-danger' : 'text-success'}>{message}</p>}
               <div className="bg-surface-raised rounded-xl p-4">

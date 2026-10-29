@@ -3,7 +3,8 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const net = require('node:net'), { spawn, spawnSync } = require('node:child_process')
 const { Client } = require('pg')
 const e2eIndex = process.argv.indexOf('--e2e')
-const bin = path.resolve(process.env.TEST_POSTGRES_BIN || (e2eIndex === -1 ? process.argv[2] : null) || 'scratch/postgresql-portable/pgsql/bin')
+const demoIndex = process.argv.indexOf('--demo')
+const bin = path.resolve(process.env.TEST_POSTGRES_BIN || (e2eIndex === -1 && demoIndex === -1 ? process.argv[2] : null) || 'scratch/postgresql-portable/pgsql/bin')
 const executable = name => path.join(bin, name + (process.platform === 'win32' ? '.exe' : ''))
 async function main() {
   if (!fs.existsSync(executable('initdb'))) throw Error('Informe TEST_POSTGRES_BIN com os binários oficiais de PostgreSQL. Veja docs/DESENVOLVIMENTO.md.')
@@ -25,7 +26,8 @@ async function main() {
     }
     if (!ready) throw Error('PostgreSQL temporário não ficou pronto.')
     console.log('[PostgreSQL] Instância descartável disponível somente em loopback.')
-    const result = spawnSync(process.execPath, [path.join(__dirname, e2eIndex === -1 ? 'run-integration.cjs' : 'run-e2e.cjs'), '--postgres', ...(e2eIndex === -1 ? [] : process.argv.slice(e2eIndex + 1))], { stdio: 'inherit', windowsHide: true, env: { ...process.env, TEST_PG_HOST: '127.0.0.1', TEST_PG_PORT: String(port), TEST_PG_USER: 'postgres', TEST_PG_PASSWORD: '' } })
+    const runner = demoIndex !== -1 ? 'run-demo-catalog.cjs' : e2eIndex === -1 ? 'run-integration.cjs' : 'run-e2e.cjs'
+    const result = spawnSync(process.execPath, [path.join(__dirname, runner), '--postgres', ...(e2eIndex === -1 ? [] : process.argv.slice(e2eIndex + 1))], { stdio: 'inherit', windowsHide: true, env: { ...process.env, TEST_PG_HOST: '127.0.0.1', TEST_PG_PORT: String(port), TEST_PG_USER: 'postgres', TEST_PG_PASSWORD: '' } })
     process.exitCode = result.status ?? 1
   } finally {
     if (server?.pid) {

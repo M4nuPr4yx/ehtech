@@ -82,6 +82,11 @@ O modo `--production` compila e inicia o frontend de teste em `scratch/e2e-next`
 recarregamentos do Fast Refresh durante navegação entre páginas. Sem essa opção, usa desenvolvimento.
 Com PostgreSQL de teste já disponível, use `npm run test:e2e -- --postgres` e `TEST_PG_*`.
 
+Para o lote de produtos/serviços com fotos e as amostras de carga isoladas, use
+`node tests/run-postgres-local.cjs --demo`. Esse modo executa somente
+`run-demo-catalog.cjs`, em base descartável, sem frontend/CDN e sem chamadas externas.
+Escopo, dados, controles de inserção e limites das medições: [CATALOGO_DEMONSTRACAO.md](CATALOGO_DEMONSTRACAO.md).
+
 `npm run test:e2e` executa Playwright com Chromium em desktop e viewport de celular.
 Antes da primeira execução, instale o navegador com `npx playwright install chromium`
 (no Linux/CI: `npx playwright install --with-deps chromium`). Reutiliza as credenciais

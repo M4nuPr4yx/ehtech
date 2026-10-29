@@ -50,6 +50,8 @@ npm run seed:test-data -- --confirm-local
 
 Esse seed cria/atualiza 50 contas (`usuario1@gmail.com` a `usuario50@gmail.com`, senha de teste `aA123456`) e produtos fictícios aprovados. Ele redefine as contas de demonstração se já existirem; use apenas em banco de teste. As imagens ausentes recebem o logo local como ilustração. Não execute em banco com dados reais.
 
+O [catálogo de demonstração com modelos reais de referência](docs/CATALOGO_DEMONSTRACAO.md) é um lote separado, identificado como fictício, com fotos licenciadas, endereços inventados e 20 produtos/10 serviços. Seu gerador PostgreSQL somente produz SQL para revisão administrativa, sem conexão automática. Para validar a compra e medir uma massa maior exclusivamente em base descartável: `node tests/run-postgres-local.cjs --demo`.
+
 ## Configuração opcional
 
 - **Login Google:** o botão “Logar com Google” abre a escolha de conta e retorna com login automático. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URI` na API. Sem configuração, o botão informa a pendência e o login comum permanece disponível. Passo a passo em [LOGIN_GOOGLE.md](docs/LOGIN_GOOGLE.md).

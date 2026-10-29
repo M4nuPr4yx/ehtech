@@ -1,5 +1,5 @@
 const validator = require('validator')
-const isValidPassword = senha => typeof senha === 'string' && senha.length >= 8
+const isValidPassword = senha => typeof senha === 'string' && senha.length >= 8 && Buffer.byteLength(senha, 'utf8') <= 1024
 function isAllowedUserEmail(email) {
   if (typeof email !== 'string') return false
   const normalized = email.trim().toLowerCase()

@@ -1,6 +1,6 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const bcrypt = require('bcrypt')
+const { hashPassword, verifyPassword, validPasswordInput } = require('../passwords')
 const path = require('path')
 const multer = require('multer')
 const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
@@ -129,12 +129,12 @@ router.put("/perfil/foto", autenticarToken, (req, res, next) => {
 router.put("/perfil/senha", autenticarToken, async (req, res) => {
   const { senhaAtual, novaSenha } = req.body
 
-  if (typeof senhaAtual !== 'string' || !senhaAtual || !novaSenha) {
+  if (!validPasswordInput(senhaAtual) || !novaSenha) {
     return res.status(400).json({ mensagem: "Senha atual e nova senha são obrigatórias" })
   }
 
   if (!isValidPassword(novaSenha)) {
-    return res.status(400).json({ mensagem: "A nova senha deve ter no mínimo 8 caracteres" })
+    return res.status(400).json({ mensagem: "A nova senha deve ter pelo menos 8 caracteres e não pode ser muito longa." })
   }
 
   try {
@@ -143,12 +143,12 @@ router.put("/perfil/senha", autenticarToken, async (req, res) => {
       return res.status(404).json({ mensagem: "Usuário não encontrado" })
     }
 
-    const validou = await bcrypt.compare(senhaAtual, rows[0].senha)
+    const validou = await verifyPassword(senhaAtual, rows[0].senha)
     if (!validou) {
       return res.status(400).json({ mensagem: "Senha atual incorreta" })
     }
 
-    const hash = await bcrypt.hash(novaSenha, 10)
+    const hash = await hashPassword(novaSenha)
     await pool.execute('UPDATE usuarios SET senha = ?, senha_definida = TRUE, session_version = session_version + 1 WHERE id_usuario = ?', [hash, req.user.id])
     return res.json({ mensagem: "Senha alterada com sucesso! Faça login novamente." })
   } catch (error) {
@@ -160,7 +160,7 @@ router.put("/perfil/senha", autenticarToken, async (req, res) => {
 router.put("/perfil/email", autenticarToken, async (req, res) => {
   const { novoEmail, senha } = req.body
 
-  if (!novoEmail || typeof senha !== 'string' || !senha) {
+  if (!novoEmail || !validPasswordInput(senha)) {
     return res.status(400).json({ mensagem: "Novo e-mail e senha são obrigatórios" })
   }
 
@@ -176,7 +176,7 @@ router.put("/perfil/email", autenticarToken, async (req, res) => {
       return res.status(404).json({ mensagem: "Usuário não encontrado" })
     }
 
-    const validou = await bcrypt.compare(senha, rows[0].senha)
+    const validou = await verifyPassword(senha, rows[0].senha)
     if (!validou) {
       return res.status(400).json({ mensagem: "Senha incorreta" })
     }

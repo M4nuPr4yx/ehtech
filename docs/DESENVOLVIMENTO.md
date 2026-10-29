@@ -22,6 +22,8 @@ Leia apenas a parte relacionada à alteração. A instalação está no [README]
 
 ## Convenções
 
+Proteções de conta, limites persistentes de senha, armazenamento de senhas e cabeçalhos: [SEGURANCA.md](SEGURANCA.md). Todas as operações que escrevem ou verificam senha usam `backend/passwords.js`, inclusive administração, recuperação e vínculo Google; não adicione chamadas diretas ao bcrypt nessas rotas. Migrações novas exigem incrementar `SCHEMA_VERSION`.
+
 JavaScript, Express CommonJS e Next App Router. Textos da interface em pt-BR. Componentes interativos usam `'use client'`; URLs da API passam por `getApiUrl()` de `src/lib/api.js`. JWT de usuário: `localStorage.token`; administrador: `sessionStorage.adminToken`; carrinho: `localStorage.cart`; nome/foto: `userUsername`/`userFoto`. Chamadas protegidas usam `Authorization: Bearer`.
 
 Preserve a política de imagens e os temas em `src/app/globals.css`/módulos CSS. Anúncios são pendentes até aprovação. Verifique propriedade, papel, IDs, valores monetários e transições de serviço no servidor; não relaxe autorização ou validação para resolver falhas.

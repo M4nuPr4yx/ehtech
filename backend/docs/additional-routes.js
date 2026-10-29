@@ -10,7 +10,7 @@ const arr = (items) => ({ type: 'array', items })
 const ref = (name) => ({ $ref: '#/components/schemas/' + name })
 const text = str('Texto')
 const id = int('Identificador', { example: 1 })
-const password = str('Senha de no mínimo 8 caracteres', { format: 'password', minLength: 8, writeOnly: true })
+const password = str('Senha de no mínimo 8 caracteres e até 1024 bytes em UTF-8; não é truncada', { format: 'password', minLength: 8, maxLength: 1024, writeOnly: true })
 const email = str('E-mail válido', { format: 'email', example: 'conta.teste@gmail.com' })
 const message = obj({ mensagem: text })
 const error = obj({ mensagem: text, error: text, erro: text, code: text })
@@ -102,8 +102,8 @@ function add(method, path, tag, summary, options = {}) {
     responses
   }
 }
-const authLimit = '20 requisições/IP em 15 minutos, compartilhadas entre cadastro, login e login administrativo; também sujeita ao limite global.'
-const resetLimit = '10 requisições/IP por hora, compartilhadas entre solicitação e redefinição de senha; também sujeita ao limite global.'
+const authLimit = '20 requisições/IP em 15 minutos, compartilhadas entre cadastro, login e login administrativo; também sujeita ao limite global. Login por senha compartilha contadores persistentes entre instâncias e entre /login e /admin/login: 10 falhas por conta/rede e 100 por rede em janela fixa de 15 minutos. Sucesso devolve a reserva, sem apagar falhas anteriores. Retorna Retry-After quando limitado.'
+const resetLimit = '10 requisições/IP por hora, compartilhadas entre solicitação, verificação de link e redefinição de senha; também sujeita ao limite global.'
 const uploadLimit = '50 requisições/IP em 15 minutos, compartilhadas pelas rotas /upload; também sujeita ao limite global.'
 
 add('post', '/cadastro', 'Autenticação', 'Cadastrar uma conta de usuário', {
@@ -116,7 +116,7 @@ add('post', '/cadastro', 'Autenticação', 'Cadastrar uma conta de usuário', {
   }, ['username', 'email', 'senha', 'confirmarSenha'], { username: 'teste_carga_001', email: 'teste.carga.001@gmail.com', senha: 'TroqueEstaSenha123!', confirmarSenha: 'TroqueEstaSenha123!' })
 })
 add('post', '/admin/login', 'Administração', 'Autenticar administrador', {
-  auth: false, errors: [400, 401], limit: authLimit,
+  auth: false, errors: [400, 401, 503], limit: authLimit,
   description: 'Somente contas com role admin. Retorna JWT com validade de 4 horas. Não cria um administrador.',
   input: body({ email, senha: str('Senha atual', { format: 'password', writeOnly: true }) }, ['email', 'senha']),
   output: obj({ mensagem: text, token: text })
@@ -134,11 +134,11 @@ add('put', '/admin/produtos/{id}/aprovacao', 'Administração', 'Alterar aprova�
 
 add('post', '/esqueci-senha', 'Recuperação de senha', 'Solicitar link de recuperação', {
   auth: false, errors: [400], limit: resetLimit, input: body({ email }, ['email']),
-  description: 'Pode enviar e-mail real se SMTP estiver configurado. Retorna mensagem genérica mesmo se a conta não existir. O link expira em 1 hora; sem SMTP, a implementação registra o link no console do servidor.'
+  description: 'Envia e-mail se SMTP estiver configurado, com TLS obrigatório em produção. Retorna mensagem genérica mesmo se a conta não existir. O link expira em 1 hora e nunca é registrado nos logs, inclusive sem SMTP. Resposta sem cache.'
 })
 add('get', '/verificar-token/{token}', 'Recuperação de senha', 'Verificar token de recuperação', {
-  auth: false, errors: [400], output: obj({ valido: bool, email, mensagem: text }),
-  description: 'Use o token do link de recuperação, não o JWT de login. Token inválido ou expirado retorna HTTP 200 com valido=false.'
+  auth: false, errors: [400], limit: resetLimit, output: obj({ valido: bool, mensagem: text }),
+  description: 'Use os 64 caracteres hexadecimais do link de recuperação, não o JWT de login. Link bem formado, inválido ou expirado retorna HTTP 200 com valido=false; formato incorreto retorna 400. Não revela e-mail. Resposta sem cache e sem referência.'
 })
 add('post', '/redefinir-senha', 'Recuperação de senha', 'Salvar nova senha usando link de recuperação', {
   auth: false, errors: [400], limit: resetLimit, input: body({ token: str('Token do link de recuperação'), novaSenha: password }, ['token', 'novaSenha']),
@@ -420,16 +420,16 @@ const googleCredential = str('ID token assinado pelo Google, com o nonce do desa
 const googleFlow = 'Fluxo pelo mesmo domínio do site, sem cache. O desafio usa cookie HttpOnly/SameSite=Lax, nonce e validade de 10 minutos. JSON até 12 KB. O Google autentica a identidade; permissões da EHtech continuam no banco. ' + authLimit
 add('get', '/auth/google/config', 'Autenticação', 'Consultar disponibilidade do Google', { auth: false, output: obj({ habilitado: bool, client_id: { ...text, nullable: true } }), description: 'Client ID é público; nenhum segredo é retornado. Desabilitado sem GOOGLE_CLIENT_ID válido.' })
 add('post', '/auth/google/desafio', 'Autenticação', 'Iniciar tentativa de acesso pelo Google', { auth: false, input: body({ acao: str('entrar ou vincular', { enum: ['entrar', 'vincular'] }) }, ['acao']), output: obj({ nonce: text, expira_em: text }), errors: [400, 401, 403, 503], description: googleFlow + ' A ação vincular exige Bearer e vincula o desafio à conta autenticada. Retorna Set-Cookie; preserve-o na próxima requisição.' })
-add('post', '/auth/google/entrar', 'Autenticação', 'Entrar, completar cadastro ou confirmar vínculo Google', { auth: false, input: body({ credential: googleCredential, username: str('Somente no primeiro cadastro', { minLength: 3, maxLength: 30 }), senha: str('Senha atual da EHtech para vincular conta existente', { maxLength: 200 }) }, ['credential']), output: obj({ proxima_etapa: str('cadastro ou vincular quando incompleto'), token: text, username: text, email, userId: id, mensagem: text }), errors: [400, 401, 409, 503], description: googleFlow + ' Sucesso emite JWT normal e consome desafio atomicamente. Resposta sem token indica proxima_etapa: cadastro exige username; vincular exige senha atual. Mantém o cookie e reenvia credential. Nunca une contas por e-mail sem senha. Identidade usa sub, não e-mail. Cinco senhas incorretas encerram o desafio.' })
-add('post', '/auth/google/vincular', 'Autenticação', 'Vincular Google no perfil autenticado', { input: body({ credential: googleCredential, senha: str('Senha atual da EHtech', { maxLength: 200 }) }, ['credential']), output: obj({ mensagem: text, proxima_etapa: text, email }), errors: [400, 409, 503], description: googleFlow + ' Exige desafio vincular da mesma conta e Google com mesmo e-mail. Sem senha, solicita proxima_etapa=vincular; com senha, registra vínculo único. Não concede papel administrativo.' })
+add('post', '/auth/google/entrar', 'Autenticação', 'Entrar, completar cadastro ou confirmar vínculo Google', { auth: false, input: body({ credential: googleCredential, username: str('Somente no primeiro cadastro', { minLength: 3, maxLength: 30 }), senha: str('Senha atual da EHtech para vincular conta existente', { maxLength: 1024 }) }, ['credential']), output: obj({ proxima_etapa: str('cadastro ou vincular quando incompleto'), token: text, username: text, email, userId: id, mensagem: text }), errors: [400, 401, 409, 503], description: googleFlow + ' Sucesso emite JWT normal e consome desafio atomicamente. Resposta sem token indica proxima_etapa: cadastro exige username; vincular exige senha atual. Mantém o cookie e reenvia credential. Nunca une contas por e-mail sem senha. Identidade usa sub, não e-mail. Cinco senhas incorretas encerram o desafio.' })
+add('post', '/auth/google/vincular', 'Autenticação', 'Vincular Google no perfil autenticado', { input: body({ credential: googleCredential, senha: str('Senha atual da EHtech', { maxLength: 1024 }) }, ['credential']), output: obj({ mensagem: text, proxima_etapa: text, email }), errors: [400, 409, 503], description: googleFlow + ' Exige desafio vincular da mesma conta e Google com mesmo e-mail. Sem senha, solicita proxima_etapa=vincular; com senha, registra vínculo único. Não concede papel administrativo.' })
 add('get', '/auth/google/conta', 'Autenticação', 'Consultar meus meios de acesso', { output: obj({ vinculado: bool, senha_definida: bool, habilitado: bool }), errors: [503], description: 'Não expõe identificador Google, cookie ou credencial. Funciona mesmo se Google estiver desabilitado.' })
-add('delete', '/auth/google/vinculo', 'Autenticação', 'Desvincular Google e encerrar sessões', { input: body({ senha: str('Senha atual da EHtech', { maxLength: 200 }) }, ['senha']), errors: [400, 409], description: 'Exige senha utilizável e confirmação da senha atual. Impede remover o único meio de acesso. Remove somente vínculo local e revoga JWTs pela versão de sessão; não revoga consentimento no Google. ' + authLimit })
+add('delete', '/auth/google/vinculo', 'Autenticação', 'Desvincular Google e encerrar sessões', { input: body({ senha: str('Senha atual da EHtech', { maxLength: 1024 }) }, ['senha']), errors: [400, 409], description: 'Exige senha utilizável e confirmação da senha atual. Impede remover o único meio de acesso. Remove somente vínculo local e revoga JWTs pela versão de sessão; não revoga consentimento no Google. ' + authLimit })
 
 add('post', '/auth/google/redirecionar', 'Autenticação', 'Preparar redirecionamento para escolher conta Google', { auth: false, input: body({ acao: str('Ação', { enum: ['entrar', 'vincular'] }), destino: str('Destino interno após login', { maxLength: 1000 }) }, ['acao']), output: obj({ url: text }), errors: [400, 401, 403, 503], description: 'Exige Client ID, Client Secret e GOOGLE_REDIRECT_URI. Cria cookie HttpOnly/SameSite=Lax, nonce, state e PKCE S256 por dez minutos. Retorna URL fixa do Google com prompt=select_account, sem segredo ou verificador. A ação vincular exige Bearer. Destinos externos são substituídos por /perfil. ' + authLimit })
 add('get', '/auth/google/callback', 'Autenticação', 'Receber retorno OAuth do Google', { auth: false, code: 303, parameters: [query('state', text), query('code', text), query('error', text)], description: 'Valida cookie, state e validade; consome state antes de trocar code via POST no endereço fixo Google com PKCE. Verifica ID token e nonce, guarda-o criptografado temporariamente e redireciona para /login/google sem credenciais na URL. Erros e cancelamento usam somente indicadores fixos. Não registrar query string deste endpoint. Referrer-Policy: no-referrer. ' + authLimit })
 paths['/auth/google/callback'].get.responses[303] = { description: 'Retorna à página fixa /login/google, com indicador de erro opcional.', headers: { Location: { schema: { type: 'string' } } } }
 add('get', '/auth/google/retorno', 'Autenticação', 'Consultar ação pendente após retorno Google', { auth: false, output: obj({ acao: text, destino: text }), errors: [401, 503], description: 'Exige cookie HttpOnly da tentativa com credencial já validada. Não devolve ID token, segredo, state ou verificador. Sem cache.' })
-add('post', '/auth/google/concluir', 'Autenticação', 'Concluir login automaticamente após redirecionamento', { auth: false, input: body({ senha: str('Somente para vincular conta existente', { maxLength: 200 }) }, []), output: obj({ token: text, username: text, userId: id, destino: text, proxima_etapa: text, email, mensagem: text }), errors: [400, 401, 403, 409, 503], description: 'Exige cookie da tentativa; vincular no perfil exige também Bearer da conta de destino. Usa ID token temporário criptografado no servidor. Novos cadastros recebem username aleatório e sessão automaticamente. Conta existente sem vínculo exige senha; retornos por sub entram diretamente. Sucesso consome tentativa e dados temporários. Não une contas por coincidência de e-mail. ' + authLimit })
+add('post', '/auth/google/concluir', 'Autenticação', 'Concluir login automaticamente após redirecionamento', { auth: false, input: body({ senha: str('Somente para vincular conta existente', { maxLength: 1024 }) }, []), output: obj({ token: text, username: text, userId: id, destino: text, proxima_etapa: text, email, mensagem: text }), errors: [400, 401, 403, 409, 503], description: 'Exige cookie da tentativa; vincular no perfil exige também Bearer da conta de destino. Usa ID token temporário criptografado no servidor. Novos cadastros recebem username aleatório e sessão automaticamente. Conta existente sem vínculo exige senha; retornos por sub entram diretamente. Sucesso consome tentativa e dados temporários. Não une contas por coincidência de e-mail. ' + authLimit })
 
 function extendSpecification(base) {
   // Preserva integralmente info, servers, segurança e operações anteriores.

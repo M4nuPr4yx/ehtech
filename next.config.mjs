@@ -8,6 +8,7 @@ const nextConfig = {
   distDir: process.env.EHTECH_E2E === '1' ? 'scratch/e2e-next' : '.next',
   allowedDevOrigins: lan.getLanHosts(),
   reactCompiler: true,
+  poweredByHeader: false,
   // Ollama local pode levar mais que os 30s padrão do proxy de rewrites.
   // O backend mantém seu próprio prazo de geração, limitado a 180s.
   experimental: { proxyTimeout: 190000 },
@@ -66,8 +67,21 @@ const nextConfig = {
           },
           {
             key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            value: '0',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'",
+          },
+          ...(process.env.NODE_ENV === 'production' ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000' }] : []),
+        ],
+      },
+      {
+        source: '/:path(redefinir-senha|esqueci-senha|login/google)',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
       },
       {

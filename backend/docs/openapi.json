@@ -28,7 +28,7 @@
         "tags": ["Autenticação"],
         "operationId": "login",
         "summary": "Autenticar usuário e obter token JWT",
-        "description": "Valida e-mail e senha e retorna um token JWT Bearer válido por 8 horas. Copie o valor do campo `token` e clique em **Authorize** (🔓) no topo desta página para autenticar as rotas protegidas.",
+        "description": "Valida e-mail (até 254 caracteres) e senha (até 1024 bytes UTF-8) e retorna JWT Bearer por 8 horas. Aceita hashes bcrypt anteriores e scrypt novos. Resposta sem cache. Os logins comum e administrativo compartilham contadores persistentes entre instâncias: 10 falhas por conta/rede e 100 por rede em janela fixa de 15 minutos. Tentativas concorrentes reservam vaga; sucesso devolve apenas a própria reserva. Também mantém o limite em memória por IP. Copie token e use Authorize para rotas protegidas.",
         "requestBody": {
           "required": true,
           "content": {
@@ -81,7 +81,7 @@
             }
           },
           "429": {
-            "description": "Limite de tentativas de autenticação: 20 por IP em 15 minutos.",
+            "description": "Limite em memória de 20 requisições/IP em 15 minutos ou limite persistente de tentativas de senha. Retorna Retry-After.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Erro" },
@@ -95,12 +95,12 @@
               }
             }
           },
-          "500": {
-            "description": "Erro interno ao autenticar.",
+          "503": {
+            "description": "Autenticação temporariamente indisponível; falha fechada se não for possível verificar os limites no banco.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Erro" },
-                "example": { "mensagem": "Erro interno no servidor ao realizar login" }
+                "example": { "mensagem": "Não foi possível entrar agora. Tente novamente em instantes." }
               }
             }
           }

@@ -129,6 +129,37 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       users.other.token = (await request('POST', '/login', { body: { email: users.other.email, senha: password } })).token
     })
 
+    await t.test('segurança: limites de senha persistem entre instâncias, são atômicos e preservam acessos normais', async () => {
+      const { createPasswordAttempts } = require('../backend/password-attempts')
+      const reserveA = createPasswordAttempts(pool, process.env.API_SEGREDO)
+      const reserveB = createPasswordAttempts(pool, process.env.API_SEGREDO)
+      const req = { ip: '192.0.2.10' }, email = 'limite.ficticio@gmail.com'
+      try {
+        await Promise.all(Array.from({ length: 10 }, (_, index) => (index % 2 ? reserveA : reserveB)(req, email)))
+        await assert.rejects(reserveB(req, email), error => error.status === 429 && error.retryAfter > 0)
+        const normal = await reserveB(req, 'outra.ficticia@gmail.com')
+        await normal.success()
+        const [counts] = await pool.execute('SELECT chave, janela, tentativas FROM auth_tentativas')
+        assert.ok(counts.every(row => /^[a-f0-9]{64}$/.test(row.chave)))
+        assert.ok(!JSON.stringify(counts).includes(email))
+        assert.ok(counts.some(row => Number(row.tentativas) === 0), 'Sucesso não consome o limite de falhas')
+        await pool.execute('UPDATE auth_tentativas SET janela = ?', [Math.floor(Date.now() / 900000) - 1])
+        const renewed = await reserveA(req, email)
+        await renewed.success()
+        for (let index = 0; index < 10; index++) await request('POST', index % 2 ? '/admin/login' : '/login', { body: { email: users.other.email, senha: 'SenhaIncorreta-2026' }, expected: 401 })
+        const denied = await fetch(origin + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: users.other.email, senha: password }) })
+        assert.equal(denied.status, 429)
+        assert.ok(Number(denied.headers.get('retry-after')) > 0)
+        assert.equal((await denied.json()).code, 'AUTH_RATE_LIMIT')
+        const profile = await fetch(origin + '/perfil', { headers: { Authorization: `Bearer ${users.buyer.token}` } })
+        assert.equal(profile.status, 200)
+        assert.equal(profile.headers.get('cache-control'), 'no-store')
+        assert.equal(profile.headers.get('referrer-policy'), 'no-referrer')
+        await profile.json()
+        await request('GET', '/perfil', { token: 'a'.repeat(9000), expected: 403 })
+      } finally { await pool.execute('DELETE FROM auth_tentativas') }
+    })
+
     await t.test('Google: configuração, desafio, cadastro, vínculo com senha, replay e desvinculação', async () => {
       const google = require('../backend/google-identity'), googleFixture = require('./helpers/google-fixture.cjs').createGoogleFixture()
       const originalFetch = global.fetch
@@ -1072,7 +1103,9 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const link = deliveries[0].html.match(/href="([^"]+)"/)[1]
       assert.ok(link.startsWith('http://localhost:3001/redefinir-senha?token='))
       const token = new URL(link).searchParams.get('token')
-      assert.equal((await request('GET', `/verificar-token/${token}`)).valido, true)
+      const verification = await request('GET', `/verificar-token/${token}`)
+      assert.equal(verification.valido, true)
+      assert.equal(Object.hasOwn(verification, 'email'), false)
       const resets = await Promise.all([1, 2].map(() => fetch(origin + '/redefinir-senha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, novaSenha: password }) })))
       assert.deepEqual(resets.map(response => response.status).sort(), [200, 400])
       for (const response of resets) { records.push({ method: 'POST', route: '/redefinir-senha', status: response.status, expected: response.status }); await response.json() }

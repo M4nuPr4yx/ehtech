@@ -1,6 +1,6 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const bcrypt = require('bcrypt')
+const { hashPassword } = require('../passwords')
 const validator = require('validator')
 const { isValidPassword } = require('../user-validation')
 module.exports = function createAdminRouter(pool, { criarNotificacao }) {
@@ -91,11 +91,11 @@ router.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
   }
 
   if (!isValidPassword(novaSenha)) {
-    return res.status(400).json({ mensagem: "A senha deve ter no mínimo 8 caracteres" })
+    return res.status(400).json({ mensagem: "A senha deve ter pelo menos 8 caracteres e não pode ser muito longa." })
   }
 
   try {
-    const hash = await bcrypt.hash(novaSenha, 10)
+    const hash = await hashPassword(novaSenha)
     const [result] = await pool.execute('UPDATE usuarios SET senha = ?, senha_definida = TRUE, session_version = session_version + 1 WHERE id_usuario = ?', [hash, numericId])
     if (!result.affectedRows) return res.status(404).json({ mensagem: 'Usuário não encontrado' })
     return res.json({ mensagem: "Senha alterada com sucesso" })

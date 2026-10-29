@@ -157,6 +157,11 @@ async function ensureContractWarrantyColumns(pool) {
 }
 
 async function initializeDatabase(pool) {
+  await pool.execute(`CREATE TABLE IF NOT EXISTS auth_tentativas (
+    chave VARCHAR(64) PRIMARY KEY, janela BIGINT NOT NULL, tentativas INT NOT NULL DEFAULT 0
+  )`)
+  try { await pool.execute('CREATE INDEX idx_auth_tentativas_janela ON auth_tentativas (janela)') }
+  catch (error) { if (!['ER_DUP_KEYNAME', '42P07'].includes(error.code)) throw error }
   // Bancos importados de versões antigas não tinham o estado de aprovação.
   try {
     await pool.execute("ALTER TABLE produtos ADD COLUMN status_aprovacao VARCHAR(50) DEFAULT 'pendente'")

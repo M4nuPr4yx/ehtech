@@ -20,6 +20,15 @@ test('PostgreSQL/Neon limita espera por conexão e tamanho do pool serverless', 
   loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test', VERCEL: '1' }, { pg: { Pool }, 'mysql2/promise': {} })
   assert.equal(options.connectionTimeoutMillis, 10000)
   assert.equal(options.max, 3)
+  assert.equal(options.ssl.rejectUnauthorized, true)
+})
+
+test('MySQL remoto valida certificado TLS; banco local de teste pode desativar SSL explicitamente', () => {
+  let options
+  loadAdapter({ DB_HOST: 'db.example.invalid' }, { 'mysql2/promise': { createPool(config) { options = config; return {} } } })
+  assert.equal(options.ssl.rejectUnauthorized, true)
+  loadAdapter({ DB_HOST: 'localhost', DB_SSL: 'false' }, { 'mysql2/promise': { createPool(config) { options = config; return {} } } })
+  assert.equal(options.ssl, undefined)
 })
 
 test('migração de acordos de entrega traduz chaves e preserva idempotência no PostgreSQL', async () => {

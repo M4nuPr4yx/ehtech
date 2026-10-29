@@ -1,6 +1,6 @@
 const express = require('express')
 const crypto = require('node:crypto')
-const bcrypt = require('bcrypt')
+const { hashPassword, verifyPassword, validPasswordInput } = require('../passwords')
 const jwt = require('jsonwebtoken')
 const google = require('../google-identity')
 const { autenticarToken } = require('../middleware/auth')
@@ -43,7 +43,7 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
   }))
   async function finish(req, res, linking = false) {
     const allowed = linking ? ['credential', 'senha'] : ['credential', 'senha', 'username']
-    if (Object.keys(req.body).some(key => !allowed.includes(key)) || (req.body.senha !== undefined && (typeof req.body.senha !== 'string' || req.body.senha.length > 200))) throw problem(400, 'Dados de autenticação inválidos.')
+    if (Object.keys(req.body).some(key => !allowed.includes(key)) || (req.body.senha !== undefined && req.body.senha !== '' && !validPasswordInput(req.body.senha))) throw problem(400, 'Dados de autenticação inválidos.')
     const hash = cookie(req)
     const [pending] = await pool.execute('SELECT * FROM google_auth_desafios WHERE cookie_hash = ?', [hash])
     const validChallenge = row => row && Number(row.expira_em) > Date.now() && Number(row.tentativas) < 5 && (linking ? Number(row.usuario_id) === Number(req.user.id) : row.usuario_id == null)
@@ -66,7 +66,7 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
         if (linking && (!user || user.email.toLowerCase() !== identity.email || (linked.length && Number(linked[0].usuario_id) !== Number(user.id_usuario)))) throw problem(409, 'Use a conta Google com o mesmo e-mail do seu perfil e sem vínculo com outra conta.')
         if (user) {
           if (!req.body.senha) return { proxima_etapa: 'vincular', email: identity.email }
-          if (!req.body.senha || !user.senha_definida || !(await bcrypt.compare(req.body.senha, user.senha))) return fail('Senha da EHtech incorreta. Confirme sua senha para vincular o Google.')
+          if (!req.body.senha || !user.senha_definida || !(await verifyPassword(req.body.senha, user.senha))) return fail('Senha da EHtech incorreta. Confirme sua senha para vincular o Google.')
           if (linking && Number(user.session_version) !== Number(req.user.session_version ?? 0)) throw problem(401, 'Sua sessão mudou. Entre novamente.')
           const [existing] = await connection.execute("SELECT sujeito FROM usuario_identidades WHERE usuario_id = ? AND provedor = 'google'", [user.id_usuario])
           if (existing.length) throw problem(409, 'Esta conta já possui um vínculo com o Google.')
@@ -79,7 +79,7 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
           const [existing] = await connection.execute('SELECT id_usuario FROM usuarios WHERE username = ?', [username])
           if (existing.length) throw problem(409, 'Nome de usuário já está em uso.')
           // Sem senha utilizável: a recuperação por e-mail permite definir uma depois.
-          const password = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 10)
+          const password = await hashPassword(crypto.randomBytes(48).toString('hex'))
           const [inserted] = await connection.execute("INSERT INTO usuarios (username, email, senha, role, senha_definida) VALUES (?, ?, ?, 'user', FALSE)", [username, identity.email, password])
           const [created] = await connection.execute('SELECT * FROM usuarios WHERE id_usuario = ?', [inserted.insertId]); user = created[0]
         }
@@ -104,11 +104,11 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
   })
   router.delete('/vinculo', autenticarToken, authLimiter, async (req, res) => {
     try {
-      if (typeof req.body?.senha !== 'string' || req.body.senha.length > 200 || Object.keys(req.body).some(key => key !== 'senha')) throw problem(400, 'Informe a senha atual da EHtech.')
+      if (!validPasswordInput(req.body?.senha) || Object.keys(req.body).some(key => key !== 'senha')) throw problem(400, 'Informe a senha atual da EHtech.')
       await transaction(pool, async connection => {
         const [users] = await connection.execute('SELECT senha, senha_definida, session_version FROM usuarios WHERE id_usuario = ? FOR UPDATE', [req.user.id])
         if (!users[0]?.senha_definida) throw problem(409, 'Defina uma senha pela recuperação de e-mail antes de desvincular o Google.')
-        if (Number(users[0].session_version) !== Number(req.user.session_version ?? 0) || !(await bcrypt.compare(req.body.senha, users[0].senha))) throw problem(401, 'Confira sua senha atual da EHtech.')
+        if (Number(users[0].session_version) !== Number(req.user.session_version ?? 0) || !(await verifyPassword(req.body.senha, users[0].senha))) throw problem(401, 'Confira sua senha atual da EHtech.')
         await connection.execute("DELETE FROM usuario_identidades WHERE usuario_id = ? AND provedor = 'google'", [req.user.id])
         await connection.execute('UPDATE usuarios SET session_version = session_version + 1 WHERE id_usuario = ?', [req.user.id])
       })

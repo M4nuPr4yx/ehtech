@@ -1,6 +1,6 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const bcrypt = require('bcrypt')
+const { hashPassword } = require('../passwords')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const validator = require('validator')
@@ -11,7 +11,8 @@ const emailEnabled = !!(process.env.SMTP_HOST && process.env.SMTP_USER)
 const transporter = emailEnabled ? nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
+  secure: Number(process.env.SMTP_PORT) === 465,
+  requireTLS: process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL),
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS || ''
@@ -66,10 +67,8 @@ router.post('/esqueci-senha', passwordResetLimiter, async (req, res) => {
           `
         })
       } catch (mailErr) {
-        console.error('[esqueci-senha] Falha no envio de e-mail:', mailErr.message)
+        console.error('[esqueci-senha] Não foi possível enviar a mensagem de recuperação.')
       }
-    } else {
-      console.log(`\n[DEV MODE - RECUPERAÇÃO DE SENHA] Link para ${normalizedEmail}:\n${resetLink}\n`)
     }
 
     return res.json(genericResponse)
@@ -79,9 +78,9 @@ router.post('/esqueci-senha', passwordResetLimiter, async (req, res) => {
   }
 })
 
-router.get('/verificar-token/:token', async (req, res) => {
+router.get('/verificar-token/:token', passwordResetLimiter, async (req, res) => {
   const { token } = req.params
-  if (!token || typeof token !== 'string') {
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) {
     return res.status(400).json({ valido: false, mensagem: 'Token ausente' })
   }
 
@@ -96,7 +95,7 @@ router.get('/verificar-token/:token', async (req, res) => {
       return res.json({ valido: false, mensagem: 'Token inválido ou expirado' })
     }
 
-    return res.json({ valido: true, email: rows[0].email })
+    return res.json({ valido: true })
   } catch (error) {
     console.error('[verificar-token] Erro:', error.message)
     return res.status(500).json({ valido: false, mensagem: 'Erro ao verificar token' })
@@ -106,17 +105,17 @@ router.get('/verificar-token/:token', async (req, res) => {
 router.post('/redefinir-senha', passwordResetLimiter, async (req, res) => {
   const { token, novaSenha } = req.body
 
-  if (!token || !novaSenha) {
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !novaSenha) {
     return res.status(400).json({ mensagem: 'Token e nova senha são obrigatórios' })
   }
 
   if (!isValidPassword(novaSenha)) {
-    return res.status(400).json({ mensagem: 'A nova senha deve ter no mínimo 8 caracteres' })
+    return res.status(400).json({ mensagem: 'A nova senha deve ter pelo menos 8 caracteres e não pode ser muito longa.' })
   }
 
   try {
-    const tokenHash = crypto.createHash('sha256').update(String(token).trim()).digest('hex')
-    const hash = await bcrypt.hash(novaSenha, 10)
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+    const hash = await hashPassword(novaSenha)
     const changed = await require('../addresses').transaction(pool, async connection => {
       const [rows] = await connection.execute('SELECT id, email FROM password_resets WHERE token_hash = ? AND expires_at > NOW() FOR UPDATE', [tokenHash])
       if (!rows.length) return false

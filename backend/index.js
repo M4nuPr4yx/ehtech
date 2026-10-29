@@ -38,6 +38,7 @@ app.use(helmet({
   }
 }))
 app.disable('x-powered-by')
+app.use(require('./middleware/private-response').privateResponse)
 // O proxy local Next conecta por loopback; a Vercel adiciona um proxy confiável.
 app.set('trust proxy', process.env.VERCEL ? 1 : 'loopback')
 

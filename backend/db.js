@@ -32,7 +32,7 @@ if (isPostgres) {
   const pgPool = connectionUri
     ? new Pool({
         connectionString: connectionUri,
-        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: true },
         max: poolSize,
         idleTimeoutMillis: 10000,
         connectionTimeoutMillis: 10000
@@ -43,7 +43,7 @@ if (isPostgres) {
         password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
         database: process.env.DB_DATABASE || process.env.PGDATABASE || 'ehtech',
         port: parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10),
-        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: true },
         max: poolSize,
         idleTimeoutMillis: 10000,
         connectionTimeoutMillis: 10000
@@ -161,7 +161,7 @@ if (isPostgres) {
         queueLimit: 0,
         enableKeepAlive: true,
         keepAliveInitialDelay: 10000,
-        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: true }
       };
     }
 
@@ -170,7 +170,7 @@ if (isPostgres) {
     
     let sslOption = undefined;
     if (process.env.DB_SSL === 'true' || (!isLocalhost && process.env.DB_SSL !== 'false')) {
-      sslOption = { rejectUnauthorized: false };
+      sslOption = { rejectUnauthorized: true };
     }
 
     return {

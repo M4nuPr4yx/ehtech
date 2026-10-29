@@ -1,10 +1,20 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const bcrypt = require('bcrypt')
+const { hashPassword, verifyPassword, validPasswordInput } = require('../passwords')
+const { createPasswordAttempts } = require('../password-attempts')
 const jwt = require('jsonwebtoken')
 const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
 module.exports = function createAuthRouter(pool, { authLimiter, api_chave }) {
 const router = createRouter()
+const reservePasswordAttempt = createPasswordAttempts(pool, api_chave)
+function loginFailure(res, error) {
+  if (error.status === 429) {
+    res.set('Retry-After', String(error.retryAfter))
+    return res.status(429).json({ mensagem: error.message, code: 'AUTH_RATE_LIMIT' })
+  }
+  console.error('[login] Não foi possível concluir a autenticação.')
+  return res.status(503).json({ mensagem: 'Não foi possível entrar agora. Tente novamente em instantes.' })
+}
 router.use('/auth/google', require('./googleAuth')(pool, { authLimiter, api_chave }))
 router.post("/cadastro", authLimiter, async (req, res) => {
   const { username, email, senha, confirmarSenha } = req.body
@@ -23,7 +33,7 @@ router.post("/cadastro", authLimiter, async (req, res) => {
   }
 
   if (!isValidPassword(senha)) {
-    return res.status(400).json({ mensagem: "A senha deve ter no mínimo 8 caracteres!" })
+    return res.status(400).json({ mensagem: "A senha deve ter pelo menos 8 caracteres e não pode ser muito longa." })
   }
 
   if (senha !== confirmarSenha) {
@@ -42,7 +52,7 @@ router.post("/cadastro", authLimiter, async (req, res) => {
       return res.status(409).json({ mensagem: "E-mail já está em uso!" })
     }
 
-    const hash = await bcrypt.hash(senha, 10)
+    const hash = await hashPassword(senha)
     await pool.execute(
       "INSERT INTO usuarios (username, email, senha, role) VALUES (?, ?, ?, 'user')",
       [cleanUsername, normalizedEmail, hash]
@@ -58,25 +68,29 @@ router.post("/cadastro", authLimiter, async (req, res) => {
 router.post("/login", authLimiter, async (req, res) => {
   const { email, senha } = req.body
 
-  if (!email || !senha || typeof email !== 'string' || typeof senha !== 'string') {
+  if (typeof email !== 'string' || !email.trim() || email.length > 254 || !validPasswordInput(senha)) {
     return res.status(400).json({ mensagem: "E-mail e senha são obrigatórios" })
   }
 
   const normalizedEmail = email.trim().toLowerCase()
 
   try {
+    const attempt = await reservePasswordAttempt(req, normalizedEmail)
     const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [normalizedEmail])
 
     // Prevenção contra Enumeração de Usuários: mensagem genérica
     if (rows.length === 0) {
+      await verifyPassword(senha, null)
       return res.status(401).json({ mensagem: "E-mail ou senha incorretos" })
     }
 
     const user = rows[0]
-    const validou = await bcrypt.compare(senha, user.senha)
+    const validou = await verifyPassword(senha, user.senha)
     if (!validou) {
       return res.status(401).json({ mensagem: "E-mail ou senha incorretos" })
     }
+
+    await attempt.success()
 
     const token = jwt.sign({
       id: user.id_usuario,
@@ -95,31 +109,34 @@ router.post("/login", authLimiter, async (req, res) => {
       foto: user.foto || null
     })
   } catch (error) {
-    console.error('[login] Erro interno:', error.message)
-    return res.status(500).json({ mensagem: "Erro interno no servidor ao realizar login" })
+    return loginFailure(res, error)
   }
 })
 
 router.post("/admin/login", authLimiter, async (req, res) => {
   const { email, senha } = req.body
 
-  if (!email || !senha || typeof email !== 'string' || typeof senha !== 'string') {
+  if (typeof email !== 'string' || !email.trim() || email.length > 254 || !validPasswordInput(senha)) {
     return res.status(400).json({ mensagem: "Credenciais de administrador obrigatórias" })
   }
 
   const normalizedEmail = email.trim().toLowerCase()
 
   try {
+    const attempt = await reservePasswordAttempt(req, normalizedEmail)
     const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [normalizedEmail])
     if (rows.length === 0 || String(rows[0].role).toLowerCase() !== 'admin') {
+      await verifyPassword(senha, null)
       return res.status(401).json({ mensagem: "Credenciais de administrador inválidas" })
     }
 
     const adminUser = rows[0]
-    const validou = await bcrypt.compare(senha, adminUser.senha)
+    const validou = await verifyPassword(senha, adminUser.senha)
     if (!validou) {
       return res.status(401).json({ mensagem: "Credenciais de administrador inválidas" })
     }
+
+    await attempt.success()
 
     const token = jwt.sign({
       id: adminUser.id_usuario,
@@ -131,8 +148,7 @@ router.post("/admin/login", authLimiter, async (req, res) => {
 
     return res.json({ mensagem: "Admin login OK", token })
   } catch (error) {
-    console.error('[admin/login] Erro interno:', error.message)
-    return res.status(500).json({ mensagem: "Erro interno ao autenticar administrador" })
+    return loginFailure(res, error)
   }
 })
 return router

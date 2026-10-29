@@ -36,6 +36,7 @@ function autenticarToken(req, res, next) {
   }
 
   const token = parts[1];
+  if (token.length > 8192) return res.status(403).json({ mensagem: 'Token inválido.', code: 'INVALID_TOKEN' });
 
   jwt.verify(token, getApiSecret(), { algorithms: ['HS256'] }, async (err, decoded) => {
     if (err) {

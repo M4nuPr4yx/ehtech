@@ -1,7 +1,7 @@
 const crypto = require('node:crypto')
 
 // Incremente quando o conjunto de migrações mudar. Cada versão concluída é imutável.
-const SCHEMA_VERSION = '2026-10-29.1'
+const SCHEMA_VERSION = '2026-10-29.2'
 const MISSING_TABLE = new Set(['ER_NO_SUCH_TABLE', '42P01'])
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
 

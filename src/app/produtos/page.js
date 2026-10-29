@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
 import styles from './catalogo.module.css';
+import LoadingState from '../complements/LoadingState';
 
 const PAGE_SIZE = 12;
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -73,7 +74,7 @@ function Catalog({ initialFilters }) {
       setLoading(true);
       setError('');
       try {
-        const response = await apiResponse(`/produtos/catalogo?${params}`, { signal: controller.signal });
+        const response = await apiResponse(`/produtos/catalogo?${params}`, { signal: controller.signal, cache: 'default' });
         const data = await response.json();
         if (!response.ok) throw new Error(data.mensagem || 'Não foi possível carregar o catálogo.');
         if (!Array.isArray(data.items)) throw new Error('Resposta inválida do catálogo.');
@@ -150,6 +151,7 @@ function Catalog({ initialFilters }) {
             {draft.ordenacao === 'relevancia' && <p className={styles.subtitle}>Relevância prioriza nome exato, início do nome, trecho do nome e descrição. Empates usam a data; sem busca, mostra recentes. Itens com estoque aparecem primeiro.</p>}
             {error && <div className={styles.error} role="alert"><p>{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)}>Tentar novamente</button></div>}
             <div aria-busy={loading}>
+              {loading && <LoadingState label="Carregando produtos…" detail="Você pode ajustar os filtros enquanto espera." />}
               {!result && loading ? <Skeletons /> : result?.items.length ? (
                 <div className={styles.grid} data-updating={busy}>
                   {result.items.map((product) => (
@@ -182,5 +184,5 @@ function CatalogFromUrl() {
 }
 
 export default function Produtos() {
-  return <Suspense fallback={<div className={styles.catalog}><div className={styles.shell}><p role="status">Carregando catálogo…</p><Skeletons /></div></div>}><CatalogFromUrl /></Suspense>;
+  return <Suspense fallback={<div className={styles.catalog}><div className={styles.shell}><LoadingState label="Carregando catálogo…" /><Skeletons /></div></div>}><CatalogFromUrl /></Suspense>;
 }

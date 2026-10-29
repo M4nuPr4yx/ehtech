@@ -1,5 +1,6 @@
 const express = require('express')
 const { integer } = require('../validation')
+const { publicCatalogCache } = require('../public-catalog-cache')
 
 const SORTS = {
   recentes: 's.id_servico DESC',
@@ -65,17 +66,20 @@ function createServicesRouter(pool) {
 
     const where = `WHERE ${conditions.join(' AND ')}`
     try {
-      const [[count]] = await pool.execute(`SELECT COUNT(*) AS total FROM servicos s ${where}`, values)
+      const selectPage = current => pool.execute(
+        `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id ${ratingJoin}
+         ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+        [...values, limit, (current - 1) * limit]
+      )
+      const [[[count]], [requestedRows]] = await Promise.all([
+        pool.execute(`SELECT COUNT(*) AS total FROM servicos s ${where}`, values),
+        selectPage(page)
+      ])
       const total = Number(count.total) || 0
       const totalPages = Math.max(1, Math.ceil(total / limit))
       const currentPage = Math.min(page, totalPages)
-      const offset = (currentPage - 1) * limit
-      const [rows] = await pool.execute(
-        `SELECT ${fields} FROM servicos s LEFT JOIN usuarios u ON u.id_usuario = s.prestador_id ${ratingJoin}
-         ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-        [...values, limit, offset]
-      )
-      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+      const [rows] = currentPage === page ? [requestedRows] : await selectPage(currentPage)
+      publicCatalogCache(req, res)
       return res.json({ items: rows.map(normalizeService), total, page: currentPage, limit, totalPages })
     } catch (error) {
       console.error('[servicos/catalogo] Erro:', error.message)

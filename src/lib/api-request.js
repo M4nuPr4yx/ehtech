@@ -7,7 +7,19 @@ export class ApiError extends Error {
   }
 }
 
-async function perform(endpoint, { timeoutMs, signal, json, ...options } = {}) {
+const pendingReads = new Map()
+
+// Compartilha somente leituras simultâneas, sem guardar dados após a resposta.
+function perform(endpoint, { dedupe = false, ...options } = {}) {
+  if (!dedupe || options.signal || options.body || options.json !== undefined || (options.method || 'GET').toUpperCase() !== 'GET') return fetchResponse(endpoint, options)
+  const key = JSON.stringify([getApiUrl(endpoint), { ...options, headers: [...new Headers(options.headers)].sort() }])
+  if (pendingReads.has(key)) return pendingReads.get(key)
+  const request = fetchResponse(endpoint, options).finally(() => pendingReads.delete(key))
+  pendingReads.set(key, request)
+  return request
+}
+
+async function fetchResponse(endpoint, { timeoutMs, signal, json, ...options } = {}) {
   const controller = new AbortController()
   let timedOut = false
   const abort = () => controller.abort(signal?.reason)

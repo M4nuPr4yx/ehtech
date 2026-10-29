@@ -70,12 +70,12 @@ export default function Header() {
   const [userPhoto, setUserPhoto] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Check login status on mount
+  // O cabeçalho persiste entre páginas: consultar ao montar/trocar sessão.
   useEffect(() => {
     const token = localStorage.getItem('token');
     queueMicrotask(() => { setIsLoggedIn(!!token); setUserRole(null); });
     if (token) fetchProfilePhoto(token);
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -154,18 +154,21 @@ export default function Header() {
         if (token) fetchProfilePhoto(token);
       }
     };
+    const updatePhoto = () => setUserPhoto(localStorage.getItem('userFoto') || '');
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('ehtech:auth-change', handleStorageChange);
+    window.addEventListener('ehtech:profile-photo', updatePhoto);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('ehtech:auth-change', handleStorageChange);
+      window.removeEventListener('ehtech:profile-photo', updatePhoto);
     };
   }, []);
 
   const fetchProfilePhoto = async (token) => {
     try {
       const res = await apiResponse('/perfil', {
-        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
+        headers: { Authorization: `Bearer ${token}` }, dedupe: true
       });
       const data = await res.json();
       if (localStorage.getItem('token') !== token) return;

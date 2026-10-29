@@ -1,0 +1,8 @@
+.state { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 32px 16px; color: var(--foreground); }
+.page { min-height: 45vh; flex-direction: column; text-align: center; }
+.label { font-size: 15px; font-weight: 650; margin: 0; }
+.detail { font-size: 13px; color: var(--muted); margin: 6px 0 0; line-height: 1.6; }
+.orbit { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: turn 1s linear infinite; }
+.orbit span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .orbit { animation: none; } }

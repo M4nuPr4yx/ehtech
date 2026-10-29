@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import ImageWithFallback from './complements/ImageWithFallback';
 import { getMainImage } from './complements/imageHelper';
 import styles from './home.module.css';
+import LoadingState from './complements/LoadingState';
 
 export default function Home() {
   const router = useRouter();
@@ -14,11 +15,16 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [productsError, setProductsError] = useState('');
   const [heroSearch, setHeroSearch] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchProdutos = async () => {
+      setLoading(true);
+      setProductsError('');
       try {
-        const res = await apiResponse('/produtos/catalogo?limit=8&page=1');
+        const res = await apiResponse('/produtos/catalogo?limit=8&page=1', { signal: controller.signal, cache: 'default' });
+        if (controller.signal.aborted) return;
         
         if (res.ok) {
           const data = await res.json();
@@ -34,14 +40,16 @@ export default function Home() {
           setProductsError('Não foi possível carregar os anúncios. Tente novamente em alguns instantes.');
         }
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error('Error fetching products:', err);
         setProductsError('Não foi possível carregar os anúncios. Verifique sua conexão e tente novamente.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     fetchProdutos();
-  }, []);
+    return () => controller.abort();
+  }, [retry]);
 
   const handleHeroSearch = (e) => {
     e.preventDefault();
@@ -152,17 +160,17 @@ export default function Home() {
         <div className={styles.intro} data-motion="rise">
           <p className={styles.kicker}>Comprar, vender e cuidar da sua tecnologia</p>
           <h1>Seu próximo<br />upgrade <span>está aqui.</span></h1>
-          <p className={styles.description}>Encontre equipamentos, escolha suas peças e negocie direto com o vendedor. Precisa de ajuda? Tem serviço técnico também.</p>
+          <p className={styles.description}>Compre produtos, contrate serviços ou publique seu anúncio. Converse diretamente com quem vende e combine os detalhes antes de fechar.</p>
           <form onSubmit={handleHeroSearch} className={styles.search} role="search" aria-label="Buscar produtos na vitrine">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
             <input type="search" aria-label="Buscar produtos" placeholder="Notebook, celular, peça…" maxLength={100} value={heroSearch} onChange={e => setHeroSearch(e.target.value)} />
             <button type="submit">Buscar</button>
           </form>
           <div className={styles.suggestions}><span>Explore:</span>{[['Notebooks', 'notebooks'], ['Celulares', 'smartphones'], ['PCs gamer', 'computadores']].map(([name, id]) => <Link key={id} href={'/produtos?categoria=' + id}>{name}</Link>)}</div>
-          <div className={styles.introActions}><Link href="/anunciar">Quero anunciar <span aria-hidden="true">↗</span></Link><Link href="/servicos">Encontrar assistência <span aria-hidden="true">→</span></Link></div>
+          <div className={styles.introActions}><Link href="/anunciar">Quero anunciar <span aria-hidden="true">↗</span></Link><Link href="/servicos">Contratar um serviço <span aria-hidden="true">→</span></Link></div>
         </div>
         <div className={styles.showcase} data-motion="fade" data-motion-delay="120">
-          {loading ? <div className={styles.skeleton} role="status" aria-label="Carregando destaque da vitrine" /> : featured ? (
+          {loading ? <div className={styles.skeleton}><LoadingState label="Buscando anúncios da comunidade…" detail="Enquanto isso, explore as categorias abaixo." /></div> : featured ? (
             <Link href={'/produtos/' + featured.id_produto} className={styles.heroProduct}>
               <div className={styles.heroLabel}><span>{Number(featured.estoque) <= 0 ? 'Anúncio esgotado' : 'Anúncio da comunidade'}</span><span>Ver na vitrine ↗</span></div>
               <div className={styles.heroPhoto}>{getMainImage(featured.imagem) ? <ImageWithFallback src={getMainImage(featured.imagem)} alt={featured.nome} sizes="(max-width: 759px) 90vw, 42vw" loading="eager" /> : emptyPhoto}</div>
@@ -178,6 +186,12 @@ export default function Home() {
         </div>
       </section>
 
+      <section className={styles.quickStart} aria-labelledby="por-onde-comecar">
+        <h2 id="por-onde-comecar">O que você quer fazer?</h2>
+        <div>{[['/produtos', 'Comprar produtos', 'Busque, filtre e converse com o vendedor.'], ['/servicos', 'Contratar serviços', 'Encontre ajuda e peça um orçamento.'], ['/anunciar', 'Vender ou oferecer um serviço', 'Escolha o tipo de anúncio e publique.']].map(([href, title, hint]) => <Link key={href} href={href}><strong>{title} <span aria-hidden="true">→</span></strong><small>{hint}</small></Link>)}</div>
+        <p>O pagamento é combinado entre as partes, fora do site. <Link href="/sobre">Veja como funciona →</Link></p>
+      </section>
+
       <section className={styles.departments} aria-label="Categorias de produtos">
         <div className={styles.sectionHeading} data-motion="fade"><h2>Encontre pela categoria</h2><Link href="/produtos">Ver todas <span aria-hidden="true">→</span></Link></div>
         <div className={styles.departmentGrid}>{categories.map((category, index) => (
@@ -189,8 +203,8 @@ export default function Home() {
 
       <section className={styles.products} aria-labelledby="novos-anuncios">
         <div className={styles.sectionHeading} data-motion="fade"><div><h2 id="novos-anuncios">Novos anúncios</h2><p>O que acabou de entrar na vitrine.</p></div><Link href="/produtos">Explorar catálogo <span aria-hidden="true">→</span></Link></div>
-        {loading ? <div className={styles.productGrid} role="status" aria-label="Carregando anúncios">{Array.from({length: 4}, (_, index) => <div key={index} className={styles.skeleton} />)}</div> : productsError ? (
-          <div className={styles.state} role="status"><p>{productsError}</p><button type="button" onClick={() => window.location.reload()}>Tentar novamente</button></div>
+        {loading ? <div className={styles.productGrid} aria-hidden="true">{Array.from({length: 4}, (_, index) => <div key={index} className={styles.skeleton} />)}</div> : productsError ? (
+          <div className={styles.state} role="status"><p>{productsError}</p><button type="button" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button></div>
         ) : produtos.length ? (
           <div className={styles.productGrid}>{produtos.map((produto, index) => (
             <Link key={produto.id_produto} href={'/produtos/' + produto.id_produto} className={styles.productCard} data-motion="rise" data-motion-delay={(index % 4) * 55}>
@@ -202,12 +216,12 @@ export default function Home() {
       </section>
 
       <section className={styles.services}>
-        <div data-motion="rise"><p className={styles.kicker}>Serviços de TI</p><h2>Ajuda técnica.<br />Do jeito que você precisa.</h2><p>Montagem, manutenção e suporte. Converse com um profissional e peça um orçamento antes de começar.</p><Link href="/servicos">Encontrar um profissional <span aria-hidden="true">→</span></Link></div>
+        <div data-motion="rise"><p className={styles.kicker}>Serviços da comunidade</p><h2>Uma ajuda.<br />Muitas possibilidades.</h2><p>Programação, design, aulas e suporte. Os serviços são anunciados pelos próprios usuários. Converse com o prestador e peça um orçamento antes de começar.</p><Link href="/servicos">Encontrar um profissional <span aria-hidden="true">→</span></Link></div>
         <div className={styles.serviceGrid} data-motion="fade">{[
-          ['Montagem de PC', 'Escolha das peças e montagem.', 'montagem'],
+          ['Programação', 'Sites, aplicativos e automações.', 'programacao'],
           ['Suporte técnico', 'Ajuda com programas e configurações.', 'suporte'],
-          ['Redes e Wi-Fi', 'Mais estabilidade na conexão.', 'redes'],
-          ['Manutenção', 'Limpeza, diagnóstico e upgrades.', 'manutencao']
+          ['Design', 'Identidade visual e peças digitais.', 'design'],
+          ['Aulas', 'Aprenda com orientação individual.', 'aulas']
         ].map(([name, description, id]) => <Link key={id} href={'/servicos?categoria=' + id}><strong>{name} <span aria-hidden="true">↗</span></strong><p>{description}</p></Link>)}</div>
       </section>
 

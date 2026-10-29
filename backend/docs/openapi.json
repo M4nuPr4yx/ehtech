@@ -294,7 +294,7 @@
         "tags": ["Produtos"],
         "operationId": "consultarCatalogo",
         "summary": "Catálogo paginado — cenário de uso habitual",
-        "description": "Produtos aprovados com estoque primeiro. Busca literal sem distinguir maiúsculas em nome/descrição. Filtra cidade exata/UF de origem e datas inclusivas de publicação; campos privados de origem nunca são retornados. Relevância: nome exato, prefixo, trecho do nome, descrição, desempatando por data/ID. Sem busca, relevância usa recentes. Datas desconhecidas de anúncios antigos ficam por último e não entram no filtro por data. Categoria ignora capitalização; audio aceita áudio/fones de ouvido.",
+        "description": "Produtos aprovados com estoque primeiro. Busca literal sem distinguir maiúsculas em nome/descrição. Filtra cidade exata/UF de origem e datas inclusivas de publicação; campos privados de origem nunca são retornados. Relevância: nome exato, prefixo, trecho do nome, descrição, desempatando por data/ID. Sem busca, relevância usa recentes. Datas desconhecidas de anúncios antigos ficam por último e não entram no filtro por data. Categoria ignora capitalização; audio aceita áudio/fones de ouvido. Catálogo anônimo reutilizável no CDN Vercel por 15 segundos e revalidação em segundo plano por mais 30 segundos. Navegador revalida; Authorization ou Cookie recebem no-store. Aprovação e regras de compra são conferidas no servidor.",
         "parameters": [
           {
             "name": "page",

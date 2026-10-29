@@ -11,6 +11,8 @@ export const getApiUrl = (endpoint = '') => {
   const browser = typeof window !== 'undefined';
   const deployment = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
   const origin = browser ? window.location.origin : deployment;
+  // Evita o redirecionamento dos handlers legados de serviços na Vercel.
+  const sameOriginPath = /^\/servicos(?:\/|\?|$)/.test(path) ? `/api/_backend${path}` : `/api${path}`;
   // O desafio Google usa cookie HttpOnly: mantenha o fluxo no proxy do próprio site.
   if (browser && path.startsWith('/auth/google/')) return `/api${path}`;
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -23,6 +25,7 @@ export const getApiUrl = (endpoint = '') => {
       const invalid = !['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || (site && ((site.protocol === 'https:' && url.protocol !== 'https:') || (!privateHost(site.hostname) && privateHost(url.hostname)) || (local(url.hostname) && !local(site.hostname))));
       if (!invalid && (configured.startsWith('/') || /^https?:\/\//.test(configured))) {
         const base = url.pathname === '/' && site?.origin === url.origin ? `${url.origin}/api` : url.href.replace(/\/+$/, '');
+        if (browser && sameOriginPath.startsWith('/api/_backend/') && site?.origin === url.origin && ['/api', '/'].includes(url.pathname)) return sameOriginPath;
         return `${base}${path}`;
       }
     } catch {}
@@ -31,7 +34,7 @@ export const getApiUrl = (endpoint = '') => {
   // Mesmo endereço do site, tanto por localhost quanto pelo IP da rede.
   // O Next local encaminha /api ao Express; a Vercel usa a função serverless.
   if (browser) {
-    return `/api${path}`;
+    return sameOriginPath;
   }
 
   // No SSR (Node.js):

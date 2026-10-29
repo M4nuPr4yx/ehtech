@@ -3,6 +3,7 @@ const { autenticarToken, verifyAdmin } = require('../middleware/auth')
 const { money, integer } = require('../validation')
 const { selectOrigin, publicProduct } = require('../product-origins')
 const { catalogQuery } = require('../product-catalog')
+const { publicCatalogCache } = require('../public-catalog-cache')
 const { findComponent } = require('../components/catalog')
 module.exports = function createProductsRouter(pool, { criarNotificacao }) {
 const router = createRouter()
@@ -40,6 +41,7 @@ router.get("/produtos/catalogo", async (req, res) => {
     ])
 
     const total = Number(countResult.total) || 0
+    publicCatalogCache(req, res)
     return res.json({
       items,
       total,

@@ -1,5 +1,16 @@
 .home { background: var(--background); color: var(--foreground); }
 .shell { width: min(1240px, calc(100% - 48px)); margin: auto; }
+.quickStart { padding: 4px 0 36px; }
+.quickStart h2 { font-size: 23px; font-weight: 650; letter-spacing: -.035em; margin-bottom: 18px; }
+.quickStart > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.quickStart > div a { padding: 22px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; }
+.quickStart > div a:hover { border-color: var(--accent); }
+.quickStart strong { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.quickStart strong span { color: var(--accent); }
+.quickStart small { display: block; margin-top: 8px; line-height: 1.6; font-size: 12px; color: var(--muted); }
+.quickStart > p { margin-top: 16px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+.quickStart > p a { color: var(--accent); text-decoration: underline; }
+@media (max-width: 759px) { .quickStart > div { grid-template-columns: 1fr; gap: 10px; } .quickStart > div a { padding: 18px; } }
 .hero { display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: 64px; padding: 68px 0 60px; }
 .intro { min-width: 0; }
 .kicker { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 650; color: var(--muted); margin-bottom: 24px; }

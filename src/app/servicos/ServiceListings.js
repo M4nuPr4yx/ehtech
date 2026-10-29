@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { apiRequest } from '../../lib/api-request'
+import LoadingState from '../complements/LoadingState'
 import { SERVICE_CATEGORIES, categoryLabel, modalityLabel, servicePrice } from './serviceData'
 
 const VERSION = '2026-10-22'
@@ -75,7 +76,7 @@ export default function ServiceListings({ moderation = false }) {
       <label className="flex items-start gap-3"><input type="checkbox" required checked={accepted} onChange={event => setAccepted(event.target.checked)} /><span>Li as <Link href="/politicas" target="_blank" className="text-accent underline">políticas de pagamento, serviços e trocas</Link> (versão {VERSION}). Sou responsável pela oferta e combinarei o pagamento diretamente com o cliente.</span></label>
       <div className="flex flex-wrap gap-3"><button className={primary} disabled={busy || !accepted}>{busy ? 'Enviando…' : 'Enviar para aprovação'}</button><button type="button" className={button} disabled={busy} onClick={() => setForm(null)}>Cancelar edição</button></div>
     </form>}
-    {loading ? <p role="status">Carregando anúncios…</p> : <><p className="text-sm text-muted">Até 100 anúncios mais recentes{moderation ? ', com revisões pendentes primeiro' : ''}.</p>{!items.length && !error && <p>Nenhum anúncio de serviço por aqui. Publique sua primeira oferta.</p>}{items.map(item => {
+    {loading ? <LoadingState label="Carregando seus anúncios de serviços…" /> : <><p className="text-sm text-muted">Até 100 anúncios mais recentes{moderation ? ', com revisões pendentes primeiro' : ''}.</p>{!items.length && !error && <p>Nenhum anúncio de serviço por aqui. Publique sua primeira oferta.</p>}{items.map(item => {
       const proposed = item.revisao_pendente || item
       return <article key={item.id_servico} className="space-y-3 rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-xl font-bold">{proposed.titulo}</h2><p>{moderation && `Prestador: ${item.prestador} · `}Aprovação: {item.status_aprovacao} · Disponibilidade: {item.status} · {item.revisao_pendente ? 'Revisão aguardando análise' : 'Sem revisão pendente'}</p>

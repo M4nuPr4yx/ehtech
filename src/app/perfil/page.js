@@ -1,5 +1,6 @@
 'use client';
 import ProfileSecurity from './ProfileSecurity.js';
+import LoadingState from '../complements/LoadingState';
 
 import { apiResponse } from '../../lib/api-request.js';
 
@@ -35,6 +36,7 @@ export default function Perfil() {
   const [activeTab, setActiveTab] = useState('perfil');
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState(null);
+  const [profileError, setProfileError] = useState('');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [userFoto, setUserFoto] = useState('');
@@ -60,9 +62,13 @@ export default function Perfil() {
   const [serviceHistory, setServiceHistory] = useState([]);
   const [productOrders, setProductOrders] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const sectionLoadedAt = useRef({ produtos: 0, historico: 0 });
+  const [productsError, setProductsError] = useState('');
   const [historyError, setHistoryError] = useState('');
 
   const fetchPerfil = useCallback(async () => {
+    setLoading(true);
+    setProfileError('');
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -70,17 +76,17 @@ export default function Perfil() {
         return;
       }
       const res = await apiResponse('/perfil', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }, dedupe: true
       });
       const data = await res.json();
       if (res.ok) {
         setPerfil(data);
       } else {
-        localStorage.removeItem('token');
-        router.replace('/?login=1&next=%2Fperfil');
+        setProfileError(data?.mensagem || 'Não foi possível carregar seu perfil. Tente novamente.');
       }
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
+      setProfileError('Não foi possível conectar. Confira sua internet e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -89,6 +95,7 @@ export default function Perfil() {
   // Fetch user's products
   const fetchUserProducts = useCallback(async () => {
     setLoadingProducts(true);
+    setProductsError('');
     try {
       const token = localStorage.getItem('token');
       const res = await apiResponse('/produtos/meus', {
@@ -97,9 +104,13 @@ export default function Perfil() {
       if (res.ok) {
         const data = await res.json();
         setUserProducts(data);
+        sectionLoadedAt.current.produtos = Date.now();
+      } else {
+        setProductsError('Não foi possível carregar seus produtos. Tente atualizar a lista.');
       }
     } catch (err) {
       console.error('Erro ao carregar produtos:', err);
+      setProductsError('Não foi possível conectar. Tente atualizar a lista.');
     } finally {
       setLoadingProducts(false);
     }
@@ -120,6 +131,7 @@ export default function Perfil() {
       if (!ordersResponse.ok) throw new Error(ordersData.mensagem || 'Não foi possível carregar os produtos.');
       setServiceHistory(Array.isArray(servicesData) ? servicesData : []);
       setProductOrders(Array.isArray(ordersData) ? ordersData : []);
+      sectionLoadedAt.current.historico = Date.now();
     } catch (error) {
       setHistoryError(error.message || 'Não foi possível carregar seu histórico.');
     } finally {
@@ -133,10 +145,10 @@ export default function Perfil() {
 
   // Load products when tab changes to "produtos"
   useEffect(() => {
-    if (activeTab === 'produtos') {
+    if (activeTab === 'produtos' && Date.now() - sectionLoadedAt.current.produtos > 30000) {
       fetchUserProducts();
     }
-    if (activeTab === 'historico') {
+    if (activeTab === 'historico' && Date.now() - sectionLoadedAt.current.historico > 30000) {
       fetchHistory();
     }
   }, [activeTab, fetchUserProducts, fetchHistory]);
@@ -305,6 +317,7 @@ const handleChangeEmail = async (e) => {
         localStorage.removeItem('userFoto');
       }
       setMessage('Foto atualizada com sucesso!');
+      window.dispatchEvent(new Event('ehtech:profile-photo'));
       setMessageType('success');
     } catch (err) {
       setMessage('Erro: ' + err.message);
@@ -330,6 +343,7 @@ const handleChangeEmail = async (e) => {
         setPerfil({ ...perfil, foto: null });
         localStorage.removeItem('userFoto');
         setMessage('Foto removida!');
+        window.dispatchEvent(new Event('ehtech:profile-photo'));
         setMessageType('success');
       } else {
         setMessage(data.mensagem || 'Erro ao remover foto');
@@ -349,13 +363,15 @@ const handleChangeEmail = async (e) => {
     return (
       <div className="site-background min-h-screen text-foreground pt-10 pb-16">
         <div className="max-w-2xl mx-auto px-6">
-          <div className="flex min-h-[48rem] items-center justify-center rounded-2xl border border-line bg-surface p-8 shadow-2xl">
-            <div className="text-accent text-xl" role="status">Carregando perfil…</div>
+          <div className="flex min-h-[20rem] items-center justify-center rounded-2xl border border-line bg-surface p-8 shadow-2xl">
+            <LoadingState label="Carregando seu perfil…" />
           </div>
         </div>
       </div>
     );
   }
+
+  if (!perfil) return <div className="mx-auto max-w-2xl px-6 py-16"><p role="alert">{profileError || 'Entre na sua conta para acessar o perfil.'}</p><button type="button" className="mt-4 rounded-xl border border-line px-4 py-3 text-accent" onClick={fetchPerfil}>Tentar novamente</button></div>;
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Data não disponível';
@@ -477,14 +493,15 @@ const handleChangeEmail = async (e) => {
           {activeTab === 'produtos' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-foreground">Seus Produtos</h2>
+                <div><h2 className="text-xl font-bold text-foreground">Seus Produtos</h2><button type="button" onClick={fetchUserProducts} disabled={loadingProducts} className="mt-2 text-sm text-accent underline">Atualizar produtos</button></div>
                 <Link href="/anunciar" className="px-4 py-2 bg-accent-fill hover:brightness-110 hover:text-accent-contrast text-accent-contrast font-bold rounded-lg text-sm transition-all">
                   + Novo Produto
                 </Link>
               </div>
 
+              {productsError && <p role="alert" className="mb-4 text-danger">{productsError}</p>}
               {loadingProducts ? (
-                <div className="text-center py-8 text-muted">Carregando...</div>
+                <LoadingState label="Carregando seus produtos…" />
               ) : userProducts.length > 0 ? (
                 <div className="space-y-4">
                   {userProducts.map((produto) => (
@@ -576,7 +593,7 @@ const handleChangeEmail = async (e) => {
               {message && <div className={`rounded-xl border px-4 py-3 text-sm ${messageType === 'success' ? 'border-success bg-success-soft text-success' : 'border-danger bg-danger-soft text-danger'}`}>{message}</div>}
               {historyError && <div className="rounded-xl border border-danger bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">{historyError}</div>}
 
-              {loadingHistory ? <div className="py-16 text-center text-muted">Carregando seu histórico…</div> : (
+              {loadingHistory ? <LoadingState label="Carregando seu histórico…" /> : (
                 <>
                   <section>
                     <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-foreground">Serviços</h3><p className="text-xs text-muted">Como cliente ou prestador</p></div><span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">{serviceHistory.length}</span></div>

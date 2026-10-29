@@ -74,6 +74,11 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       if (matched) covered.add(`${method} ${matched.route}`)
       records.push({ method, route: matched?.route || pathname, status: response.status, expected })
       assert.equal(response.status, expected, `${method} ${route}: ${typeof data === 'object' ? data.mensagem || data.erro || data.error || '' : data.slice(0, 100)}`)
+      if (method === 'GET' && response.ok && ['/produtos/catalogo', '/servicos', '/_backend/servicos'].includes(pathname)) {
+        const privateRead = token || new Headers(headers).has('Cookie') || new Headers(headers).has('Authorization')
+        assert.equal(response.headers.get('cache-control'), privateRead ? 'no-store' : 'public, max-age=0, must-revalidate')
+        assert.equal(response.headers.get('vercel-cdn-cache-control'), privateRead ? 'no-store' : 'public, s-maxage=15, stale-while-revalidate=30')
+      }
       return data
     }
 
@@ -336,6 +341,8 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       assert.equal(catalog.total, 1)
       assert.equal(Number(catalog.items[0].preco), product.preco)
       assert.equal(catalog.items[0].componente_id, product.componente_id)
+      await request('GET', '/produtos/catalogo', { token: users.buyer.token })
+      await request('GET', '/produtos/catalogo', { headers: { Cookie: 'teste=ficticio' } })
       await request('GET', '/produtos/catalogo?precoMin=2000&precoMax=100', { expected: 400 })
       await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { nome: 'Notebook atualizado' } })
       const updated = await request('GET', `/produtos/${productId}`)
@@ -731,6 +738,11 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const catalog = await request('GET', '/servicos?search=teste&categoria=suporte&modalidade=remoto&ordenacao=menor-preco')
       assert.equal(catalog.total, 1)
       serviceId = catalog.items[0].id_servico
+      const lastPage = await request('GET', '/servicos?search=teste&page=99999')
+      assert.equal(lastPage.page, lastPage.totalPages)
+      assert.equal(lastPage.items[0].id_servico, serviceId)
+      await request('GET', '/servicos', { token: users.buyer.token })
+      await request('GET', '/servicos', { headers: { Cookie: 'teste=ficticio' } })
       assert.equal((await request('GET', '/servicos/suporte-teste')).id_servico, serviceId)
       await request('GET', '/servicos/inexistente', { expected: 404 })
       await request('GET', '/servicos?ordenacao=constructor')

@@ -1,5 +1,6 @@
 'use client';
 import { apiResponse, apiRequest } from '../../lib/api-request.js';
+import LoadingState from '../complements/LoadingState';
 
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -352,7 +353,7 @@ function MensagensContent() {
             {/* Lista de Conversas */}
             {findingPeople ? <UserSearch onSelect={openConversation} /> : <div className="min-h-0 flex-1 overflow-y-auto divide-y divide-line">
               {loadingConversations && conversations.length === 0 ? (
-                <div className="p-8 text-center text-muted text-sm animate-pulse">Carregando conversas...</div>
+                <LoadingState label="Carregando conversas…" detail="" />
               ) : filteredConversations.length === 0 ? (
                 <div className="p-8 text-center text-muted">
                   <p className="text-base font-semibold text-muted mb-1">Nenhuma conversa encontrada</p>
@@ -619,5 +620,5 @@ function MensagensContent() {
 }
 
 export default function MensagensPage() {
-  return <Suspense fallback={<p role="status" className="p-8">Carregando conversas…</p>}><MensagensContent /></Suspense>;
+  return <Suspense fallback={<LoadingState label="Carregando conversas…" />}><MensagensContent /></Suspense>;
 }

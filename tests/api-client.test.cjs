@@ -1,5 +1,26 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
+
+test('leituras simultâneas compartilham conexão, separam contas e não viram cache privado', async t => {
+  const { apiRequest } = await import('../src/lib/api-request.js')
+  let calls = 0, release
+  const barrier = new Promise(resolve => { release = resolve })
+  t.mock.method(global, 'fetch', async (url, options) => {
+    calls++; assert.equal(options.cache, 'no-store'); assert.equal('dedupe' in options, false)
+    await barrier
+    return Response.json({ conta: options.headers.get('Authorization') })
+  })
+  const read = token => apiRequest('/perfil', { dedupe: true, headers: { Authorization: token } })
+  const one = read('Bearer A'), same = read('Bearer A'), other = read('Bearer B')
+  assert.equal(calls, 2); release()
+  const results = await Promise.all([one, same, other])
+  assert.equal(results[0].conta, 'Bearer A'); assert.equal(results[2].conta, 'Bearer B')
+  await read('Bearer A'); assert.equal(calls, 3)
+  await Promise.all([apiRequest('/teste', { dedupe: true, method: 'POST', json: {} }), apiRequest('/teste', { dedupe: true, method: 'POST', json: {} })])
+  assert.equal(calls, 5)
+  await Promise.all([apiRequest('/teste', { dedupe: true, signal: new AbortController().signal }), apiRequest('/teste', { dedupe: true, signal: new AbortController().signal })])
+  assert.equal(calls, 7)
+})
 test('cliente preserva status, código, validação e prazo sugerido sem repetir escrita', async t => {
   const { apiRequest, ApiError } = await import('../src/lib/api-request.js')
   let calls = 0

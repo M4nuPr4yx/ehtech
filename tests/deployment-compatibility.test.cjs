@@ -13,6 +13,15 @@ function apiUrl(base, origin, endpoint = '/componentes') {
   return context.getApiUrl(endpoint)
 }
 
+test('serviços no mesmo domínio chegam diretamente ao Express; backend externo e Google preservados', () => {
+  for (const base of ['', '/api', 'https://example.vercel.app/api', 'http://localhost:3000']) {
+    for (const route of ['/servicos?page=2', '/servicos/meus/4', '/servicos/moderacao']) assert.equal(apiUrl(base, 'https://example.vercel.app', route), `/api/_backend${route}`)
+  }
+  assert.equal(apiUrl('', 'http://localhost:3001', '/servicos'), '/api/_backend/servicos')
+  assert.equal(apiUrl('https://api.example.com', 'https://example.vercel.app', '/servicos'), 'https://api.example.com/servicos')
+  assert.equal(apiUrl('https://api.example.com', 'https://example.vercel.app', '/auth/google/iniciar'), '/api/auth/google/iniciar')
+})
+
 test('Vercel e celular não usam localhost, IP privado ou HTTP em página HTTPS', () => {
   for (const origin of ['https://example.vercel.app', undefined]) {
     for (const base of ['', 'http://localhost:3000', 'http://127.0.0.1:3000', 'https://192.168.1.2:3000', 'http://api.example.com', 'invalid', 'https://user:password@api.example.com']) assert.equal(apiUrl(base, origin), origin ? '/api/componentes' : 'https://example.vercel.app/api/componentes')

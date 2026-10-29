@@ -1,0 +1,12 @@
+.row { display: flex; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); gap: 4px; }
+.row :global(.app-navigation) { border: 0; overflow: visible; flex-wrap: wrap; gap: 0; }
+.tools { position: relative; margin-left: auto; }
+.tools summary { cursor: pointer; list-style: none; padding: 10px 12px; font-size: 14px; color: var(--muted); border-radius: 8px; }
+.tools summary::-webkit-details-marker { display: none; }
+.tools summary:hover, .tools summary.active, .tools[open] summary { background: var(--accent-soft); color: var(--accent); }
+.options { position: absolute; right: 0; top: calc(100% + 6px); z-index: 65; width: min(330px, calc(100vw - 40px)); padding: 8px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); border-radius: 12px; }
+.options a { display: block; padding: 12px; border-radius: 8px; }
+.options a:hover, .options a[aria-current] { background: var(--surface-raised); color: var(--accent); }
+.options strong { display: block; font-size: 14px; }
+.options small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+@media (max-width: 500px) { .row :global(.app-navigation) { flex: 1; } .row :global(.app-navigation a) { padding: 9px 8px; font-size: 12px; } .tools summary { font-size: 12px; padding: 9px 8px; } }

@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import ServiceIcon from './ServiceIcon'
 import { MODALITIES, SERVICE_CATEGORIES, categoryLabel, modalityLabel, servicePrice } from './serviceData'
 import styles from './servicos.module.css'
+import LoadingState from '../complements/LoadingState'
 
 const PAGE_SIZE = 9
 const INITIAL = { search: '', categoria: '', modalidade: '', ordenacao: 'recentes' }
@@ -42,7 +43,7 @@ function ServiceCatalog({ initial }) {
       setLoading(true)
       setError('')
       try {
-        const response = await apiResponse(`/servicos?${params}`, { signal: controller.signal })
+        const response = await apiResponse(`/servicos?${params}`, { signal: controller.signal, cache: 'default' })
         const data = await response.json()
         if (!response.ok || !Array.isArray(data.items)) throw new Error(data.mensagem || 'Não foi possível carregar os serviços.')
         if (active) setResult(data)
@@ -111,13 +112,14 @@ function ServiceCatalog({ initial }) {
           {SERVICE_CATEGORIES.map(([value, label]) => <button key={value} type="button" aria-pressed={draft.categoria === value} onClick={() => change('categoria', value)}>{label}</button>)}
         </nav>
 
-        <section className={styles.results} ref={resultsRef}>
+        <section className={styles.results} ref={resultsRef} aria-busy={loading}>
           <div className={styles.heading}>
             <div><span>CATÁLOGO PROFISSIONAL</span><h2>{draft.categoria ? categoryLabel(draft.categoria) : 'Serviços para cada desafio'}</h2><p role="status">{busy ? 'Atualizando resultados…' : result ? `${result.total} serviços encontrados` : 'Carregando serviços…'}</p></div>
             {hasFilters && <button type="button" onClick={clearFilters}>Limpar filtros</button>}
           </div>
 
           {error && <div className={styles.error} role="alert"><p>{error}</p><button type="button" onClick={() => setRetry((value) => value + 1)}>Tentar novamente</button></div>}
+          {loading && <LoadingState label="Carregando serviços…" detail="Você pode ajustar os filtros enquanto espera." />}
           {!result && loading ? <Skeletons /> : result?.items?.length ? (
             <div className={styles.grid} data-updating={busy}>
               {result.items.map((service) => (

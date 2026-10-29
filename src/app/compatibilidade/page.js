@@ -6,6 +6,7 @@ import { apiRequest } from '../../lib/api-request'
 import CatalogSearch, { componentDetails } from './CatalogSearch'
 import styles from './compatibilidade.module.css'
 import BasicResult from './BasicResult'
+import LoadingState from '../complements/LoadingState'
 
 const STATUS = { compativel: 'Sem conflitos nos dados analisados pela IA', incompativel: 'A IA identificou incompatibilidades', condicional: 'A IA recomenda confirmar condições', nao_verificado: 'Faltam dados para a IA concluir' }
 const PROVIDERS = { gemini: 'Gemini', groq: 'Groq', ollama: 'Ollama local' }
@@ -29,9 +30,12 @@ export default function CompatibilityPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    Promise.all([apiRequest('/componentes/catalogo/status', { signal: controller.signal }), apiRequest('/componentes/ia/status', { signal: controller.signal }).catch(() => ({ disponivel: false, mensagem: 'IA indisponível. A checagem básica continua disponível.' }))]).then(([data, status]) => {
-      if (!controller.signal.aborted) { setCatalog(data); setState(status); setLoadError('') }
+    apiRequest('/componentes/catalogo/status', { signal: controller.signal }).then(data => {
+      if (!controller.signal.aborted) { setCatalog(data); setLoadError('') }
     }).catch(failure => { if (!controller.signal.aborted) setLoadError(failure.message) })
+    apiRequest('/componentes/ia/status', { signal: controller.signal }).then(status => {
+      if (!controller.signal.aborted) setState(status)
+    }).catch(() => { if (!controller.signal.aborted) setState({ disponivel: false, mensagem: 'IA indisponível. A checagem básica continua disponível.' }) })
     return () => controller.abort()
   }, [retry])
   useEffect(() => {
@@ -99,7 +103,7 @@ export default function CompatibilityPage() {
     {notice && <div role="status" className={styles.notice}>{notice}</div>}
     <div className={styles.layout}><div>
       {passports.length > 0 && <section className={styles.panel}><h2>Usar meu equipamento</h2><div className={styles.form}><label>Equipamento<select value={passportId} disabled={busy} onChange={event => setPassportId(event.target.value)}><option value="">Selecione um passaporte</option>{passports.map(item => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></label><button className={`${styles.button} ${styles.secondary}`} disabled={busy || !passportId} onClick={importPassport}>Carregar peças para simulação</button></div><p className={styles.muted}>Modelos sem correspondência exata precisam ser selecionados novamente.</p></section>}
-      <section className={styles.panel}><h2>1. Encontre seus componentes</h2>{catalog ? <CatalogSearch categories={catalog.categorias} onChoose={choose} disabled={busy} /> : !loadError && <p role="status">Carregando catálogo…</p>}{catalog && <div className={styles.scope}><p>{catalog.total.toLocaleString('pt-BR')} registros de componentes · snapshot de {new Date(`${catalog.data_fonte}T12:00:00`).toLocaleDateString('pt-BR')}. A fonte não cobre todos os modelos ou lançamentos.</p><a href={catalog.fonte} target="_blank" rel="noreferrer">Fonte: PC Part Dataset · licença MIT ↗</a><p>Dados comunitários, sem revisão individual. Variantes podem compartilhar o nome; confira as características exibidas.</p></div>}</section>
+      <section className={styles.panel}><h2>1. Encontre seus componentes</h2>{catalog ? <CatalogSearch categories={catalog.categorias} onChoose={choose} disabled={busy} /> : !loadError && <LoadingState label="Carregando catálogo de peças…" />}{catalog && <div className={styles.scope}><p>{catalog.total.toLocaleString('pt-BR')} registros de componentes · snapshot de {new Date(`${catalog.data_fonte}T12:00:00`).toLocaleDateString('pt-BR')}. A fonte não cobre todos os modelos ou lançamentos.</p><a href={catalog.fonte} target="_blank" rel="noreferrer">Fonte: PC Part Dataset · licença MIT ↗</a><p>Dados comunitários, sem revisão individual. Variantes podem compartilhar o nome; confira as características exibidas.</p></div>}</section>
     </div><section className={styles.panel} ref={resultPanel} aria-busy={busy}>
       <h2>2. Sua seleção</h2><form onSubmit={checkBasic} className={styles.form}>
         {!selection.length && <p className={styles.muted}>Adicione pelo menos duas peças. Processador, placa-mãe, fonte, gabinete e cooler: um modelo de cada; memória, vídeo e armazenamento permitem múltiplos modelos.</p>}

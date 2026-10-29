@@ -3,6 +3,30 @@ const assert = require('node:assert/strict')
 const http = require('node:http')
 const express = require('express')
 
+test('biblioteca de e-mail corrigida compõe a recuperação local sem mudar o destinatário', async () => {
+  const nodemailer = require('nodemailer')
+  const transport = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: 'unix' })
+  const link = 'https://example.test/redefinir-senha?token=' + 'a'.repeat(64)
+  const mail = await transport.sendMail({
+    from: '"EHtech" <noreply@example.test>',
+    to: '"Cliente, da EHtech" <cliente@example.test>',
+    subject: 'Redefinicao de senha - EHtech',
+    html: `<p><a href="${link}">Redefinir senha</a></p>`,
+    disableFileAccess: true,
+    disableUrlAccess: true
+  })
+  assert.deepEqual(mail.envelope.to, ['cliente@example.test'])
+  assert.equal(mail.envelope.from, 'noreply@example.test')
+  const content = mail.message.toString('utf8')
+  assert.match(content, /Content-Type: text\/html/)
+  const encodedBody = content.split(/\r?\n\r?\n/).slice(1).join('\n\n')
+  const html = /Content-Transfer-Encoding: quoted-printable/i.test(content)
+    ? encodedBody.replace(/=\r?\n/g, '').replace(/=([0-9a-f]{2})/gi, (_, value) => String.fromCharCode(Number.parseInt(value, 16)))
+    : encodedBody
+  assert.match(html, /Redefinir senha/)
+  assert.ok(html.includes(link))
+})
+
 test('recuperação sem SMTP não registra link nem e-mail, mantendo resposta genérica', async t => {
   const prior = { SMTP_HOST: process.env.SMTP_HOST, SMTP_USER: process.env.SMTP_USER }
   process.env.SMTP_HOST = ''

@@ -102,7 +102,7 @@ O nome usado pelo upload é `BLOB_READ_WRITE_TOKEN`; outras chaves do Blob não 
 | `npm run start:all` | Frontend compilado e backend; exige banco e build prévios |
 | `npm start` | Somente frontend compilado |
 
-O CI do GitHub instala com `npm ci`, inicializa um MySQL limpo, roda `check`, integrações MySQL/PostgreSQL e testes de navegador em desktop e celular, sem segredos da máquina do autor. A integração precisa de uma conta com permissão para criar/remover bancos temporários; veja [como configurar](docs/DESENVOLVIMENTO.md#testes-de-integração).
+O CI do GitHub instala com `npm ci`, verifica dependências com `npm audit --audit-level=low`, inicializa um MySQL limpo, roda `check`, integrações MySQL/PostgreSQL e testes de navegador em desktop e celular, sem segredos da máquina do autor. A integração precisa de uma conta com permissão para criar/remover bancos temporários; veja [como configurar](docs/DESENVOLVIMENTO.md#testes-de-integração). A [revisão de dependências](docs/DEPENDENCIAS_SEGURAS.md) registra versões, verificações e limites.
 
 Diagnóstico: **http://localhost:3001/api/health**, documentação da API em **http://localhost:3001/api/docs**. A API direta também responde em `/health` e `/docs` na porta 3000.
 

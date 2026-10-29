@@ -32,17 +32,17 @@
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^4.22.2",
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.1.1",
+    "multer": "^2.5.0",
     "mysql2": "^3.11.0",
-    "next": "16.1.7",
-    "nodemailer": "^9.0.5",
+    "next": "16.4.3",
+    "nodemailer": "10.3.1",
     "pg": "^8.23.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
     "swagger-ui-dist": "5.32.15",
     "validator": "^13.15.35"
   },
@@ -51,9 +51,17 @@
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "babel-plugin-react-compiler": "1.0.0",
-    "concurrently": "^9.1.2",
+    "concurrently": "^9.2.5",
     "eslint": "^9",
-    "eslint-config-next": "16.1.7",
+    "eslint-config-next": "16.4.3",
     "tailwindcss": "^4"
+  },
+  "overrides": {
+    "express": {
+      "qs": "6.17.1"
+    },
+    "@vercel/cli-config": {
+      "zod": "4.6.7"
+    }
   }
 }

@@ -68,12 +68,12 @@ function SimpleBarChart({ categories }) {
 
 export default function Admin() {
   const [adminToken, setAdminToken] = useState(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   useEffect(() => {
     const expired = () => { setAdminToken(null); setIsCheckingSession(false); };
     window.addEventListener('ehtech:admin-session-expired', expired);
     return () => window.removeEventListener('ehtech:admin-session-expired', expired);
   }, []);
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'produtos', 'usuarios'
 

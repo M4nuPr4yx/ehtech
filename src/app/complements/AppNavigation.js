@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from './PendingLink';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import styles from './AppNavigation.module.css';

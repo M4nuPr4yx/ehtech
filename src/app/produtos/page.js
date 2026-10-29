@@ -2,7 +2,7 @@
 import { apiResponse } from '../../lib/api-request.js';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import Link from '../complements/PendingLink';
 import { useSearchParams } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';

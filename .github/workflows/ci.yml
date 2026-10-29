@@ -57,6 +57,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Auditar dependências de produção e desenvolvimento
+        run: npm audit --audit-level=low
       - run: npm run setup
       - run: npm run db:init
       - run: npm run check

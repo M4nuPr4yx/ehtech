@@ -1,0 +1,5 @@
+.bar { position: fixed; z-index: 100; top: 0; left: 0; height: 3px; width: 100%; pointer-events: none; overflow: hidden; background: var(--accent-soft); }
+.bar::after { content: ''; display: block; height: 100%; width: 40%; background: var(--accent); animation: navigate 1s ease-in-out infinite alternate; }
+.announcement { position: fixed; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@keyframes navigate { to { transform: translateX(150%); } }
+@media (prefers-reduced-motion: reduce) { .bar::after { animation: none; width: 100%; } }

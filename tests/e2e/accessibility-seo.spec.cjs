@@ -66,7 +66,20 @@ test('anúncio aprovado tem HTML inicial, metadados e sitemap; pendente retorna 
   const sitemap = await request.get('/sitemaps/1'); expect(await sitemap.text()).toContain(`/produtos/${id}`)
   const staticMap = await request.get('/sitemaps/0'); expect(await staticMap.text()).not.toMatch(/\/mensagens|\/perfil|\/admin|\/passaportes/)
   const robots = await request.get('/robots.txt'); expect(await robots.text()).toContain('Disallow: /mensagens')
-  await page.goto(`/produtos/${id}`)
+  await page.goto(`/produtos?search=${encodeURIComponent(name)}`)
+  const productLink = page.locator(`a[href="/produtos/${id}"]`)
+  await expect(productLink).toBeVisible()
+  let release
+  const pendingRoute = new Promise(resolve => { release = resolve })
+  await page.route(`**/produtos/${id}?*`, async route => { await pendingRoute; await route.continue() })
+  try {
+    const navigation = productLink.click()
+    await expect(page.getByRole('status').filter({ hasText: 'Carregando página…' })).toBeVisible()
+    release()
+    await navigation
+    await expect(page).toHaveURL(new RegExp(`/produtos/${id}$`))
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+  } finally { release() }
   await accessible(page, info, 'anuncio')
   const privatePage = await request.get('/favoritos'); expect(await privatePage.text()).toContain('noindex')
   await request.put(api + `/admin/produtos/${id}/aprovacao`, { headers, data: { status: 'reprovado' } })

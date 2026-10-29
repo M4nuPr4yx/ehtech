@@ -2,7 +2,7 @@
 import { apiResponse } from '../lib/api-request.js';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from './complements/PendingLink';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from './complements/ImageWithFallback';
 import { getMainImage } from './complements/imageHelper';

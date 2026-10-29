@@ -164,7 +164,7 @@ export default function SellerProfile() {
             {/* Seller Details */}
             <div className="text-center md:text-left flex-1">
               <h1 className="text-3xl font-bold text-foreground mb-2">{seller.nome || seller.username}</h1>
-              {seller.nome && <p className="text-muted text-sm mb-2">@{seller.username}</p>}
+              {seller.nome && !/^usuario_[a-f0-9]{16}$/.test(seller.username || '') && <p className="text-muted text-sm mb-2">@{seller.username}</p>}
               
               {/* Reputações independentes para vendas e serviços */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -217,7 +217,7 @@ export default function SellerProfile() {
 
         {/* Products Grid */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Produtos de {seller.username}</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Produtos de {seller.nome || seller.username}</h2>
           
           {produtos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

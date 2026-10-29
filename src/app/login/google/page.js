@@ -4,19 +4,21 @@ import Link from 'next/link'
 import { apiRequest } from '../../../lib/api-request'
 
 export default function GoogleReturn() {
-  const [stage, setStage] = useState(null), [password, setPassword] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(true)
+  const [stage, setStage] = useState(null), [password, setPassword] = useState(''), [name, setName] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(true)
   const pending = useRef(null)
-  const complete = useCallback(async (metadata, senha, signal) => {
+  const complete = useCallback(async (metadata, fields = {}, signal) => {
     const controller = new AbortController(); pending.current?.abort(); pending.current = controller
     const requestSignal = signal || controller.signal
     setBusy(true); setError('')
     try {
-      const data = await apiRequest('/auth/google/concluir', { method: 'POST', credentials: 'same-origin', signal: requestSignal, json: senha === undefined ? {} : { senha }, ...(metadata.acao === 'vincular' ? { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } } : {}) })
+      const data = await apiRequest('/auth/google/concluir', { method: 'POST', credentials: 'same-origin', signal: requestSignal, json: fields, ...(metadata.acao === 'vincular' ? { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } } : {}) })
       if (requestSignal.aborted) return
       if (data.proxima_etapa) { setStage({ ...data, acao: metadata.acao }); setBusy(false); return }
       if (data.token) {
-        sessionStorage.removeItem('adminToken'); localStorage.setItem('token', data.token); localStorage.setItem('userUsername', data.username || '')
-        localStorage.removeItem('userFoto'); window.dispatchEvent(new Event('ehtech:auth-change'))
+        sessionStorage.removeItem('adminToken'); localStorage.setItem('token', data.token); localStorage.setItem('userUsername', data.nome || data.username || '')
+        if (data.foto) localStorage.setItem('userFoto', data.foto)
+        else localStorage.removeItem('userFoto')
+        window.dispatchEvent(new Event('ehtech:auth-change'))
       }
       const destination = typeof data.destino === 'string' && data.destino.startsWith('/') && !/^\/[/\\]/.test(data.destino) ? data.destino : '/perfil'
       window.location.replace(destination)
@@ -39,7 +41,14 @@ export default function GoogleReturn() {
   return <section className="mx-auto my-12 max-w-md space-y-5 rounded-2xl border border-line bg-surface p-6 text-foreground">
     <h1 className="text-2xl font-bold">Acesso com Google</h1>
     {busy && <p role="status">Concluindo seu acesso à EHtech…</p>}
-    {stage && <form className="space-y-4" onSubmit={event => { event.preventDefault(); complete(stage, password) }}>
+    {stage?.proxima_etapa === 'cadastro' && <form className="space-y-4" onSubmit={event => { event.preventDefault(); complete(stage, { nome: name }) }}>
+      <h2 className="text-xl font-bold">Como você quer ser chamado?</h2>
+      <p className="text-muted">Seu acesso com Google foi confirmado. Escolha apenas o nome que aparecerá no seu perfil. Você poderá alterá-lo depois.</p>
+      <label className="block" htmlFor="google-profile-name">Seu nome</label>
+      <input id="google-profile-name" name="nome" className="w-full rounded-xl border border-line bg-surface-raised p-3" value={name} onChange={event => setName(event.target.value)} autoComplete="name" required minLength={2} maxLength={80} disabled={busy} autoFocus />
+      <button className="w-full rounded-xl bg-accent-fill p-3 font-bold text-accent-contrast disabled:opacity-50" disabled={busy}>Salvar nome e continuar</button>
+    </form>}
+    {stage?.proxima_etapa === 'vincular' && <form className="space-y-4" onSubmit={event => { event.preventDefault(); complete(stage, { senha: password }) }}>
       <p className="break-words">Já existe uma conta EHtech para {stage.email}. Confirme a senha atual da EHtech para vincular o Google.</p>
       <label className="block">Senha atual da EHtech<input type="password" className="mt-2 w-full rounded-xl border border-line bg-surface-raised p-3" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" required maxLength={200} disabled={busy} /></label>
       <button className="w-full rounded-xl bg-accent-fill p-3 font-bold text-accent-contrast disabled:opacity-50" disabled={busy}>Confirmar vínculo com Google</button>

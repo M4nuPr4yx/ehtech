@@ -63,7 +63,7 @@ module.exports = function createGoogleRedirectRouter(pool, { authLimiter, api_ch
     try { req.googleReturn = await returned(req); return req.googleReturn.usuario_id == null ? next() : autenticarToken(req, res, next) }
     catch (error) { res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível concluir o acesso.' }) }
   }, action(async (req, res) => {
-    if (Object.keys(req.body).some(key => key !== 'senha')) throw problem(400, 'Envie somente a senha quando solicitada.')
+    if (Object.keys(req.body).some(key => !['senha', 'nome'].includes(key)) || (req.googleReturn.usuario_id != null && req.body.nome !== undefined)) throw problem(400, 'Envie somente o nome ou a senha quando solicitados.')
     const row = req.googleReturn
     req.body = { ...req.body, credential: oauth.decrypt(row.credencial, api_chave, row.hash) }
     req.googleRedirect = true

@@ -11,19 +11,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import ThemeSwitcher from './ThemeSwitcher';
 import AppNavigation from './AppNavigation';
 import ehtechLogo from '../../../public/ehtech-logo.png';
-
-// Helper function to validate if a string is a valid image URL or Base64
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  return (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('/uploads/') ||
-    trimmed.startsWith('data:image/')
-  );
-};
+import { DEFAULT_PROFILE_PHOTO, isValidImageUrl } from './imageHelper';
 
 export default function Header() {
   const router = useRouter();
@@ -86,7 +74,7 @@ export default function Header() {
     const savedPhoto = localStorage.getItem('userFoto');
     if (savedPhoto && savedPhoto !== 'null' && savedPhoto !== '') {
       const isValidBase64 = savedPhoto.startsWith('data:image/') && savedPhoto.includes(',');
-      const isValidUrl = savedPhoto.startsWith('http://') || savedPhoto.startsWith('https://') || savedPhoto.startsWith('/uploads/');
+      const isValidUrl = isValidImageUrl(savedPhoto);
       if (isValidBase64 || isValidUrl) {
         setUserPhoto(savedPhoto);
       } else {
@@ -173,6 +161,7 @@ export default function Header() {
       const data = await res.json();
       if (localStorage.getItem('token') !== token) return;
       setUserRole(res.ok ? data.role : null);
+      if (res.ok) localStorage.setItem('userUsername', data.nome || data.username || '');
       if (res.ok && data.foto && isValidImageUrl(data.foto)) {
         setUserPhoto(data.foto);
         localStorage.setItem('userFoto', data.foto);
@@ -256,7 +245,7 @@ export default function Header() {
     sessionStorage.removeItem('adminToken');
     setUserRole(null);
     localStorage.setItem('token', data.token);
-    localStorage.setItem('userUsername', data.username || '');
+    localStorage.setItem('userUsername', data.nome || data.username || '');
     window.dispatchEvent(new Event('ehtech:auth-change'));
     fetchNotifications(data.token); fetchUnreadMessages(data.token);
     setIsLoggedIn(true); setFeedback('Login bem-sucedido!'); setModalOpen(false);
@@ -465,7 +454,7 @@ export default function Header() {
                     aria-expanded={dropdownOpen}
                   >
                     {isValidImageUrl(userPhoto) ? (
-                      <img src={userPhoto} alt="Foto de perfil" className="w-full h-full object-cover object-center" onError={(e) => { e.target.style.display = 'none'; }} />
+                      <img src={userPhoto} alt="Foto de perfil" className="w-full h-full object-cover object-center" onError={(e) => { if (e.currentTarget.getAttribute('src') !== DEFAULT_PROFILE_PHOTO) e.currentTarget.src = DEFAULT_PROFILE_PHOTO; }} />
                     ) : (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

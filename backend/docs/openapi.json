@@ -57,7 +57,8 @@
                   "username": "meuusuario",
                   "email": "usuario@gmail.com",
                   "userId": 42,
-                  "foto": null
+                  "nome": "Meu nome",
+                  "foto": "/profile/default-environment.webp"
                 }
               }
             }
@@ -779,7 +780,8 @@
           "username": { "type": "string" },
           "email": { "type": "string", "format": "email" },
           "userId": { "type": "integer" },
-          "foto": { "type": "string", "nullable": true }
+          "nome": { "type": "string", "nullable": true, "description": "Nome público, quando definido no perfil." },
+          "foto": { "type": "string", "description": "Foto personalizada ou /profile/default-environment.webp quando ausente." }
         }
       },
       "NovoProduto": {

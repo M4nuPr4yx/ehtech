@@ -1,0 +1,6 @@
+default-environment.webp
+Fotografia: Glendalough Lower Lake Photo.jpg, VeryFunkyBunny, 24/03/2020.
+Fonte: https://commons.wikimedia.org/wiki/File:Glendalough_Lower_Lake_Photo.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/e/eb/Glendalough_Lower_Lake_Photo.jpg
+Licença: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+Adaptação EHtech: recorte quadrado 384 × 384, WebP, sem metadados.

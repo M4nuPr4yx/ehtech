@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
-import { getMainImage } from '../complements/imageHelper';
+import { DEFAULT_PROFILE_PHOTO, getMainImage, isValidImageUrl } from '../complements/imageHelper';
 import AddressBook, { AddressDetails } from '../complements/AddressBook';
 import { freightLabel } from '../../lib/shipping';
 import { orderStatus } from '../../lib/order-status';
@@ -16,19 +16,6 @@ import { orderStatus } from '../../lib/order-status';
 const CONTRACT_STATUS = {
   solicitado: 'Solicitado', orcamento_enviado: 'Orçamento enviado', aceito: 'Aceito',
   em_execucao: 'Em execução', concluido: 'Concluído', cancelado: 'Cancelado'
-};
-
-// Helper function to validate if a string is a valid image URL or Base64
-const isValidImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  return (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('/uploads/') ||
-    trimmed.startsWith('data:image/')
-  );
 };
 
 export default function Perfil() {
@@ -39,7 +26,8 @@ export default function Perfil() {
   const [profileError, setProfileError] = useState('');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
-  const [userFoto, setUserFoto] = useState('');
+  const [nome, setNome] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -81,6 +69,7 @@ export default function Perfil() {
       const data = await res.json();
       if (res.ok) {
         setPerfil(data);
+        setNome(data.nome || data.username || '');
       } else {
         setProfileError(data?.mensagem || 'Não foi possível carregar seu perfil. Tente novamente.');
       }
@@ -166,6 +155,20 @@ export default function Perfil() {
       }
     }
   }, []);
+
+  const handleSaveName = async event => {
+    event.preventDefault(); setSavingName(true); setMessage('');
+    try {
+      const res = await apiResponse('/perfil', { method: 'PUT', headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.mensagem || 'Não foi possível salvar seu nome.');
+      setPerfil(current => ({ ...current, nome: data.nome })); setNome(data.nome);
+      localStorage.setItem('userUsername', data.nome);
+      window.dispatchEvent(new Event('ehtech:profile-name'));
+      setMessage('Nome atualizado com sucesso!'); setMessageType('success');
+    } catch (error) { setMessage(error.message); setMessageType('error'); }
+    finally { setSavingName(false); }
+  };
 
 const handleLogout = () => {
     localStorage.removeItem('token');
@@ -340,9 +343,9 @@ const handleChangeEmail = async (e) => {
       });
       const data = await res.json();
       if (res.ok) {
-        setPerfil({ ...perfil, foto: null });
-        localStorage.removeItem('userFoto');
-        setMessage('Foto removida!');
+        setPerfil({ ...perfil, foto: data.foto || DEFAULT_PROFILE_PHOTO });
+        localStorage.setItem('userFoto', data.foto || DEFAULT_PROFILE_PHOTO);
+        setMessage('Foto padrão restaurada!');
         window.dispatchEvent(new Event('ehtech:profile-photo'));
         setMessageType('success');
       } else {
@@ -430,7 +433,7 @@ const handleChangeEmail = async (e) => {
                       src={perfil.foto} 
                       alt="Foto de perfil" 
                       className="w-32 h-32 rounded-full object-cover object-center border-4 border-accent"
-                      onError={(e) => { e.target.style.display = 'none'; }}
+                      onError={(e) => { if (e.currentTarget.getAttribute('src') !== DEFAULT_PROFILE_PHOTO) e.currentTarget.src = DEFAULT_PROFILE_PHOTO; }}
                     />
                   ) : (
                     <div className="w-32 h-32 rounded-full bg-surface border-4 border-accent flex items-center justify-center">
@@ -454,7 +457,7 @@ const handleChangeEmail = async (e) => {
                   >
                     Alterar Foto
                   </button>
-                  {perfil.foto && (
+                  {perfil.foto && perfil.foto !== DEFAULT_PROFILE_PHOTO && (
                     <button
                       onClick={handleRemovePhoto}
                       className="px-4 py-2 bg-danger-soft hover:bg-danger-soft text-danger font-bold rounded-lg text-sm transition-all"
@@ -465,6 +468,13 @@ const handleChangeEmail = async (e) => {
                 </div>
               </div>
               
+              <form onSubmit={handleSaveName} className="space-y-3 rounded-xl bg-surface-raised p-4">
+                <label htmlFor="profile-name" className="block text-sm font-semibold">Seu nome</label>
+                <input id="profile-name" name="nome" autoComplete="name" value={nome} onChange={event => setNome(event.target.value)} required minLength={2} maxLength={80} disabled={savingName} aria-describedby="profile-name-help" className="w-full rounded-xl border border-line bg-surface p-3" />
+                <p id="profile-name-help" className="text-sm text-muted">É assim que seu nome aparece no perfil. Use de 2 a 80 caracteres.</p>
+                <button disabled={savingName} className="rounded-xl bg-accent-fill px-4 py-3 font-bold text-accent-contrast disabled:opacity-50">{savingName ? 'Salvando…' : 'Salvar nome'}</button>
+              </form>
+              {message && <p role={messageType === 'error' ? 'alert' : 'status'} className={messageType === 'error' ? 'text-danger' : 'text-success'}>{message}</p>}
               <div className="bg-surface-raised rounded-xl p-4">
                 <label className="text-muted text-sm">E-mail</label>
                 <p className="text-foreground text-lg font-medium">{perfil.email}</p>

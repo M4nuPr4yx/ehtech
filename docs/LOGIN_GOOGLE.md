@@ -44,7 +44,9 @@ A API precisa acessar `https://oauth2.googleapis.com/token` e os certificados p�
 
 ## Comportamento das contas
 
-- **Conta Google nova na EHtech:** criação automática de conta normal, com username único no formato `usuario_...`. O usuário pode completar seu nome de exibição no perfil. Não há papel administrativo atribuído pelo Google. A regra atual de novos cadastros mantém Gmail, Hotmail e Outlook; outros domínios não foram liberados.
+- **Conta Google nova na EHtech:** após confirmar o Google, a tela solicita somente **Seu nome** e **Salvar nome e continuar**. A conta e a sessão só são criadas após nome válido (2 a 80 caracteres; aceita acentos e apelidos). O username único `usuario_...` continua como identificador interno; o perfil apresenta o nome escolhido. Não há papel administrativo atribuído pelo Google. A regra atual de novos cadastros mantém Gmail, Hotmail e Outlook; outros domínios não foram liberados.
+- **Conta Google antiga sem nome e com identificador gerado:** recebe a mesma etapa no próximo acesso. Preserva ID, vínculo, anúncios e foto personalizada. Atualizar/recarregar a página conserva a tentativa por até dez minutos; não cria outra conta.
+- **Nome e foto no perfil:** qualquer conta autenticada pode alterar seu nome em **Perfil → Seu nome → Salvar nome**, sem trocar e-mail, username ou senha. Nomes vazios, muito longos, marcação e caracteres de controle são rejeitados. Novos cadastros comuns e Google usam a paisagem local `/profile/default-environment.webp`; perfis antigos sem foto também a apresentam. Remover uma foto personalizada restaura a padrão. Fonte/licença CC0 em `public/profile/CREDITS.txt`.
 - **Conta já vinculada:** entra automaticamente e preserva anúncios, pedidos e avaliações. O identificador é o `sub` assinado pelo Google; mudança posterior do e-mail no Google não troca a conta local nem sobrescreve seu endereço.
 - **E-mail já cadastrado, ainda sem vínculo:** a EHtech solicita a senha atual uma vez para confirmar o vínculo. Não une contas automaticamente por coincidência de e-mail. Nas próximas entradas, basta escolher a conta Google.
 - **Perfil → Segurança → Acesso com Google:** permite iniciar o vínculo de uma conta Google com o mesmo e-mail e confirmar a senha da EHtech. O retorno abre novamente a aba Segurança.
@@ -73,7 +75,7 @@ Fluxo atual:
 - `POST /auth/google/redirecionar`: inicia, retorna a URL Google e define cookie; a ação `vincular` exige Bearer.
 - `GET /auth/google/callback`: recebe o retorno, valida e troca código; responde 303 para `/login/google`.
 - `GET /auth/google/retorno`: consulta ação e destino da tentativa pelo cookie, sem devolver credenciais.
-- `POST /auth/google/concluir`: inicia a sessão automaticamente ou solicita senha para vínculo; vínculo de perfil exige o Bearer da mesma conta.
+- `POST /auth/google/concluir`: solicita `nome` quando `proxima_etapa=cadastro` (sem token até concluir), inicia sessão em acessos posteriores ou solicita senha para vínculo; vínculo de perfil exige o Bearer da mesma conta.
 - `GET /auth/google/conta` e `DELETE /auth/google/vinculo`: consulta e gestão no perfil.
 
 As rotas anteriores `/config`, `/desafio`, `/entrar` e `/vincular` continuam disponíveis e documentadas para compatibilidade. O frontend agora utiliza o redirecionamento.

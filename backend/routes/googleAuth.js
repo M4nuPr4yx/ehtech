@@ -6,6 +6,8 @@ const google = require('../google-identity')
 const { autenticarToken } = require('../middleware/auth')
 const { transaction, problem } = require('../addresses')
 const { isAllowedUserEmail } = require('../user-validation')
+const { normalizeProfileName, NAME_MESSAGE } = require('../profile-name')
+const { foto: defaultPhoto } = require('../../shared/profile-defaults.cjs')
 
 const COOKIE = 'ehtech_google', TTL = 10 * 60 * 1000
 function cookie(req) {
@@ -42,8 +44,10 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
     return { nonce, expira_em: new Date(Date.now() + TTL).toISOString() }
   }))
   async function finish(req, res, linking = false) {
-    const allowed = linking ? ['credential', 'senha'] : ['credential', 'senha', 'username']
+    const allowed = linking ? ['credential', 'senha'] : ['credential', 'senha', 'username', 'nome']
     if (Object.keys(req.body).some(key => !allowed.includes(key)) || (req.body.senha !== undefined && req.body.senha !== '' && !validPasswordInput(req.body.senha))) throw problem(400, 'Dados de autenticação inválidos.')
+    const name = req.body.nome === undefined ? null : normalizeProfileName(req.body.nome)
+    if (req.body.nome !== undefined && !name) throw problem(400, NAME_MESSAGE)
     const hash = cookie(req)
     const [pending] = await pool.execute('SELECT * FROM google_auth_desafios WHERE cookie_hash = ?', [hash])
     const validChallenge = row => row && Number(row.expira_em) > Date.now() && Number(row.tentativas) < 5 && (linking ? Number(row.usuario_id) === Number(req.user.id) : row.usuario_id == null)
@@ -60,6 +64,12 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
       let user
       if (linked.length && !linking) {
         const [rows] = await connection.execute('SELECT * FROM usuarios WHERE id_usuario = ? FOR UPDATE', [linked[0].usuario_id]); user = rows[0]
+        // Corrige também os perfis criados pelo fluxo antigo, preservando o identificador.
+        if (user && !user.nome && /^usuario_[a-f0-9]{16}$/.test(user.username)) {
+          if (!name) return { proxima_etapa: 'cadastro', email: identity.email }
+          await connection.execute('UPDATE usuarios SET nome = ? WHERE id_usuario = ?', [name, user.id_usuario])
+          user.nome = name
+        }
       } else {
         const [rows] = await connection.execute(linking ? 'SELECT * FROM usuarios WHERE id_usuario = ? FOR UPDATE' : 'SELECT * FROM usuarios WHERE email = ? FOR UPDATE', [linking ? req.user.id : identity.email])
         user = rows[0]
@@ -72,15 +82,14 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
           if (existing.length) throw problem(409, 'Esta conta já possui um vínculo com o Google.')
         } else {
           if (!isAllowedUserEmail(identity.email)) throw problem(400, 'O cadastro aceita e-mails @gmail.com, @hotmail.com ou @outlook.com.')
-          if (req.googleRedirect) req.body.username = `usuario_${crypto.randomBytes(8).toString('hex')}`
-          if (!req.body.username) return { proxima_etapa: 'cadastro', email: identity.email }
-          const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
+          if (!name) return { proxima_etapa: 'cadastro', email: identity.email }
+          const username = req.body.username === undefined ? `usuario_${crypto.randomBytes(8).toString('hex')}` : typeof req.body.username === 'string' ? req.body.username.trim() : ''
           if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) throw problem(400, 'Escolha um nome de usuário de 3 a 30 caracteres, com letras, números, ponto, hífen ou underline.')
           const [existing] = await connection.execute('SELECT id_usuario FROM usuarios WHERE username = ?', [username])
           if (existing.length) throw problem(409, 'Nome de usuário já está em uso.')
           // Sem senha utilizável: a recuperação por e-mail permite definir uma depois.
           const password = await hashPassword(crypto.randomBytes(48).toString('hex'))
-          const [inserted] = await connection.execute("INSERT INTO usuarios (username, email, senha, role, senha_definida) VALUES (?, ?, ?, 'user', FALSE)", [username, identity.email, password])
+          const [inserted] = await connection.execute("INSERT INTO usuarios (username, email, senha, role, senha_definida, nome, foto) VALUES (?, ?, ?, 'user', FALSE, ?, ?)", [username, identity.email, password, name, defaultPhoto])
           const [created] = await connection.execute('SELECT * FROM usuarios WHERE id_usuario = ?', [inserted.insertId]); user = created[0]
         }
         await connection.execute("INSERT INTO usuario_identidades (usuario_id, provedor, sujeito) VALUES (?, 'google', ?)", [user.id_usuario, identity.sub])
@@ -88,7 +97,7 @@ module.exports = function createGoogleAuthRouter(pool, { authLimiter, api_chave 
       await connection.execute('DELETE FROM google_auth_desafios WHERE cookie_hash = ?', [hash])
       if (linking) return { mensagem: 'Google vinculado com sucesso.' }
       const token = jwt.sign({ id: user.id_usuario, username: user.username, email: user.email, role: user.role || 'user', session_version: Number(user.session_version) }, api_chave, { expiresIn: '8h', algorithm: 'HS256' })
-      return { mensagem: 'Login OK', token, username: user.username, email: user.email, userId: user.id_usuario, foto: user.foto || null }
+      return { mensagem: 'Login OK', token, username: user.username, nome: user.nome || null, email: user.email, userId: user.id_usuario, foto: user.foto || defaultPhoto }
     })
     if (!result.failure && !result.proxima_etapa) { const options = cookieOptions(); delete options.maxAge; res.clearCookie(COOKIE, options) }
     return result

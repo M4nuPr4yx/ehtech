@@ -4,6 +4,7 @@ const { hashPassword, verifyPassword, validPasswordInput } = require('../passwor
 const { createPasswordAttempts } = require('../password-attempts')
 const jwt = require('jsonwebtoken')
 const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
+const { foto: defaultPhoto } = require('../../shared/profile-defaults.cjs')
 module.exports = function createAuthRouter(pool, { authLimiter, api_chave }) {
 const router = createRouter()
 const reservePasswordAttempt = createPasswordAttempts(pool, api_chave)
@@ -54,8 +55,8 @@ router.post("/cadastro", authLimiter, async (req, res) => {
 
     const hash = await hashPassword(senha)
     await pool.execute(
-      "INSERT INTO usuarios (username, email, senha, role) VALUES (?, ?, ?, 'user')",
-      [cleanUsername, normalizedEmail, hash]
+      "INSERT INTO usuarios (username, email, senha, role, foto) VALUES (?, ?, ?, 'user', ?)",
+      [cleanUsername, normalizedEmail, hash, defaultPhoto]
     )
 
     return res.status(201).json({ mensagem: "Usuário criado com sucesso! Faça login para continuar." })
@@ -106,7 +107,8 @@ router.post("/login", authLimiter, async (req, res) => {
       username: user.username,
       email: user.email,
       userId: user.id_usuario,
-      foto: user.foto || null
+      nome: user.nome || null,
+      foto: user.foto || defaultPhoto
     })
   } catch (error) {
     return loginFailure(res, error)

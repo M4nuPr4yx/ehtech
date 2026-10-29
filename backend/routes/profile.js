@@ -4,6 +4,8 @@ const { hashPassword, verifyPassword, validPasswordInput } = require('../passwor
 const path = require('path')
 const multer = require('multer')
 const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
+const { normalizeProfileName, NAME_MESSAGE } = require('../profile-name')
+const { foto: defaultPhoto } = require('../../shared/profile-defaults.cjs')
 const { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_IMAGE_SIZE, matchesImageType, extensionFor, createImageFilename, saveImage } = require('../media')
 module.exports = function createProfileRouter(pool) {
 const router = createRouter()
@@ -16,7 +18,7 @@ router.get("/perfil", autenticarToken, async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Usuário não encontrado" })
     }
-    return res.json(rows[0])
+    return res.json({ ...rows[0], foto: rows[0].foto || defaultPhoto })
   } catch (error) {
     console.error('[perfil] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao buscar perfil" })
@@ -32,7 +34,7 @@ router.get('/usuarios/busca', autenticarToken, async (req, res) => {
       pool.execute(`SELECT COUNT(*) AS total FROM usuarios WHERE ${where}`, params),
       pool.execute(`SELECT id_usuario, username, nome, foto FROM usuarios WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, ...orderParams, limit, (page - 1) * limit])
     ])
-    res.json({ items, total: Number(count.total), page, limit, totalPages: Math.min(100, Math.max(1, Math.ceil(Number(count.total) / limit))) })
+    res.json({ items: items.map(user => ({ ...user, foto: user.foto || defaultPhoto })), total: Number(count.total), page, limit, totalPages: Math.min(100, Math.max(1, Math.ceil(Number(count.total) / limit))) })
   } catch (error) {
     if (!error.status) console.error('[usuarios/busca] Falha ao buscar usuários.')
     res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível buscar usuários. Tente novamente.' })
@@ -53,7 +55,7 @@ router.get("/usuarios/:id/publico", async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Vendedor não encontrado" })
     }
-    return res.json(rows[0])
+    return res.json({ ...rows[0], foto: rows[0].foto || defaultPhoto })
   } catch (error) {
     console.error('[usuarios/publico] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao buscar dados do vendedor" })
@@ -61,11 +63,11 @@ router.get("/usuarios/:id/publico", async (req, res) => {
 })
 
 router.put("/perfil", autenticarToken, async (req, res) => {
-  const { nome } = req.body
-  const cleanNome = nome ? String(nome).trim().slice(0, 255) : null
+  const cleanNome = normalizeProfileName(req.body?.nome)
+  if (!cleanNome || Object.keys(req.body).some(key => key !== 'nome')) return res.status(400).json({ mensagem: NAME_MESSAGE })
   try {
     await pool.execute('UPDATE usuarios SET nome = ? WHERE id_usuario = ?', [cleanNome, req.user.id])
-    return res.json({ mensagem: "Perfil atualizado com sucesso" })
+    return res.json({ mensagem: "Nome atualizado com sucesso", nome: cleanNome })
   } catch (error) {
     console.error('[perfil/update] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao atualizar perfil" })
@@ -119,7 +121,7 @@ router.put("/perfil/foto", autenticarToken, (req, res, next) => {
       }
     }
     await pool.execute('UPDATE usuarios SET foto = ? WHERE id_usuario = ?', [cleanFoto, req.user.id])
-    return res.json({ mensagem: "Foto atualizada com sucesso", foto: cleanFoto })
+    return res.json({ mensagem: "Foto atualizada com sucesso", foto: cleanFoto || defaultPhoto })
   } catch (error) {
     console.error('[perfil/foto] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao atualizar foto" })

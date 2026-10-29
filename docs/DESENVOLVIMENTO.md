@@ -32,6 +32,8 @@ O frontend usa `src/lib/api-request.js`: `apiRequest` retorna dados ou `ApiError
 
 ## Testes de integração
 
+A inicialização registra versões concluídas em `ehtech_schema_versoes`. Uma nova instância faz apenas a consulta dessa versão; as migrações não são repetidas a cada cold start da Vercel. Ao alterar o schema, incremente `SCHEMA_VERSION` em `backend/database/schema-version.js` no mesmo commit da migração. O marcador só é concluído após todas as etapas; uma concessão temporária no banco coordena instâncias concorrentes, sem depender de conexões persistentes ou locks de sessão no Neon. Falhas liberam a concessão e a morte da instância permite recuperação após dois minutos.
+
 `npm test` roda testes rápidos; a integração de banco fica desativada nesse comando. `npm run test:integration` cria uma base `ehtech_test_<pid>_<timestamp>`, faz requisições HTTP a um servidor temporário e remove a base e os uploads de teste ao terminar. Não envia e-mails reais e não chama provedores de IA.
 
 A conta de teste precisa de `CREATE DATABASE`/`DROP DATABASE`. Configuração: `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER`, `TEST_DB_PASSWORD`; na ausência dessas variáveis, usa `DB_*` do processo ou de `backend/.env`. Variáveis do processo têm prioridade. URLs PostgreSQL não são usadas pelo teste MySQL.

@@ -46,6 +46,24 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       assert.ok(columns.some(column => column.Field === 'componente_id'))
     })
     assert.ok(server?.listening, 'Servidor de teste deve iniciar')
+    await t.test('instâncias reutilizam versão do banco e coordenam migrações com recuperação de falha', async () => {
+      const { ensureSchema, SCHEMA_VERSION } = require('../backend/database/schema-version')
+      let migrations = 0, reads = 0
+      const trackedPool = { async execute(sql, params) { reads++; return pool.execute(sql, params) } }
+      assert.equal(await ensureSchema(trackedPool, () => assert.fail('Não deve repetir migrações')), false)
+      assert.equal(reads, 1)
+      await pool.execute('DELETE FROM ehtech_schema_versoes WHERE versao = ?', [SCHEMA_VERSION])
+      const initialize = async () => { migrations++; await new Promise(resolve => setTimeout(resolve, 50)) }
+      const migrated = await Promise.all([ensureSchema(pool, initialize), ensureSchema(pool, initialize)])
+      assert.equal(migrations, 1)
+      assert.deepEqual(migrated.sort(), [false, true])
+      await pool.execute('DELETE FROM ehtech_schema_versoes WHERE versao = ?', [SCHEMA_VERSION])
+      await assert.rejects(ensureSchema(pool, async () => { throw new Error('falha simulada de migração') }), /falha simulada/)
+      const [failed] = await pool.execute('SELECT concluida, expira_em FROM ehtech_schema_versoes WHERE versao = ?', [SCHEMA_VERSION])
+      assert.equal(Number(failed[0].concluida), 0)
+      assert.equal(Number(failed[0].expira_em), 0)
+      assert.equal(await ensureSchema(pool, initialize), true)
+    })
     const origin = `http://127.0.0.1:${server.address().port}`
     async function request(method, route, { body, token, expected = 200, raw, form, headers = {} } = {}) {
       const response = await fetch(origin + route, { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined || raw !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers }, body: form || raw || (body === undefined ? undefined : JSON.stringify(body)), signal: AbortSignal.timeout(10000) })

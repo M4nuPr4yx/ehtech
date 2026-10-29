@@ -24,6 +24,7 @@ const createComponentsRouter = require('./routes/components')
 
 
 const { initializeDatabase } = require('./database/init')
+const { ensureSchema } = require('./database/schema-version')
 const { createDocsRouter } = require('./docs/router')
 const { createProductLoadPolicy } = require('./middleware/productLoadPolicy')
 const { integer } = require('./validation')
@@ -239,7 +240,8 @@ async function initDatabaseTables() {
   if (dbInitPromise) return dbInitPromise
 
   dbInitPromise = (async () => {
-    await pool.execute(`
+    const migrated = await ensureSchema(pool, async () => {
+      await pool.execute(`
         CREATE TABLE IF NOT EXISTS usuarios (
           id_usuario INT AUTO_INCREMENT PRIMARY KEY,
           username VARCHAR(100) NOT NULL UNIQUE,
@@ -252,7 +254,7 @@ async function initDatabaseTables() {
         )
       `)
 
-    await pool.execute(`
+      await pool.execute(`
         CREATE TABLE IF NOT EXISTS produtos (
           id_produto INT AUTO_INCREMENT PRIMARY KEY,
           nome VARCHAR(255) NOT NULL,
@@ -270,9 +272,10 @@ async function initDatabaseTables() {
         )
       `)
 
-    await initializeDatabase(pool)
+      await initializeDatabase(pool)
+    })
     dbInitialized = true
-    console.log('[EHtech DB] Tabelas e migrações verificadas com sucesso')
+    console.log(migrated ? '[EHtech DB] Tabelas e migrações aplicadas com sucesso' : '[EHtech DB] Versão do banco já aplicada; inicialização rápida')
   })().catch((error) => {
     dbInitPromise = null
     throw error

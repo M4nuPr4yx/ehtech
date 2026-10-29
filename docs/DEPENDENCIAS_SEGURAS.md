@@ -52,6 +52,16 @@ O CI recebeu `npm audit --audit-level=low`, que reprova a execução quando o re
 
 Os logs das rodadas e auditorias ficam localmente em `scratch/dependencies/`, fora do Git. Rodadas posteriores substituem o relatório e as capturas automáticas do Playwright; os logs identificam cada execução. A instalação limpa não copiou `.env`, uploads ou node_modules do projeto. A adição local preexistente de Analytics foi preservada e ficou fora desta entrega; o manifesto sem ela foi validado separadamente.
 
+## Compatibilidade verificada após publicação
+
+O commit `e46be41` foi publicado com status Ready/Production na Vercel, implantação `12sgNis7xpKffLKqaFuaWx7U42X5`, em 29/10/2026 às 13:25:16 BRT (build de 39 segundos). A primeira verificação pública aprovou início, produtos, serviços, catálogos e saúde da API, mas encontrou HTTP 500 para um anúncio inexistente. A API pública devolvia corretamente 404 JSON; a mesma URL na origem imutável do deploy devolvia 302 para autenticação Vercel. Ao seguir esse redirecionamento, o SSR recebia HTML com status 200 e recusava a resposta como inválida.
+
+O helper central `src/lib/api.js` passou a selecionar `VERCEL_PROJECT_PRODUCTION_URL` somente quando `VERCEL_ENV=production`, com fallback para `VERCEL_URL`. Previews conservam sua própria origem, e API externa/BACKEND_URL mantêm prioridade. Nenhuma proteção da Vercel foi desativada, nenhum segredo de bypass foi criado e nenhuma variável privada foi lida ou alterada. O teste de compatibilidade cobre produção, preview, variável ausente, backend externo e navegador. As duas jornadas afetadas de detalhe/SEO/navegação foram repetidas em desktop/celular e passaram.
+
+A repetição do check em ambiente restrito encontrou EPERM ao iniciar subprocessos; trata-se de limitação da execução, não regressão do site. A execução autorizada foi aprovada: 114 testes, 113 aprovações e uma integração ignorada na suíte rápida, lint sem erros (39 avisos) e build concluído. O registro está em `check-ssr-final.log`. A primeira leitura pública permanece em `production-first.json`; a verificação final é registrada separadamente para não esconder a falha encontrada.
+
+Referências da hospedagem: [variáveis de sistema](https://vercel.com/docs/environment-variables/system-environment-variables) e [proteção de deploys](https://vercel.com/docs/deployment-protection).
+
 ## Limites
 
 MySQL real, entrega real de SMTP, armazenamento real Blob e autenticação na conta real do Google não foram exercitados nesta revisão. A integração usa PostgreSQL temporário; Google, e-mail e armazenamento usam provedores locais ou interceptação. Não foram criados pedidos/contas no banco de produção para testar. Não há novo serviço pago, gateway, mudança de schema, segredo ou configuração exigida do usuário.

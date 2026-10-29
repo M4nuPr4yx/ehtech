@@ -5,13 +5,24 @@ const path = require('node:path')
 const vm = require('node:vm')
 const { createHandler } = require('../backend/serverless')
 
-function apiUrl(base, origin, endpoint = '/componentes') {
-  const context = { process: { env: { NEXT_PUBLIC_API_URL: base } }, URL }
+function apiUrl(base, origin, endpoint = '/componentes', env = {}) {
+  const context = { process: { env: { NEXT_PUBLIC_API_URL: base, ...env } }, URL }
   if (origin) context.window = { location: { origin } }
-  else context.process.env.VERCEL_URL = 'example.vercel.app'
+  else context.process.env.VERCEL_URL ||= 'example.vercel.app'
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/lib/api.js'), 'utf8').replace('export const getApiUrl', 'var getApiUrl').replace('export default getApiUrl;', ''), context)
   return context.getApiUrl(endpoint)
 }
+
+test('SSR de produção usa domínio público e preserva isolamento de previews e backend externo', () => {
+  const env = { VERCEL_ENV: 'production', VERCEL_URL: 'deploy-protegido.vercel.app', VERCEL_PROJECT_PRODUCTION_URL: 'loja.example.com' }
+  assert.equal(apiUrl('', undefined, '/produtos/9', env), 'https://loja.example.com/api/produtos/9')
+  assert.equal(apiUrl('/api', undefined, '/produtos/9', env), 'https://loja.example.com/api/produtos/9')
+  assert.equal(apiUrl('', undefined, '/produtos/9', { ...env, VERCEL_ENV: 'preview' }), 'https://deploy-protegido.vercel.app/api/produtos/9')
+  assert.equal(apiUrl('', undefined, '/produtos/9', { ...env, VERCEL_PROJECT_PRODUCTION_URL: '' }), 'https://deploy-protegido.vercel.app/api/produtos/9')
+  assert.equal(apiUrl('https://api.example.com', undefined, '/produtos/9', env), 'https://api.example.com/produtos/9')
+  assert.equal(apiUrl('', undefined, '/produtos/9', { ...env, BACKEND_URL: 'https://backend.example.com' }), 'https://backend.example.com/produtos/9')
+  assert.equal(apiUrl('', 'https://loja.example.com', '/produtos/9', env), '/api/produtos/9')
+})
 
 test('serviços no mesmo domínio chegam diretamente ao Express; backend externo e Google preservados', () => {
   for (const base of ['', '/api', 'https://example.vercel.app/api', 'http://localhost:3000']) {

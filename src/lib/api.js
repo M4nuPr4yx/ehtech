@@ -9,7 +9,12 @@
 export const getApiUrl = (endpoint = '') => {
   const path = `/${endpoint.replace(/^\/+/, '').replace(/^api(?:\/|$)/, '')}`;
   const browser = typeof window !== 'undefined';
-  const deployment = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+  // Em produção, a URL imutável do deploy pode exigir login da Vercel.
+  // O SSR consulta o domínio público da aplicação sem contornar essa proteção.
+  const deploymentHost = process.env.VERCEL_ENV === 'production'
+    ? (process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL)
+    : process.env.VERCEL_URL;
+  const deployment = deploymentHost ? `https://${deploymentHost}` : null;
   const origin = browser ? window.location.origin : deployment;
   // Evita o redirecionamento dos handlers legados de serviços na Vercel.
   const sameOriginPath = /^\/servicos(?:\/|\?|$)/.test(path) ? `/api/_backend${path}` : `/api${path}`;
@@ -41,8 +46,8 @@ export const getApiUrl = (endpoint = '') => {
   if (process.env.BACKEND_URL) {
     return `${process.env.BACKEND_URL.replace(/\/+$/, '')}${path}`;
   }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api${path}`;
+  if (deployment) {
+    return `${deployment}/api${path}`;
   }
   return `http://localhost:3000${path}`;
 };

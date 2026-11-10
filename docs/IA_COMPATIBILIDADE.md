@@ -39,7 +39,7 @@ Em 15/10/2026, consultas públicas ao deploy informado `ehtech-gc18.vercel.app` 
 - Gemini/Groq usam hosts oficiais fixos, chave somente em header, sem redirecionamento. Chaves nunca aparecem na URL, corpo, logs ou resposta. Variáveis públicas com nomes de segredo são recusadas no build/inicialização.
 - Antes do pedido, a tela informa o envio ao provedor. No nível gratuito do Gemini, os dados podem ser usados para melhorar os serviços Google; não inclua informações pessoais na BIOS.
 - Limite compartilhado de oito pedidos/IP em dez minutos entre análise e explicação legada, mais limite global. Uma geração local ou duas externas simultâneas por processo. Cache interno de até 50 resultados por dez minutos, considerando seleção, quantidades, modelo e snapshot. Em múltiplas instâncias, os limites em memória não são globais: mantenha também cotas no provedor.
-- Na função Vercel de 30 segundos, a chamada externa tem no máximo 25 segundos. Ollama local permite até 180 segundos. Trocar peças ou cancelar invalida a resposta pendente. Falhas não geram repetição automática de inferência.
+- A função Express na Vercel tem limite de 60 segundos; a chamada externa mantém teto próprio de 25 segundos. Ollama local permite até 180 segundos. Trocar peças ou cancelar invalida a resposta pendente. Falhas não geram repetição automática de inferência.
 
 ## Alternativas
 

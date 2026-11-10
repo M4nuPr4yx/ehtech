@@ -28,6 +28,7 @@
 .button:disabled, .list button:disabled { opacity: .5; cursor: wait; }
 .button:focus-visible, .list button:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .notice, .error { border: 1px solid var(--danger); padding: 14px 18px; border-radius: 10px; background: var(--danger-soft); margin-bottom: 18px; overflow-wrap: anywhere; }
+.notice { border-color: var(--success); background: var(--success-soft); color: var(--success); }
 .error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
 .chips span, .badge { border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; color: var(--foreground); font-size: 12px; }

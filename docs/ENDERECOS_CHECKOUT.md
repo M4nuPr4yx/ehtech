@@ -42,6 +42,8 @@ A opção inicial a combinar não exige alteração nos campos de preço: por co
 
 ## Pagamento
 
+A sessão do checkout é retomada por conta e conteúdo do carrinho. Sessão indisponível (404/409) com itens presentes inicia nova revisão e informa o usuário. Cliques simultâneos de confirmação são bloqueados. Se a resposta do registro se perder, a interface consulta a mesma sessão para recuperar o número do pedido; não repete a escrita automaticamente. Falha de armazenamento após sucesso não transforma o pedido em erro: a tela mantém a confirmação e orienta a conferir o carrinho. A jornada de navegador exercita uma resposta 503 após o registro real, recuperação, recarga e ausência de pedido duplicado. Verificações datadas em [CHECKUP.md](CHECKUP.md).
+
 O projeto não possui provedor de pagamento. `/checkout/:id/pagamento` valida conta, versão do endereço, confirmação por checkout, itens e entregas antes de responder que a cobrança online está indisponível. O fluxo existente de registrar pedido sem cobrança foi mantido após a revisão. Todos os pedidos novos têm `status_pagamento = nao_iniciado`. Não existe endpoint para o cliente marcar um pedido como pago. Uma futura integração deverá validar essas mesmas regras no servidor e usar confirmação autenticada do provedor.
 
 ## Operação e privacidade

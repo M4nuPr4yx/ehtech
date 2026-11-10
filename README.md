@@ -4,6 +4,8 @@ Marketplace acadêmico de tecnologia: produtos com aprovação administrativa, s
 
 Next.js 16 / React 19 no frontend, Express no backend e MySQL (local) ou PostgreSQL/Neon. Interface em português do Brasil.
 
+Para a banca, consulte o [roteiro de apresentação do TCC](docs/APRESENTACAO_TCC.md) e a [revisão de entrega](docs/CHECKUP.md). Os resultados são datados e distinguem testes locais de verificação da hospedagem.
+
 ## Rodar depois do clone
 
 Requisitos: **Node.js 24** (veja `.nvmrc`), npm 10+ e Git. Para o banco, use Docker com Compose v2 ou uma instalação própria de MySQL/MariaDB. Todas as dependências JavaScript são instaladas **na raiz**.
@@ -58,6 +60,7 @@ O [catálogo de demonstração com modelos reais de referência](docs/CATALOGO_D
 - **Frontend:** não precisa de `.env.local` na instalação padrão. Use `.env.example` como referência para mudar `BACKEND_URL` (destino do proxy no servidor). `NEXT_PUBLIC_API_URL` substitui `/api` no navegador; mantenha vazio para o mesmo domínio. Nunca use `NEXT_PUBLIC_*` para segredos.
 - **E-mail:** configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASS` no backend. Sem SMTP, a recuperação de senha não envia o link.
 - **Compatibilidade:** catálogo e checagem básica de requisitos funcionam sem chave de IA e sem banco. A análise adicional com IA exige um provedor configurado. Dados ausentes ou variantes ambíguas permanecem não verificados. Consulte [COMPATIBILIDADE.md](docs/COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md).
+- **Pedidos e recebimento:** `/pedidos` separa compras e vendas, apresenta a próxima ação de cada entrega e permite negociar frete/prazo. Retiradas podem ser confirmadas com código temporário; envios usam confirmação pelo comprador. Pagamento é externo. Veja [ACORDOS_E_ENTREGAS.md](docs/ACORDOS_E_ENTREGAS.md).
 - **PostgreSQL/Neon:** configure `DATABASE_URL` no backend e um `API_SEGREDO` exclusivo. A mesma suíte de integração roda em MySQL/MariaDB e PostgreSQL real; veja [DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md) para a configuração de testes temporários.
 - **Compartilhamento:** configure `SITE_URL` no frontend com a URL pública canônica. Anúncios aprovados têm metadados próprios e HTML inicial; `/sitemap.xml` lista mapas paginados. Áreas da conta e links secretos não entram nos mapas e usam `noindex`.
 
@@ -112,7 +115,7 @@ Diagnóstico: **http://localhost:3001/api/health**, documentação da API em **h
 
 - **Conexão recusada / banco desconhecido:** inicie o banco e confira porta/credenciais. O Compose usa 3307; uma instalação própria geralmente usa 3306. O banco precisa existir antes de `db:init`.
 - **Porta 3000 ou 3001 ocupada:** encerre a instância anterior antes de iniciar outra.
-- **Catálogo ou serviços vazios:** produtos precisam de aprovação; serviços de exemplo exigem um administrador e reinicialização da API.
+- **Catálogo ou serviços vazios:** produtos e serviços novos precisam de aprovação administrativa. Serviços são publicados pelos usuários em `/meus-servicos`; a API não cria serviços de exemplo automaticamente.
 - **Falha no `npm ci`:** confirme a versão do Node e o acesso ao registro npm. Não instale um segundo conjunto de dependências dentro de `backend/`.
 
 ## Estrutura e publicação

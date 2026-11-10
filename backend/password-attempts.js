@@ -1,6 +1,7 @@
 const { createHmac } = require('node:crypto')
 const { ipKeyGenerator } = require('express-rate-limit')
 const { transaction, problem } = require('./addresses')
+const { setTimeout: delay } = require('node:timers/promises')
 
 const WINDOW_MS = 15 * 60 * 1000
 function createPasswordAttempts(pool, secret) {
@@ -18,7 +19,7 @@ function createPasswordAttempts(pool, secret) {
       [digest('password:account-network:' + network + ':' + email.trim().toLowerCase()), 10]
     ])
     const keys = [...limits.keys()].sort()
-    await transaction(pool, async connection => {
+    const reserveAttempt = () => transaction(pool, async connection => {
       await connection.execute('INSERT IGNORE INTO auth_tentativas (chave, janela, tentativas) VALUES (?, ?, 0), (?, ?, 0)', [keys[0], window, keys[1], window])
       const [rows] = await connection.execute('SELECT chave, janela, tentativas FROM auth_tentativas WHERE chave IN (?, ?) ORDER BY chave FOR UPDATE', keys)
       if (rows.length !== 2) throw problem(503, 'Não foi possível validar o acesso. Tente novamente.')
@@ -31,6 +32,16 @@ function createPasswordAttempts(pool, secret) {
         await connection.execute('UPDATE auth_tentativas SET janela = ?, tentativas = ? WHERE chave = ?', [window, Number(row.janela) === window ? Number(row.tentativas) + 1 : 1, row.chave])
       }
     })
+    // O banco desfaz a transação vítima de deadlock. Repetir somente essa
+    // reserva, antes de verificar a senha, não duplica tentativas confirmadas.
+    for (let attempt = 0; ; attempt++) {
+      try { await reserveAttempt(); break }
+      catch (error) {
+        if (!['ER_LOCK_DEADLOCK', '40P01', '40001'].includes(error.code)) throw error
+        if (attempt === 4) throw problem(503, 'Não foi possível validar o acesso. Tente novamente.')
+        await delay(20 * (2 ** attempt) + Math.floor(Math.random() * 20))
+      }
+    }
     return { async success() {
       await pool.execute('UPDATE auth_tentativas SET tentativas = tentativas - 1 WHERE chave IN (?, ?) AND janela = ? AND tentativas > 0', [...keys, window])
     } }

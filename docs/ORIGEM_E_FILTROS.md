@@ -49,4 +49,4 @@ Campos privados da origem não entram na busca. Anúncios sem origem não corres
 
 `backend/database/product-origins.js` adiciona colunas idempotentemente na inicialização normal do backend. Não redefine datas existentes, não deduz origem de e-mail e não exige SQL manual. Reinicie o backend depois de atualizar o código.
 
-Testes isolados: `node --test tests/product-origins.test.cjs tests/addresses-checkout.test.cjs tests/database-adapter.test.cjs`. Integração: `npm run test:integration`, somente em base temporária. Revisão transversal: `npm run check`. O adaptador PostgreSQL tem validação de tradução; a integração real automatizada usa MySQL/MariaDB.
+Testes isolados: `node --test tests/product-origins.test.cjs tests/addresses-checkout.test.cjs tests/database-adapter.test.cjs`. Integração: `npm run test:integration`, somente em base temporária. Revisão transversal: `npm run check`. A integração de 10/11/2026 exercitou origem, filtros, endereços e privacidade em MySQL/MariaDB e PostgreSQL reais descartáveis; resultados em [CHECKUP.md](CHECKUP.md).

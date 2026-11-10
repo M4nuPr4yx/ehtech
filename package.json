@@ -28,6 +28,7 @@
     "test:e2e": "node tests/run-e2e.cjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",

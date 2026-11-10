@@ -66,6 +66,8 @@ A compatibilidade deixa de ser apenas uma ficha técnica. A plataforma aprende c
 
 **Implementado em 06/10/2026:** `/compatibilidade` compara modelos exatos de processador, placa-mãe e kits de memória, com fontes do fabricante, socket, suporte do processador, BIOS informada, DDR, formato, slots e capacidade. Catálogo inicial com seis modelos e revisão administrativa em `/admin/componentes`. Passaportes e anúncios podem guardar a associação técnica sem inferência pelo nome. Dados ausentes não aprovam uma combinação. Fonte, GPU, gabinete, cooler, QVL, estabilidade e confirmação por técnico ficam para etapas posteriores. IA adiada por decisão do usuário. Guia em [COMPATIBILIDADE.md](COMPATIBILIDADE.md).
 
+**Estado em 10/11/2026:** a interface atual pesquisa o catálogo ampliado e oferece regras básicas sem banco ou IA, com complemento de IA opcional conforme a configuração existente. O motor de seis fichas acima permanece como API legada e referência histórica. Não há grafo que aprenda automaticamente com montagens, e modelos/dados ausentes continuam não verificados. Consulte [CATALOGO_COMPONENTES.md](CATALOGO_COMPONENTES.md), [COMPATIBILIDADE.md](COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](IA_COMPATIBILIDADE.md).
+
 ### 7. Orçamento reverso comparável
 
 O cliente publica o problema e o orçamento disponível sem escolher um serviço específico. Prestadores enviam planos de solução estruturados. A plataforma normaliza escopo, prazo, peças, garantia e preço para impedir propostas propositalmente vagas.

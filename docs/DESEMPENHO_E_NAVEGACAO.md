@@ -76,7 +76,10 @@ todo o site, celulares reais, concorrência ou banco após longos períodos ocio
   (3 moderados, 12 altos e 2 críticos). Esta entrega não altera dependências.
   Há correções que exigem rever versões fixadas do framework; não aplicar
   `npm audit fix --force` sem avaliar compatibilidade e repetir a validação.
-  Os alertas permanecem pendentes, inclusive os críticos.
+  Os alertas permaneceram pendentes ao término desta etapa. A revisão posterior
+  de dependências os corrigiu; veja [DEPENDENCIAS_SEGURAS.md](DEPENDENCIAS_SEGURAS.md).
+  A auditoria completa de 10/11/2026 voltou a retornar zero alertas conhecidos,
+  conforme [CHECKUP.md](CHECKUP.md).
 
 Integração MySQL não executada nesta entrega. Não foram realizados teste de carga,
 Core Web Vitals de usuários reais, cobrança ou chamadas reais a provedores de IA.

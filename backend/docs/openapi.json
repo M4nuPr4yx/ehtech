@@ -28,7 +28,7 @@
         "tags": ["Autenticação"],
         "operationId": "login",
         "summary": "Autenticar usuário e obter token JWT",
-        "description": "Valida e-mail (até 254 caracteres) e senha (até 1024 bytes UTF-8) e retorna JWT Bearer por 8 horas. Aceita hashes bcrypt anteriores e scrypt novos. Resposta sem cache. Os logins comum e administrativo compartilham contadores persistentes entre instâncias: 10 falhas por conta/rede e 100 por rede em janela fixa de 15 minutos. Tentativas concorrentes reservam vaga; sucesso devolve apenas a própria reserva. Também mantém o limite em memória por IP. Copie token e use Authorize para rotas protegidas.",
+        "description": "Valida e-mail (até 254 caracteres) e senha (até 1024 bytes UTF-8) e retorna JWT Bearer por 8 horas. Aceita hashes bcrypt anteriores e scrypt novos. Resposta sem cache. Os logins comum e administrativo compartilham contadores persistentes entre instâncias: 10 falhas por conta/rede e 100 por rede em janela fixa de 15 minutos. Tentativas concorrentes reservam vaga; sucesso devolve apenas a própria reserva. Deadlocks ou conflitos de serialização repetem somente a reserva desfeita, até cinco transações; falha persistente retorna 503 sem autenticar. Também mantém o limite em memória por IP. Copie token e use Authorize para rotas protegidas.",
         "requestBody": {
           "required": true,
           "content": {

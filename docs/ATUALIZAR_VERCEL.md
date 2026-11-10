@@ -38,6 +38,8 @@ Depois da atualização, confira `/api/health`, `/politicas`, `/servicos`, `/meu
 
 ## Estado da preparação local
 
+Na continuação de 10/11/2026, o painel confirmou `M4nuPr4yx/ehtech`, produção pela branch `master`, preset Next.js e Node 24.x. A instalação limpa e a conferência dos fluxos adicionais estão em [CHECKUP.md](CHECKUP.md). A entrega preserva banco, segredos, Blob, proteção de deploy e plano Hobby existentes. O registro de publicação e leituras posteriores é acrescentado à versão 2.9 do documento oficial de testes; o hash do código e o status Ready devem corresponder à implantação apresentada. Não é necessário trocar credenciais ou habilitar recursos pagos para publicar essas correções.
+
 Em 22/10/2026, as verificações da versão com redirecionamento aprovaram lint/testes/build, 31 resultados de integração PostgreSQL e oito jornadas de navegador. Google foi simulado nos testes; a autenticação real exige configurar o cliente no provedor. MySQL local estava indisponível.
 
 A revisão do conjunto alterado não encontrou padrões de segredo Google ou chave privada. `npm audit --omit=dev` retornou zero vulnerabilidades. Nenhuma credencial recebida no chat foi copiada para os arquivos.

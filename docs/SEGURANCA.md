@@ -10,6 +10,8 @@ Além dos limites em memória existentes, `/login` e `/admin/login` compartilham
 
 JWTs continuam com algoritmo HS256 explícito, validade e versão de sessão verificadas no banco. Cabeçalhos de token excessivos são recusados. Troca/redefinição de senha e desvínculo Google continuam revogando sessões anteriores.
 
+Revisão de 10/11/2026: a integração MySQL revelou um deadlock entre reservas simultâneas. O contador agora repete exclusivamente a transação desfeita pelo banco em deadlock ou conflito de serialização, com espera crescente e até cinco transações por reserva. Não repete a autenticação, não confirma duas reservas e não ignora falhas do banco. Conflito persistente termina em HTTP 503; excesso de tentativas continua HTTP 429 com `Retry-After`, sem repetição. Erros de conexão também não são repetidos. Testes isolados cobrem recuperação, esgotamento e recusa; as integrações reais verificam os limites entre instâncias. Resultados atuais em [CHECKUP.md](CHECKUP.md).
+
 ## Recuperação, dados privados e navegador
 
 Links de recuperação não são registrados em logs, inclusive em desenvolvimento sem SMTP. Configure SMTP para receber o e-mail; em produção o envio exige TLS. O link é aleatório, expira em uma hora e é consumido atomicamente. A verificação aceita somente o formato esperado, não devolve o e-mail da conta e compartilha o limitador da recuperação.

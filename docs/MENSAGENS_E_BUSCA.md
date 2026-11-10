@@ -44,4 +44,4 @@ Busca: `backend/user-search.js` e `GET /usuarios/busca` em `backend/routes/profi
 
 Testes: `node --test tests/user-search.test.cjs tests/swagger-additions.test.cjs`. A integração em base temporária (`npm run test:integration`) verifica busca por username/nome, ausência de dados privados, paginação, pessoa sem anúncios, mensagens diretas, destinatário/remetente e privacidade do histórico. `npm run check` verifica lint, suíte rápida e build.
 
-Não há migração de banco nova para esta funcionalidade. Reinicie o backend para carregar a rota e atualize o frontend. A integração automatizada real usa MySQL/MariaDB; as consultas de produção usam placeholders `?` e SQL compatível com o adaptador PostgreSQL, sem comprovar execução real neste último.
+Não há migração de banco nova para esta funcionalidade. Reinicie o backend para carregar a rota e atualize o frontend. As consultas usam placeholders `?` e a interface do adaptador. Na revisão de 10/11/2026, busca, chat, paginação e privacidade foram exercitados em MySQL/MariaDB e PostgreSQL reais descartáveis. Resultados atuais em [CHECKUP.md](CHECKUP.md).

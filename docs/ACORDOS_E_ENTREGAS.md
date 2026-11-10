@@ -8,9 +8,17 @@ Após combinar pelo chat, acesse **Minha conta → Pedidos e vendas** (`/pedidos
 2. **Comprador revisa e aceita:** precisa marcar que conferiu modalidade, preço e prazo. Aceita somente a versão exibida; se houver revisão simultânea, recebe conflito e deve conferir de novo. Também pode recusar para pedir outra proposta.
 3. **Acordo confirmado:** o total passa a incluir o frete aceito. Proposta não aceita não vira cobrança. Alterar condições depois do aceite não é permitido por este fluxo.
 4. **Vendedor informa envio ou retirada:** somente após o aceite. Entrega aceita transportadora e código opcionais, declarados pelo vendedor, sem consulta externa. Retirada muda para **Pronto para retirada**.
-5. **Comprador confirma recebimento:** somente depois de enviado/pronto para retirada e com confirmação explícita na tela. Quando todos os grupos de entrega física terminam, o acompanhamento fica **Concluído**. Não confirme antes de receber.
+5. **Comprador confirma recebimento:** somente depois de enviado/pronto para retirada e com confirmação explícita na tela. Para retirada, pode gerar um código de seis dígitos após receber; o vendedor valida no próprio pedido. Também é possível abrir **Prefiro confirmar sem código** e confirmar diretamente. Envios por transportadora usam a confirmação direta. Quando todos os grupos de entrega física terminam, o acompanhamento fica **Concluído**. Não confirme antes de receber.
 
-O site não cobra, não confirma pagamento, não reserva estoque, não contrata transportadora e não comprova envio/rastreio/recebimento. O pagamento continua combinado externamente. O fluxo não implementa cancelamentos, disputas, devoluções ou reembolso. Itens digitais e pedidos antigos sem grupo de entrega permanecem consultáveis, sem transição automática de entrega física.
+O site não cobra, não confirma pagamento, não reserva estoque, não contrata transportadora e não comprova envio/rastreio/recebimento. O pagamento continua combinado externamente. Problemas podem ser relatados no pedido, inclusive após sua conclusão, e analisados pela moderação. O fluxo não implementa cancelamentos de produtos, disputa bilateral, devoluções ou reembolso automático. Itens digitais e pedidos antigos sem grupo de entrega permanecem consultáveis, sem transição automática de entrega física.
+
+## Orientação e recuperação de falhas
+
+A tela apresenta quatro etapas por entrega e orientações diferentes para comprador e vendedor. A contagem de entregas recebidas distingue a conclusão de um grupo da conclusão de todo o pedido. O endereço e o histórico ficam em seções expansíveis; a ajuda e o relato de problema permanecem acessíveis após o recebimento.
+
+Envios simultâneos de ações são bloqueados na interface. Se houver conflito de versão, falha de rede, resposta inválida ou erro de servidor, as ações ficam bloqueadas até **Atualizar pedido** confirmar o estado atual. A última consulta pode continuar visível com aviso, mas não autoriza nova alteração. Validação recusada permite corrigir os campos. Não há repetição automática de escritas. O código de retirada não é salvo no navegador; recarregar exige gerar outro.
+
+No checkout, a confirmação perdida é recuperada por consulta à mesma sessão, sem criar outro pedido. Sessão expirada ou removida permite retomar o carrinho em uma sessão nova, exigindo revisão e confirmação novamente. Se não for possível confirmar o resultado, confira **Meus pedidos** antes de reiniciar a compra.
 
 ## Carrinhos com vários vendedores ou origens
 
@@ -38,8 +46,12 @@ O vendedor vê apenas seus itens, grupos, valores e eventos. Não recebe preços
   - `aceitar` / `recusar`: comprador; somente ação e versão.
   - `despachar`: vendedor; observações e, para entrega, transportadora/código opcionais.
   - `receber`: comprador; somente ação e versão.
+- `POST /pedidos/:id/entregas/:grupo/codigo`: comprador, `{ versao }`; gera código para retirada pronta, válido por 30 minutos.
+- `POST /pedidos/:id/entregas/:grupo/recebimento`: vendedor do grupo, `{ versao, codigo }`; valida e registra recebimento. Cinco erros bloqueiam por 15 minutos. Os detalhes de proteção e uso único estão em [SERVICOS_DA_COMUNIDADE.md](SERVICOS_DA_COMUNIDADE.md#retirada-com-código).
 
 JWT obrigatório; respostas sem cache; até 4 KB por ação e 60 atualizações/IP em dez minutos, além do limite global. Outro participante/pedido invisível retorna 404; ação do papel errado, 403; versão ou etapa incorreta, 409. O Swagger documenta as estruturas.
+
+As rotas de código têm limite próprio de 30 solicitações/IP em dez minutos e corpo de até 1 KB, além do bloqueio persistente de tentativas incorretas por entrega.
 
 ## Verificação
 

@@ -6,7 +6,7 @@ Use **GET /produtos** para o cenário de maior volume de resposta entre as duas 
 
 Use **GET /produtos/catalogo** como comparação representativa da navegação atual: executa COUNT e SELECT em paralelo, busca por nome (LIKE), filtra categoria/preço e ordena com paginação. Cada resposta contém no máximo 24 produtos.
 
-Cadastro não é pré-requisito para consultar produtos. POST /cadastro tem custo de bcrypt e gravação, mas mede outro fluxo e cria usuários. Para testar POST /produtos seria preciso preparar um usuário uma única vez, obter um token pelo login e reutilizá-lo. Esse não é o cenário documentado aqui.
+Cadastro não é pré-requisito para consultar produtos. POST /cadastro tem custo de derivação de senha (scrypt para senhas novas) e gravação, mas mede outro fluxo e cria usuários. Para testar POST /produtos seria preciso preparar um usuário uma única vez, obter um token pelo login e reutilizá-lo. Esse não é o cenário documentado aqui.
 
 Não afirmamos que uma rota é a mais lenta de toda a aplicação: isso depende de CPU, banco, índices, filtros, volume e concorrência. A escolha acima é sustentada por volume de resposta e inspeção das consultas.
 
@@ -22,7 +22,7 @@ A primeira resposta tem aproximadamente 5,5 vezes o tamanho da página de 12 ite
 
 ## Endereços na rede
 
-IP Ethernet observado nesta máquina: **10.111.9.44**. Pode mudar ao reconectar. Confira com ipconfig e escolha o IPv4 da Ethernet/Wi-Fi ligada à rede da aula; 192.168.56.1 é outra interface e não deve ser presumida como a rede do parceiro.
+Os endereços abaixo são exemplos da medição histórica, não a configuração atual da apresentação. Confira com `ipconfig` o IPv4 da Ethernet/Wi-Fi ligada à rede da aula e substitua o host em todas as URLs. Uma interface virtual não deve ser presumida como a rede do parceiro. Não altere firewall ou exponha o banco apenas para validar este roteiro.
 
 - Site: http://10.111.9.44:3001
 - Swagger UI: http://10.111.9.44:3001/api/docs

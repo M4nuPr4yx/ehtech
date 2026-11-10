@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AddressBook, { AddressDetails } from '../complements/AddressBook';
 import { accountRequest } from '../../lib/address-api';
 import { freightLabel, deliverySelections } from '../../lib/shipping';
+import { uncertainOrderChange } from '../../lib/order-guidance.mjs';
 
 const money = value => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 const primary = 'w-full rounded-xl bg-accent-fill px-5 py-3 font-bold text-accent-contrast transition hover:brightness-110 disabled:opacity-50 disabled:cursor-wait';
@@ -22,11 +23,13 @@ export default function Checkout() {
   const [order, setOrder] = useState(null);
   const [retry, setRetry] = useState(0);
   const [checkoutStorageKey, setCheckoutStorageKey] = useState('');
+  const [notice, setNotice] = useState('');
+  const submitting = useRef(false);
 
   useEffect(() => {
     let active = true;
     const initialize = async () => {
-      setLoading(true); setError('');
+      setLoading(true); setError(''); setNotice('');
       try {
         if (!localStorage.getItem('token')) {
           router.replace('/?login=1&next=%2Fcheckout'); return;
@@ -40,16 +43,22 @@ export default function Checkout() {
         let saved;
         try { saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch { saved = null; }
         let data;
-        if (saved?.cartKey === cartKey) {
-          data = await accountRequest(`/checkout/${saved.id}`);
-          if (data.pedido_id) {
+        if (saved?.cartKey === cartKey && typeof saved.id === 'string' && /^[a-f0-9-]{36}$/.test(saved.id)) {
+          try { data = await accountRequest(`/checkout/${encodeURIComponent(saved.id)}`); }
+          catch (failure) {
+            if (![404, 409].includes(failure.status) || !items.length) throw failure;
+            if (active) setNotice('Retomamos seu carrinho em uma nova sessão. Confirme o endereço e revise os valores novamente.');
+          }
+          if (data?.pedido_id) {
             if (active) setOrder({ id_pedido: data.pedido_id, frete_pendente: data.frete_pendente });
             return;
           }
-        } else {
+        }
+        if (!data) {
           if (!items.length) throw new Error('Seu carrinho está vazio. Adicione produtos para continuar.');
           data = await accountRequest('/checkout', { method: 'POST', body: { itens: items } });
-          localStorage.setItem(storageKey, JSON.stringify({ id: data.id, cartKey }));
+          try { localStorage.setItem(storageKey, JSON.stringify({ id: data.id, cartKey })); }
+          catch { if (active) setNotice('O navegador não conseguiu guardar seu progresso. Continue nesta página; seus pedidos registrados ficam em Pedidos e vendas.'); }
         }
         if (active) { setSession(data); setSelection(deliverySelections(data.entrega || [], data.modalidades || [])); }
       } catch (failure) {
@@ -61,10 +70,16 @@ export default function Checkout() {
   }, [router, retry]);
 
   const confirmAddress = async address => {
-    const data = await accountRequest(`/checkout/${session.id}/endereco`, { method: 'PUT', body: { endereco_id: address.id, versao: address.versao, confirmado: true } });
-    setSession(data); setSelection(deliverySelections([], data.modalidades)); setPayment(false); setEditingAddress(false); setError('');
+    if (submitting.current) throw new Error('Aguarde a operação atual terminar.');
+    submitting.current = true; setBusy(true);
+    try {
+      const data = await accountRequest(`/checkout/${session.id}/endereco`, { method: 'PUT', body: { endereco_id: address.id, versao: address.versao, confirmado: true } });
+      setSession(data); setSelection(deliverySelections([], data.modalidades)); setPayment(false); setEditingAddress(false); setError('');
+    } finally { submitting.current = false; setBusy(false); }
   };
   const chooseDelivery = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true); setError('');
     try {
       const data = await accountRequest(`/checkout/${session.id}/entrega`, { method: 'PUT', body: { modalidades: session.modalidades.map(group => ({ grupo_id: group.grupo_id, vendedor_id: group.vendedor_id, id: selection[group.grupo_id] })) } });
@@ -72,26 +87,48 @@ export default function Checkout() {
       const paymentState = await accountRequest(`/checkout/${session.id}/pagamento`, { method: 'POST', body: {} });
       setSession(paymentState); setPayment(true);
     } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    finally { submitting.current = false; setBusy(false); }
+  };
+  const showRegistered = (result, recovered = false) => {
+    setOrder(result); setPayment(false);
+    if (recovered) setNotice('Seu pedido já estava registrado. Recuperamos a confirmação, sem criar outro pedido.');
+    try {
+      localStorage.removeItem('cart');
+      localStorage.setItem(checkoutStorageKey, JSON.stringify({ id: session.id, cartKey: '[]' }));
+    } catch { setNotice('Seu pedido foi registrado. O navegador não conseguiu atualizar o carrinho; confira os itens antes de uma nova compra.'); }
   };
   const placeOrder = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true); setError('');
     try {
       const result = await accountRequest('/pedidos', { method: 'POST', body: { checkout_id: session.id } });
-      localStorage.removeItem('cart');
-      localStorage.setItem(checkoutStorageKey, JSON.stringify({ id: session.id, cartKey: '[]' }));
-      setOrder(result); setPayment(false);
-    } catch (failure) { setError(failure.message); setPayment(false); }
-    finally { setBusy(false); }
+      showRegistered(result);
+    } catch (failure) {
+      setPayment(false);
+      if (uncertainOrderChange(failure)) {
+        try {
+          const saved = await accountRequest(`/checkout/${session.id}`);
+          if (saved.pedido_id) {
+            showRegistered({ id_pedido: saved.pedido_id, frete_pendente: saved.frete_pendente }, true);
+            return;
+          }
+        } catch { /* A leitura não confirmou o resultado; nunca repetir a escrita automaticamente. */ }
+        setError('Não conseguimos confirmar o registro. Use Tentar novamente ou confira Meus pedidos antes de fazer outra compra. Seu carrinho foi preservado.');
+      } else setError(failure.message);
+    }
+    finally { submitting.current = false; setBusy(false); }
   };
   const restart = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     try {
       const user = await accountRequest('/perfil');
       localStorage.removeItem(`ehtech-checkout-${user.id_usuario}`);
       setSession(null); setPayment(false); setRetry(current => current + 1);
     } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    finally { submitting.current = false; setBusy(false); }
   };
   const step = order ? 6 : payment ? 5 : session?.endereco_confirmado && !editingAddress ? 4 : 3;
   const hasOptions = session?.modalidades?.every(group => group.opcoes.length && selection[group.grupo_id]);
@@ -101,9 +138,10 @@ export default function Checkout() {
     <div className="mx-auto max-w-6xl">
       <Link href="/carrinho" className="text-sm font-bold text-accent hover:underline">← Voltar ao carrinho</Link>
       <h1 className="mt-4 text-3xl font-bold">Finalizar compra</h1>
+      {notice && <p role="status" className="mt-4 rounded-xl bg-info-soft p-4 text-sm text-info">{notice}</p>}
       <ol aria-label="Etapas do checkout" className="my-6 grid grid-cols-3 gap-2 sm:grid-cols-6">{['Carrinho', 'Identificação', 'Endereço', 'Entrega', 'Pagamento', 'Confirmação'].map((label, index) => <li key={label} aria-current={step === index + 1 ? 'step' : undefined} className={`rounded-xl border p-3 text-xs ${step === index + 1 ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted'}`}><span className="mb-1 block font-bold">{index < 2 ? '✓' : index + 1}</span>{label}</li>)}</ol>
-      {error && <div role="alert" className="mb-5 rounded-xl bg-danger-soft p-4 text-danger">{error}<div className="mt-2 flex flex-wrap gap-4"><button disabled={busy} onClick={() => setRetry(current => current + 1)} className="text-sm underline">Tentar novamente</button><button disabled={busy} onClick={restart} className="text-sm underline">Reiniciar checkout com o carrinho atual</button></div></div>}
-      {loading ? <p role="status">Carregando checkout…</p> : order ? <section className="rounded-2xl border border-line bg-surface p-8"><h2 className="text-2xl font-bold text-success">Pedido #{order.id_pedido} registrado</h2><p className="my-3 text-muted">Pagamento não iniciado. Nenhuma cobrança foi realizada.</p>{order.frete_pendente && <p className="mb-4 rounded-xl bg-warning-soft p-4 text-warning">Entrega, prazo e frete ainda precisam ser combinados com o vendedor. O valor final e o atendimento não estão confirmados. Acompanhe e aceite uma proposta nos detalhes do pedido.</p>}<Link href={`/pedidos/${order.id_pedido}`} className="font-bold text-accent">Acompanhar pedido e registrar acordo →</Link></section> : session && <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
+      {error && <div role="alert" className="mb-5 rounded-xl bg-danger-soft p-4 text-danger">{error}<div className="mt-2 flex flex-wrap gap-4"><button disabled={busy} onClick={() => setRetry(current => current + 1)} className="text-sm underline">Tentar novamente</button><button disabled={busy} onClick={restart} className="text-sm underline">Reiniciar checkout com o carrinho atual</button><Link href="/pedidos" className="text-sm underline">Conferir meus pedidos</Link></div></div>}
+      {loading ? <p role="status">Carregando checkout…</p> : order ? <section className="rounded-2xl border border-line bg-surface p-8"><h2 className="text-2xl font-bold text-success">Pedido #{order.id_pedido} registrado</h2><p className="my-3 text-muted">Pagamento não iniciado. Nenhuma cobrança foi realizada.</p>{order.frete_pendente && <p className="mb-4 rounded-xl bg-warning-soft p-4 text-warning">Entrega, prazo e frete ainda precisam ser combinados com o vendedor. O valor final e o atendimento não estão confirmados. Acompanhe e aceite uma proposta nos detalhes do pedido.</p>}<Link href={`/pedidos/${order.id_pedido}`} className="inline-flex rounded-xl bg-accent-fill px-5 py-3 font-bold text-accent-contrast">Acompanhar pedido e registrar acordo →</Link><p className="mt-4 text-sm text-muted">Próximos passos: combinar a entrega, aceitar a proposta e acompanhar o envio ou a retirada. Confirme o recebimento somente quando o produto estiver com você.</p></section> : session && <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6 rounded-2xl border border-line bg-surface p-5 sm:p-7">
           {session.exige_entrega && (!session.endereco_confirmado || editingAddress) ? <AddressBook checkout initialAddress={session.endereco} onConfirm={confirmAddress} /> : <>
             {session.exige_entrega ? <section><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-bold">⌖ Endereço confirmado para esta compra</h2><button disabled={busy} className="text-sm text-accent underline" onClick={() => { setEditingAddress(true); setPayment(false); }}>Editar ou escolher outro</button></div><AddressDetails address={session.endereco} /></section> : <p className="text-muted">Este carrinho contém apenas itens que dispensam entrega física.</p>}

@@ -103,7 +103,7 @@ function add(method, path, tag, summary, options = {}) {
     responses
   }
 }
-const authLimit = '20 requisições/IP em 15 minutos, compartilhadas entre cadastro, login e login administrativo; também sujeita ao limite global. Login por senha compartilha contadores persistentes entre instâncias e entre /login e /admin/login: 10 falhas por conta/rede e 100 por rede em janela fixa de 15 minutos. Sucesso devolve a reserva, sem apagar falhas anteriores. Retorna Retry-After quando limitado.'
+const authLimit = '20 requisições/IP em 15 minutos, compartilhadas entre cadastro, login e login administrativo; também sujeita ao limite global. Login por senha compartilha contadores persistentes entre instâncias e entre /login e /admin/login: 10 falhas por conta/rede e 100 por rede em janela fixa de 15 minutos. Sucesso devolve a reserva, sem apagar falhas anteriores. Deadlocks ou conflitos de serialização repetem somente a reserva desfeita, até cinco transações; falha persistente retorna 503 sem autenticar. Retorna Retry-After quando limitado.'
 const resetLimit = '10 requisições/IP por hora, compartilhadas entre solicitação, verificação de link e redefinição de senha; também sujeita ao limite global.'
 const uploadLimit = '50 requisições/IP em 15 minutos, compartilhadas pelas rotas /upload; também sujeita ao limite global.'
 

@@ -122,6 +122,7 @@ O plano detalhado das melhorias e o registro de execução estão em
 
 ## Referências por assunto
 
+- Revisão de entrega e roteiro para a banca: [CHECKUP.md](CHECKUP.md) e [APRESENTACAO_TCC.md](APRESENTACAO_TCC.md).
 - Escopo/priorização: [ROADMAP_DIFERENCIAIS.md](ROADMAP_DIFERENCIAIS.md).
 - Login Google, configuração e identidade de teste: [LOGIN_GOOGLE.md](LOGIN_GOOGLE.md).
 - Inspeção de usados, compra por missão e combos: [DIFERENCIAIS_IMPLEMENTADOS.md](DIFERENCIAIS_IMPLEMENTADOS.md).

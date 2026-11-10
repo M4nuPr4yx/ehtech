@@ -161,7 +161,7 @@ export default function ContractsPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <div className={styles.shell}>
         <nav className={styles.breadcrumb}><Link href="/">Início</Link><span>/</span><span>Minhas contratações</span></nav>
         <header className={styles.hero}>
@@ -292,6 +292,6 @@ export default function ContractsPage() {
           </section>
         )}
       </div>
-    </main>
+    </div>
   )
 }

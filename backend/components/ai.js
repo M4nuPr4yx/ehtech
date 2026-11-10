@@ -26,7 +26,7 @@ function configuration(env) {
   // Limite de tamanho e alfabeto fechado continuam bloqueando injeção de headers.
   const keyFormat = provider === 'gemini' ? /^[a-zA-Z0-9_.-]{1,256}$/ : /^[a-zA-Z0-9_-]{1,256}$/
   const key = typeof rawKey === 'string' && keyFormat.test(rawKey.trim()) ? rawKey.trim() : null
-  // A função Express da Vercel tem orçamento de 30s no vercel.json.
+  // A chamada externa mantém teto de 25s dentro dos 60s da função Vercel.
   return { provider, model, origin, key, external, timeout: external && env.VERCEL ? Math.min(25000, bounded) : bounded }
 }
 

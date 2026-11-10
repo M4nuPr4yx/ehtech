@@ -38,7 +38,7 @@ Solicitar orçamento envia `combo_id` a `POST /contratacoes`; o servidor confere
 - Regras: `backend/differentials.js`; rotas `certificates.js`, `missions.js`, `combos.js` em `backend/routes/`.
 - Migração idempotente `backend/database/differentials.js`: cria `certificados_usado`, `combos_instalacao` e adiciona `contratacoes_servico.combo_snapshot`.
 - A inicialização normal do backend aplica a migração. Não é preciso importar outro dump ou executar SQL manualmente.
-- SQL segue placeholders `?`, booleanos portáveis e interface `[rows, fields]`. PostgreSQL tem teste de tradução; a integração real automatizada usa MySQL/MariaDB.
+- SQL segue placeholders `?`, booleanos portáveis e interface `[rows, fields]`. A integração real automatizada é executada em MySQL/MariaDB e PostgreSQL descartáveis. A revisão de 10/11/2026 verificou nos dois bancos passaporte, certificados, missões e combos; resultados em [CHECKUP.md](CHECKUP.md).
 - OpenAPI completo em `/docs/openapi.json`, incluindo corpos, autorização, respostas e limitações.
 
 ## Verificar

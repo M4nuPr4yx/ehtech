@@ -2,7 +2,7 @@
 
 As atualizações de serviços da comunidade, políticas, código de retirada e login Google usam o projeto Vercel já existente. Não é necessário criar outro projeto, banco ou armazenamento. O `vercel.json` mantém a API em `api/index.js` e o frontend Next na mesma origem.
 
-Destino informado pelo usuário: `https://ehtech-gc18.vercel.app`. Em 22/10/2026, o cliente OAuth Google existente recebeu e confirmou a origem `https://ehtech-gc18.vercel.app` e o retorno `https://ehtech-gc18.vercel.app/api/auth/google/callback`. Nenhum Client Secret foi copiado para os arquivos. A publicação ainda depende de autenticação no painel da conta Vercel proprietária do projeto e da configuração das variáveis de Production.
+Destino informado pelo usuário: `https://ehtech-gc18.vercel.app`. Em 22/10/2026, o cliente OAuth Google existente recebeu e confirmou a origem `https://ehtech-gc18.vercel.app` e o retorno `https://ehtech-gc18.vercel.app/api/auth/google/callback`. Nenhum Client Secret foi copiado para os arquivos. Em 10/11/2026, a atualização `1631ff6` foi publicada e confirmada como Ready/Production no painel autenticado; 27 verificações públicas de leitura passaram após a publicação. Isso não substitui um teste real de autenticação no Google.
 
 ## Código e ambiente existentes
 
@@ -39,6 +39,8 @@ Depois da atualização, confira `/api/health`, `/politicas`, `/servicos`, `/meu
 ## Estado da preparação local
 
 Na continuação de 10/11/2026, o painel confirmou `M4nuPr4yx/ehtech`, produção pela branch `master`, preset Next.js e Node 24.x. A instalação limpa e a conferência dos fluxos adicionais estão em [CHECKUP.md](CHECKUP.md). A entrega preserva banco, segredos, Blob, proteção de deploy e plano Hobby existentes. O registro de publicação e leituras posteriores é acrescentado à versão 2.9 do documento oficial de testes; o hash do código e o status Ready devem corresponder à implantação apresentada. Não é necessário trocar credenciais ou habilitar recursos pagos para publicar essas correções.
+
+O aviso de build sobre `memory` motivou a remoção desse campo de `vercel.json`: a Vercel o ignora com Fluid Compute/Active CPU, e a memória do plano Hobby é gerenciada pela plataforma. O limite `maxDuration: 60` e o encaminhamento da API permanecem configurados. Consulte a [documentação de memória da Vercel](https://vercel.com/docs/functions/configuring-functions/memory). A revisão não muda plano nem recursos no painel.
 
 Em 22/10/2026, as verificações da versão com redirecionamento aprovaram lint/testes/build, 31 resultados de integração PostgreSQL e oito jornadas de navegador. Google foi simulado nos testes; a autenticação real exige configurar o cliente no provedor. MySQL local estava indisponível.
 

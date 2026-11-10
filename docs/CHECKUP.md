@@ -74,6 +74,8 @@ A conferência do GitHub Actions encontrou falha na etapa `npm audit --audit-lev
 
 O `npm run check` repetido após o ajuste aprovou 121 testes, uma integração ignorada, zero falhas, lint com zero erros/39 avisos e build de produção. Evidências: `scratch/tcc-audit-ci-final.json` e `scratch/tcc-check-ci-final.log`. A instalação limpa do lockfile corrigido é registrada separadamente, assim como o resultado remoto: não inferir aprovação do GitHub a partir de um check local.
 
+O run 20 passou a auditoria, o check e as duas integrações, mas o navegador em desenvolvimento terminou com oito aprovações, 20 falhas e dois casos incompatíveis ignorados. Houve bloqueio por limite de requisições durante a jornada longa e nos resets seguintes, com recarregamentos do Fast Refresh. A fixture passa a registrar os stores na inicialização, antes de carregar a aplicação; o CI usa `--production`, já disponível no runner, para exercitar o frontend compilado e evitar esses recarregamentos. A rota de reset e a chave efêmera existem somente no processo descartável de testes; não são rotas de produção. Nenhum limite da aplicação foi aumentado ou desativado. O resultado da repetição fica no documento oficial de testes, versão 2.9.
+
 ## Histórico da revisão de 22/10/2026
 
 Preparação do código atual concluída. As alterações de funcionalidades já presentes no workspace foram preservadas. Esta revisão atualizou o README, este relatório e o guia de envio ao GitHub; não criou commits, alterou remotos, fez push ou publicou a aplicação.

@@ -67,6 +67,11 @@ async function main() {
   require('nodemailer').createTransport = () => ({ sendMail: async () => ({ accepted: [] }) })
   // Somente a consulta externa de CEP recebe uma fixture local; a API e o banco são reais.
   require('../backend/addresses').lookupCep = async () => ({ cep: '01001-000', uf: 'SP', cidade: 'São Paulo', bairro: 'Sé', logradouro: 'Praça da Sé' })
+  // Registrar todos os stores na criação, antes de carregar os limitadores.
+  // O reset da fixture não depende de uma requisição já ter usado cada store.
+  const stores = new Set(), { MemoryStore } = require('express-rate-limit')
+  const initializeStore = MemoryStore.prototype.init
+  MemoryStore.prototype.init = function (options) { stores.add(this); return initializeStore.call(this, options) }
   const app = require('../backend/index')
   pool = require('../backend/db')
   server = await app.startServer({ port: 0 })
@@ -74,9 +79,6 @@ async function main() {
   const adminEmail = 'admin.e2e@gmail.com', password = 'E2e-Password-2026'
   await pool.execute("INSERT INTO usuarios (username,email,senha,role) VALUES ('admin_e2e',?,?, 'admin')", [adminEmail, await require('bcrypt').hash(password, 10)])
   // Reinicia os limitadores entre cenários através de uma chave exclusiva da fixture.
-  const stores = new Set(), { MemoryStore } = require('express-rate-limit')
-  const increment = MemoryStore.prototype.increment
-  MemoryStore.prototype.increment = function (key) { stores.add(this); return increment.call(this, key) }
   const resetSecret = crypto.randomBytes(32).toString('hex')
   app.post('/__e2e/reset-limits', async (req, res) => {
     if (req.headers['x-e2e-key'] !== resetSecret) return res.sendStatus(404)

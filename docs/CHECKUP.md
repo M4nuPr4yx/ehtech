@@ -68,6 +68,12 @@ Nos logs públicos examinados, não apareceram exceções da aplicação ou resp
 
 ---
 
+## Complemento do checkup remoto — 10/11/2026
+
+A conferência do GitHub Actions encontrou falha na etapa `npm audit --audit-level=low` dos commits `1631ff6` e `76d4439`, antes de executar os testes remotos. Uma consulta nova reproduziu sete alertas moderados derivados de `minimatch` na ferramenta de lint; eles não estavam representados no resultado local anterior reutilizado. O override limitado a `@typescript-eslint/typescript-estree` fixa a versão corrigida `11.0.1`, conforme [DEPENDENCIAS_SEGURAS.md](DEPENDENCIAS_SEGURAS.md). A auditoria completa após o ajuste voltou a zero; a exigência de auditoria do CI permanece ativa. Os resultados complementares de validação e implantação são registrados na versão 2.9 do documento oficial de testes, sem substituir o histórico das falhas.
+
+O `npm run check` repetido após o ajuste aprovou 121 testes, uma integração ignorada, zero falhas, lint com zero erros/39 avisos e build de produção. Evidências: `scratch/tcc-audit-ci-final.json` e `scratch/tcc-check-ci-final.log`. A instalação limpa do lockfile corrigido é registrada separadamente, assim como o resultado remoto: não inferir aprovação do GitHub a partir de um check local.
+
 ## Histórico da revisão de 22/10/2026
 
 Preparação do código atual concluída. As alterações de funcionalidades já presentes no workspace foram preservadas. Esta revisão atualizou o README, este relatório e o guia de envio ao GitHub; não criou commits, alterou remotos, fez push ou publicou a aplicação.

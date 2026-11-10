@@ -58,6 +58,9 @@
     "tailwindcss": "^4"
   },
   "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.1"
+    },
     "express": {
       "qs": "6.17.1"
     },

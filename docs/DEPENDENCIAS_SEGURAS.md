@@ -1,4 +1,14 @@
-# Revisão de dependências — 29/10/2026
+# Revisão de dependências
+
+## Complemento de entrega — 10/11/2026
+
+O checkup remoto dos commits `1631ff6` e `76d4439` interrompeu na auditoria npm com sete alertas moderados derivados de `minimatch@10.2.4`, usado por `@typescript-eslint/typescript-estree`. Uma consulta nova com `npm audit --json --prefer-online` reproduziu o resultado; a auditoria anterior com zero alertas permanece como evidência histórica, não como estado atual dessa árvore.
+
+O [aviso GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) considera afetadas as versões de 7.0.0 até antes de 11.0.1. Um override restrito a `@typescript-eslint/typescript-estree` seleciona `minimatch@11.0.1`; os consumidores de `minimatch@3` permanecem preservados. A mudança afeta a ferramenta de lint, sem alterar bibliotecas de execução da aplicação. O projeto já usa Node 24, compatível com a versão corrigida. Revise esse override quando o pai incorporar a correção.
+
+Após a atualização do lockfile, a auditoria completa consultada novamente registrou zero vulnerabilidades em todas as categorias. O registro dos testes, da instalação limpa e da nova execução remota fica na versão 2.9 do documento oficial de testes e em [CHECKUP.md](CHECKUP.md). A política `npm audit --audit-level=low` do CI foi preservada.
+
+## Histórico — 29/10/2026
 
 A revisão corrige os alertas encontrados após a entrega de desempenho. Antes da atualização, `npm audit --omit=dev` registrou 17 vulnerabilidades (3 moderadas, 12 altas e 2 críticas); a árvore completa tinha 25 (1 baixa, 4 moderadas, 16 altas e 4 críticas). Após as correções, as duas auditorias registraram **zero** em todas as categorias. O resultado é uma fotografia dos avisos conhecidos pelo registro npm nessa data, não uma garantia de ausência de falhas nem um pentest.
 

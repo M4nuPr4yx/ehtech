@@ -1,4 +1,5 @@
 const crypto = require('node:crypto')
+const { setTimeout: delay } = require('node:timers/promises')
 
 class AssistantError extends Error {
   constructor(code, message, status = 503) { super(message); this.code = code; this.status = status }
@@ -149,10 +150,19 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
     try {
       // Hosts fixos e sem redirecionamento: a chave nunca aparece na URL ou no payload.
       const endpoint = local ? config.origin + '/api/chat' : gemini ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent` : 'https://api.groq.com/openai/v1/chat/completions'
-      const response = await fetchImpl(endpoint, {
+      const payload = JSON.stringify(body)
+      const send = () => fetchImpl(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...(gemini ? { 'x-goog-api-key': config.key } : !local ? { Authorization: `Bearer ${config.key}` } : {}) },
-        body: JSON.stringify(body), signal: combined, redirect: 'error'
+        body: payload, signal: combined, redirect: 'error'
       })
+      let response = await send()
+      // Só a avaliação atual repete uma indisponibilidade do Gemini, no mesmo prazo.
+      if (assessment && gemini && response.status === 503 && !response.headers.has('Retry-After')) {
+        await response.body?.cancel()
+        await delay(400 + Math.floor(Math.random() * 200), undefined, { signal: combined })
+        combined.throwIfAborted()
+        response = await send()
+      }
       if (!response.ok) {
         if (gemini && response.status === 400) {
           // Google também usa HTTP 400 para chaves inválidas. Apenas códigos
@@ -169,6 +179,8 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
         if (local && response.status === 404) throw failure('modelo_ausente', 'O modelo configurado não foi encontrado no Ollama.')
         if (!local && [401, 403].includes(response.status)) throw failure('chave_recusada', `O ${providerName} recusou a autorização. Confira a chave e as permissões no servidor; o resultado técnico continua disponível.`)
         if (gemini && response.status === 404) throw failure('modelo_ausente', 'O modelo configurado não está disponível no Gemini. Confira GEMINI_MODEL no servidor.')
+        if (assessment && gemini && response.status === 503) throw failure('provedor_indisponivel', 'O Gemini está temporariamente indisponível. Tente novamente em instantes.')
+        if (assessment && gemini && response.status === 504) throw failure('tempo_excedido', 'O Gemini demorou mais que o esperado. Tente novamente.', 504)
         throw failure('provedor_indisponivel', 'Não foi possível gerar a explicação agora. O resultado técnico continua disponível.')
       }
       const data = await readJson(response)

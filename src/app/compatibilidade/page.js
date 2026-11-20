@@ -19,25 +19,31 @@ export default function CompatibilityPage() {
   const [bios, setBios] = useState('')
   const [result, setResult] = useState(null)
   const [basicResult, setBasicResult] = useState(null)
-  const [busy, setBusy] = useState(false)
+  const [operation, setOperation] = useState(null)
   const [error, setError] = useState('')
   const [loadError, setLoadError] = useState('')
   const [retry, setRetry] = useState(0)
   const [passports, setPassports] = useState([])
   const [passportId, setPassportId] = useState('')
   const [notice, setNotice] = useState('')
-  const request = useRef(null), resultPanel = useRef(null)
+  const request = useRef(null), statusRequest = useRef(null), resultPanel = useRef(null)
+  const busy = operation !== null
 
   useEffect(() => {
     const controller = new AbortController()
     apiRequest('/componentes/catalogo/status', { signal: controller.signal }).then(data => {
       if (!controller.signal.aborted) { setCatalog(data); setLoadError('') }
     }).catch(failure => { if (!controller.signal.aborted) setLoadError(failure.message) })
+    return () => controller.abort()
+  }, [retry])
+  useEffect(() => {
+    const controller = new AbortController()
+    statusRequest.current = controller
     apiRequest('/componentes/ia/status', { signal: controller.signal }).then(status => {
       if (!controller.signal.aborted) setState(status)
     }).catch(() => { if (!controller.signal.aborted) setState({ disponivel: false, mensagem: 'IA indisponível. A checagem básica continua disponível.' }) })
     return () => controller.abort()
-  }, [retry])
+  }, [])
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) return
@@ -47,14 +53,15 @@ export default function CompatibilityPage() {
   }, [])
   useEffect(() => () => request.current?.abort(), [])
 
-  function clearResult() { request.current?.abort(); setBusy(false); setError(''); setResult(null); setBasicResult(null); setNotice('') }
+  function cancel() { request.current?.abort(); setOperation(null) }
+  function clearResult() { cancel(); setError(''); setResult(null); setBasicResult(null); setNotice('') }
   async function checkBasic(event) {
-    event.preventDefault(); clearResult(); setBusy(true)
+    event.preventDefault(); clearResult(); setOperation('basic')
     const controller = new AbortController(); request.current = controller
     try {
       const data = await apiRequest('/componentes/verificar-basico', { method: 'POST', signal: controller.signal, json: { componentes: selection.map(({ id, quantidade }) => ({ id, quantidade: Number(quantidade) })), bios } })
       if (!controller.signal.aborted) setBasicResult(data)
-    } catch (error) { if (!controller.signal.aborted) setError(error.message) } finally { if (!controller.signal.aborted) setBusy(false) }
+    } catch (error) { if (!controller.signal.aborted) setError(error.message) } finally { if (!controller.signal.aborted) setOperation(null) }
   }
   function choose(item) {
     clearResult()
@@ -67,7 +74,7 @@ export default function CompatibilityPage() {
   async function importPassport() {
     const passport = passports.find(item => item.id === Number(passportId))
     if (!passport) return
-    clearResult(); setBusy(true)
+    clearResult(); setOperation('passport')
     const controller = new AbortController(); request.current = controller
     try {
       const reviewed = await apiRequest('/componentes', { signal: controller.signal })
@@ -86,15 +93,23 @@ export default function CompatibilityPage() {
         setSelection(imported.slice(0, 16)); setBios('')
         setNotice(`Peças identificadas de “${passport.nome}” carregadas, sem alterar o passaporte.${missing.length ? ` ${missing.length} peça(s) ausente(s) ou com variantes: selecione o modelo exato abaixo.` : ''} Confirme quantidades e BIOS.`)
       }
-    } catch (failure) { if (!controller.signal.aborted) setError(failure.message) } finally { if (!controller.signal.aborted) setBusy(false) }
+    } catch (failure) { if (!controller.signal.aborted) setError(failure.message) } finally { if (!controller.signal.aborted) setOperation(null) }
   }
   async function analyze(event) {
-    event.preventDefault(); request.current?.abort(); setError(''); setResult(null); setNotice(''); setBusy(true)
+    if (!event.currentTarget.form.reportValidity()) return
+    cancel(); setError(''); setResult(null); setNotice(''); setOperation('ai')
     const controller = new AbortController(); request.current = controller
     try {
-      const data = await apiRequest('/componentes/ia/analisar', { method: 'POST', signal: controller.signal, timeoutMs: 190000, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ componentes: selection.map(({ id, quantidade }) => ({ id, quantidade: Number(quantidade) })), bios }) })
+      if (!state?.disponivel) {
+        statusRequest.current?.abort()
+        const status = await apiRequest('/componentes/ia/status', { signal: controller.signal })
+        if (controller.signal.aborted) return
+        setState(status)
+        if (!status.disponivel) return
+      }
+      const data = await apiRequest('/componentes/ia/analisar', { method: 'POST', signal: controller.signal, timeoutMs: 190000, json: { componentes: selection.map(({ id, quantidade }) => ({ id, quantidade: Number(quantidade) })), bios } })
       if (!controller.signal.aborted) { setResult(data); resultPanel.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) }
-    } catch (failure) { if (!controller.signal.aborted) setError(failure.message) } finally { if (!controller.signal.aborted) setBusy(false) }
+    } catch (failure) { if (!controller.signal.aborted) setError(`${failure.message} ${basicResult ? 'A checagem básica permanece abaixo.' : 'Você ainda pode verificar as peças com as regras básicas.'}`) } finally { if (!controller.signal.aborted) setOperation(null) }
   }
 
   return <div className={styles.page}><div className={styles.shell}>
@@ -112,10 +127,9 @@ export default function CompatibilityPage() {
         <div className={styles.aiPrivacy}>Somente ao escolher Complementar com IA, os modelos, especificações, quantidades e BIOS informada são enviados {state?.externo ? `ao ${PROVIDERS[state.provedor] || 'provedor externo'}` : 'ao provedor configurado'}. Não inclua dados pessoais. No nível gratuito do Gemini, os dados podem ser usados para melhorar os serviços do Google.</div>
         {state && <p role="status" className={styles.muted}>{state.disponivel ? `${PROVIDERS[state.provedor]} configurado · disponibilidade sujeita à autorização e cota.` : state.mensagem}</p>}
         <p className={styles.muted}>A checagem básica usa regras no servidor e não envia dados a provedores de IA. Ela funciona sem chave de IA.</p>
-        <button className={styles.button} disabled={busy || selection.length < 2}>{busy ? 'Analisando…' : 'Verificar com regras básicas'}</button>
-        <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={analyze} disabled={busy || selection.length < 2 || !state?.disponivel}>Complementar com IA</button>
-        {busy && <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={clearResult}>Cancelar análise</button>}
-        {!state?.disponivel && <button type="button" className={`${styles.button} ${styles.secondary}`} disabled={busy} onClick={() => setRetry(value => value + 1)}>Conferir disponibilidade novamente</button>}
+        <button className={styles.button} disabled={busy || selection.length < 2}>{operation === 'basic' ? 'Verificando…' : 'Verificar com regras básicas'}</button>
+        <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={analyze} disabled={busy || selection.length < 2 || state?.provedor === 'disabled'}>{operation === 'ai' ? 'Consultando a IA…' : 'Complementar com IA'}</button>
+        {busy && <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={cancel}>Cancelar análise</button>}
       </form>
       {error && <div role="alert" className={styles.error}>{error}</div>}
       <div aria-live="polite">{basicResult && <BasicResult result={basicResult} />}</div>

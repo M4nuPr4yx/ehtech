@@ -73,6 +73,49 @@ test('nova avaliação Gemini não chama regras nem envia dados pessoais, preser
   await assert.rejects(quota.explain(context), error => error.status === 429 && error.code === 'cota_atingida' && !/resultado técnico/.test(error.message))
 })
 
+test('avaliação Gemini repete uma indisponibilidade temporária e compartilha sinal e payload', async () => {
+  const context = assessmentContext(selection)
+  const attempts = []
+  const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private' }, fetchImpl: async (url, options) => {
+    attempts.push({ url, body: options.body, signal: options.signal })
+    return attempts.length === 1
+      ? new Response('indisponível', { status: 503 })
+      : Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(answerFor(context)) }] } }] })
+  } })
+  assert.equal((await assistant.explain(context)).status, 'nao_verificado')
+  assert.equal((await assistant.explain(context)).em_cache, true)
+  assert.equal(attempts.length, 2)
+  assert.deepEqual(attempts[0], attempts[1])
+  assert.equal(attempts[0].signal, attempts[1].signal)
+})
+
+test('avaliação Gemini respeita cota, Retry-After, timeout e cancelamento sem nova geração', async () => {
+  const context = assessmentContext(selection)
+  for (const [options, code] of [
+    [{ status: 429 }, 'cota_atingida'],
+    [{ status: 503, headers: { 'Retry-After': '30' } }, 'provedor_indisponivel'],
+    [{ status: 504 }, 'tempo_excedido']
+  ]) {
+    let calls = 0
+    const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private' }, fetchImpl: async () => {
+      calls++
+      return new Response('', options)
+    } })
+    await assert.rejects(assistant.explain(context), error => error.code === code && error.status === options.status)
+    assert.equal(calls, 1)
+  }
+
+  let calls = 0
+  const controller = new AbortController()
+  const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private' }, fetchImpl: async () => {
+    calls++
+    controller.abort()
+    return new Response('', { status: 503 })
+  } })
+  await assert.rejects(assistant.explain(context, { signal: controller.signal }), error => error.code === 'cancelada')
+  assert.equal(calls, 1)
+})
+
 test('rotas ampliadas funcionam sem banco; seleção falsificada não chega à IA', async () => {
   const express = require('express'), app = express()
   let calls = 0

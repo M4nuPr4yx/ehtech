@@ -20,7 +20,7 @@ test('fundo com imagem local anima suavemente e respeita movimento reduzido nos 
     await expect(background).toHaveCSS('background-color', 'rgb(2, 12, 6)')
     await expect(scene).toHaveCSS('opacity', '0.92')
     await expect(page.getByRole('heading', { name: 'O que você quer fazer?' })).toHaveCSS('color', 'rgb(237, 242, 247)')
-    const card = page.getByRole('link', { name: 'Comprar produtos Busque, filtre e converse com o vendedor.' })
+    const card = page.getByRole('link', { name: /^Comprar produtos\b/ })
     await expect(card).toHaveCSS('color', colors[theme])
     await expect(page.getByRole('searchbox', { name: 'Buscar produtos', exact: true })).toHaveCSS('color', colors[theme])
     await page.screenshot({ path: info.outputPath(`fundo-${theme}.png`) })

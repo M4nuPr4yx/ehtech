@@ -434,7 +434,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
                     <dt className="text-muted">Entrega</dt>
                     <dd>{produto.exige_entrega ? 'A combinar' : 'Sem entrega física'}</dd>
                   </div>
-                  {produto.exige_entrega && (
+                  {Boolean(produto.exige_entrega) && (
                     <div className="flex flex-wrap justify-between gap-x-4">
                       <dt className="text-muted">Origem do envio</dt>
                       <dd>{origin || 'A confirmar com o vendedor'}</dd>

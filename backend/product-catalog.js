@@ -25,7 +25,8 @@ function catalogQuery(query) {
   if (search) { filters.push("(LOWER(nome) LIKE ? ESCAPE '!' OR LOWER(descricao) LIKE ? ESCAPE '!')"); params.push(`%${like(search)}%`, `%${like(search)}%`) }
   if (category) {
     const key = categoryKey(category)
-    const aliases = [...new Set([category, key, ...(categoryAliases[key] || [])])]
+    const legacyLabels = Object.hasOwn(categoryAliases, key) ? categoryAliases[key] : []
+    const aliases = [...new Set([category, key, ...legacyLabels])]
     filters.push(`LOWER(categoria) IN (${aliases.map(() => '?').join(',')})`); params.push(...aliases)
   }
   if (uf) { filters.push('origem_uf = ?'); params.push(uf) }

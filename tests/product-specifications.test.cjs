@@ -32,6 +32,7 @@ test('setup e periféricos têm campos próprios e o filtro encontra categorias 
   assert.ok(specificationFields('teclados').some(([key]) => key === 'layout'))
   assert.ok(catalogQuery({ categoria: 'cameras' }).params.includes('câmeras digitais'))
   assert.ok(catalogQuery({ categoria: 'acessorios' }).params.includes('perifericos'))
+  assert.deepEqual(catalogQuery({ categoria: 'constructor' }).params, ['constructor'])
 })
 
 test('migração aceita coluna preexistente no MySQL e PostgreSQL e propaga outros erros', async () => {

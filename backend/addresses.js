@@ -1,4 +1,5 @@
 const crypto = require('crypto')
+const { cleanText } = require('./validation')
 
 const STATES = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ')
 const ADDRESS_FIELDS = ['destinatario', 'telefone', 'identificacao', 'cep', 'uf', 'cidade', 'bairro', 'logradouro', 'numero', 'sem_numero', 'complemento', 'referencia', 'instrucoes', 'principal', 'salvar']
@@ -8,14 +9,18 @@ function validateAddress(input = {}) {
   const errors = {}
   const limits = { destinatario: 150, telefone: 20, identificacao: 60, cep: 9, uf: 2, cidade: 100, bairro: 100, logradouro: 180, numero: 20, complemento: 150, referencia: 200, instrucoes: 500 }
   for (const [field, limit] of Object.entries(limits)) {
-    value[field] = typeof input[field] === 'string' ? input[field].trim() : ''
-    if (value[field].length > limit || /[\u0000-\u001f]/.test(value[field])) errors[field] = `Use até ${limit} caracteres válidos.`
+    const cleaned = cleanText(input[field] ?? '', Infinity)
+    value[field] = cleaned ?? ''
+    if (cleaned === null || cleaned.length > limit) errors[field] = `Use até ${limit} caracteres válidos.`
   }
   value.sem_numero = input.sem_numero === true || input.sem_numero === 1
   value.principal = input.principal === true || input.principal === 1
   value.salvar = input.salvar !== false && input.salvar !== 0
   if (!value.salvar) value.principal = false
-  if (!/^[^\d\s]+(?:\s+[^\d\s]+)+$/u.test(value.destinatario)) errors.destinatario = 'Informe o nome completo do destinatário.'
+  const names = value.destinatario.split(/\s+/u)
+  if (names.length < 2 || !names.every(name => /^\p{L}[\p{L}\p{M}.'’-]*$/u.test(name))) {
+    errors.destinatario = 'Informe o nome completo do destinatário.'
+  }
   if (!/^(?:\(?[1-9][0-9]\)?\s?)?(?:[0-9]{4,5}-?[0-9]{4})$/.test(value.telefone) || !/^[1-9][0-9][2-9][0-9]{7,8}$/.test(value.telefone.replace(/\D/g, ''))) errors.telefone = 'Informe um telefone válido com DDD (10 ou 11 dígitos).'
   value.telefone = value.telefone.replace(/\D/g, '')
   if (!/^\d{5}-?\d{3}$/.test(value.cep) || /^0{8}$/.test(value.cep.replace('-', ''))) errors.cep = 'O CEP informado é inválido.'
@@ -23,7 +28,7 @@ function validateAddress(input = {}) {
   value.uf = value.uf.toUpperCase()
   if (!STATES.includes(value.uf)) errors.uf = 'Selecione um estado válido.'
   for (const [field, label] of [['cidade', 'cidade'], ['bairro', 'bairro'], ['logradouro', 'logradouro']]) {
-    if (value[field].length < 2) errors[field] = `Informe ${label}.`
+    if (value[field].length < 2 || !/[\p{L}\p{N}]/u.test(value[field])) errors[field] = `Informe ${label}.`
   }
   if (!value.identificacao) errors.identificacao = 'Identifique o endereço (Casa, Trabalho ou Outro).'
   if (value.sem_numero) value.numero = ''

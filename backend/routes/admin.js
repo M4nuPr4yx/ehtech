@@ -2,7 +2,8 @@ const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
 const { hashPassword } = require('../passwords')
 const validator = require('validator')
-const { isValidPassword } = require('../user-validation')
+const { isValidPassword, passwordValidationMessage } = require('../user-validation')
+const { readSpecifications } = require('../../shared/product-specs.cjs')
 module.exports = function createAdminRouter(pool, { criarNotificacao }) {
 const router = createRouter()
 router.get("/admin/sessao", verifyAdmin, (req, res) => {
@@ -91,7 +92,7 @@ router.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
   }
 
   if (!isValidPassword(novaSenha)) {
-    return res.status(400).json({ mensagem: "A senha deve ter pelo menos 8 caracteres e não pode ser muito longa." })
+    return res.status(400).json({ mensagem: passwordValidationMessage })
   }
 
   try {
@@ -108,7 +109,7 @@ router.put("/admin/users/:id/senha", verifyAdmin, async (req, res) => {
 router.get("/admin/produtos", verifyAdmin, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM produtos ORDER BY id_produto DESC')
-    return res.json(rows)
+    return res.json(rows.map(row => ({ ...row, especificacoes: readSpecifications(row.categoria, row.especificacoes) })))
   } catch (error) {
     console.error('[admin/produtos] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao listar produtos" })

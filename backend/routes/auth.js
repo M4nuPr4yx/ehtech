@@ -3,7 +3,7 @@ const { autenticarToken, verifyAdmin } = require('../middleware/auth')
 const { hashPassword, verifyPassword, validPasswordInput } = require('../passwords')
 const { createPasswordAttempts } = require('../password-attempts')
 const jwt = require('jsonwebtoken')
-const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
+const { isValidPassword, isAllowedUserEmail, passwordValidationMessage } = require('../user-validation')
 const { foto: defaultPhoto, profilePhoto } = require('../../shared/profile-defaults.cjs')
 module.exports = function createAuthRouter(pool, { authLimiter, api_chave }) {
 const router = createRouter()
@@ -34,7 +34,7 @@ router.post("/cadastro", authLimiter, async (req, res) => {
   }
 
   if (!isValidPassword(senha)) {
-    return res.status(400).json({ mensagem: "A senha deve ter pelo menos 8 caracteres e não pode ser muito longa." })
+    return res.status(400).json({ mensagem: passwordValidationMessage })
   }
 
   if (senha !== confirmarSenha) {

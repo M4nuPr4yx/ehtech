@@ -1,19 +1,119 @@
 'use client'
-import { useEffect, useState } from 'react'
+
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Frame, Feedback, request, price, styles } from '../complements/DifferentialsUI'
+import { modalityLabel, servicePrice } from '../servicos/serviceData'
+import { productCategoryLabel } from '../../lib/product-category.mjs'
+import { ListingDetailLink, useCatalogDraft, useListingQuery, useListingScroll } from '../complements/ListingNavigation'
 
-export default function MissionsPage() {
-  const [missions, setMissions] = useState([]), [result, setResult] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('')
+const defaults = { missao: '', orcamento: '' }
+
+function ResultsList({ id, title, items, from }) {
+  function rows(values) {
+    return (
+      <ul className={styles.resultList}>
+        {values.map(item => (
+          <li key={item.href}>
+            <div><ListingDetailLink href={item.href} from={from}>{item.name}</ListingDetailLink>{item.detail && <small>{item.detail}</small>}</div>
+            <strong>{item.price}</strong>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  return (
+    <section className={styles.card}>
+      <h2>{title}</h2>
+      {rows(items.slice(0, 6))}
+      {items.length > 6 && <details id={id} data-listing-disclosure><summary>Ver mais {items.length - 6}</summary>{rows(items.slice(6))}</details>}
+    </section>
+  )
+}
+
+function Missions() {
+  const { query, search, update } = useListingQuery(defaults)
+  const { draft, change } = useCatalogDraft(query, search)
+  const [missions, setMissions] = useState([])
+  const [missionError, setMissionError] = useState('')
+  const [response, setResponse] = useState(null)
+  const [retry, setRetry] = useState(0)
+  const requestKey = query.missao && query.orcamento ? `${search}:${retry}` : ''
+  const current = requestKey && response?.key === requestKey ? response : null
+  const result = current?.data
+  const busy = Boolean(requestKey && !current)
+  const from = search ? '/missoes?' + search : '/missoes'
+  useListingScroll(Boolean(result) && !busy && missions.length > 0, search)
+
   useEffect(() => {
     const controller = new AbortController()
-    request('/missoes', 'GET', undefined, controller.signal).then(setMissions).catch(err => { if (err.name !== 'AbortError') setError(err.message) })
+    request('/missoes', 'GET', undefined, controller.signal).then(setMissions).catch(err => { if (!controller.signal.aborted) setMissionError(err.message) })
     return () => controller.abort()
   }, [])
-  async function submit(event) {
-    event.preventDefault(); setBusy(true); setError(''); setResult(null)
-    const form = new FormData(event.currentTarget)
-    try { setResult(await request('/missoes/recomendar', 'POST', { missao: form.get('missao'), orcamento: Number(form.get('orcamento')) })) } catch (err) { setError(err.message) } finally { setBusy(false) }
+
+  useEffect(() => {
+    if (!requestKey) return
+    const controller = new AbortController()
+    request('/missoes/buscar', 'POST', { missao: query.missao, orcamento: Number(query.orcamento) }, controller.signal)
+      .then(data => { if (!controller.signal.aborted) setResponse({ key: requestKey, data }) })
+      .catch(err => { if (!controller.signal.aborted) setResponse({ key: requestKey, error: err.message }) })
+    return () => controller.abort()
+  }, [query, requestKey])
+
+  function submit(event) {
+    event.preventDefault()
+    if (draft.missao === query.missao && draft.orcamento === query.orcamento) setRetry(value => value + 1)
+    else update(draft)
   }
-  return <Frame title="Compre pelo que você quer resolver" intro="Escolha um objetivo e um limite de investimento. Compare três composições do catálogo com produtos e um serviço, sem promessas de desempenho baseadas só no preço."><section className={styles.card}><h2>Qual é a sua missão?</h2><form className={styles.form} onSubmit={submit}><label>Objetivo<select required name="missao"><option value="">Selecione</option>{missions.map(item => <option key={item.id} value={item.id}>{item.titulo}</option>)}</select></label><label>Orçamento total de referência (R$)<input required type="number" min="1" max="1000000" step="0.01" name="orcamento" placeholder="Ex.: 3000" /></label><button disabled={busy || !missions.length}>{busy ? 'Consultando catálogo…' : 'Montar alternativas'}</button></form><Feedback error={error} /></section>{result && <><section className={styles.card}><h2>{result.missao.titulo}</h2><p>{result.missao.descricao}</p><ul>{result.regras.map(rule => <li key={rule}>{rule}</li>)}</ul><Link href="/compatibilidade">Verificar componentes cadastrados →</Link></section><div className={styles.grid}>{result.faixas.map(tier => <section key={tier.faixa} className={styles.card}><span className={styles.eyebrow}>{tier.faixa}</span><h2>{price(tier.total_estimado)}</h2><p>{tier.completo ? 'Composição encontrada; ainda exige validação técnica.' : 'Composição incompleta: não é uma solução pronta para compra.'}</p><ul>{tier.produtos.map(item => <li key={item.id_produto}><Link href={`/produtos/${item.id_produto}`}>{item.nome}</Link> · {price(item.preco)}<p>{item.motivo}</p></li>)}</ul>{tier.faltantes.length > 0 && <p>Faltam anúncios dentro desta faixa: {tier.faltantes.join(', ')}.</p>}{tier.servico ? <p>Serviço: <Link href={`/servicos/${tier.servico.slug}`}>{tier.servico.titulo}</Link> · {tier.servico.tipo_preco === 'a_partir_de' ? 'a partir de ' : ''}{price(tier.servico.preco_base)} · {tier.servico.modalidade} · {tier.servico.regiao}</p> : <p>Não há serviço com preço-base informado nesta categoria. Consulte um prestador.</p>}<p>Consumo elétrico: não estimado. Sem frete ou reserva; confirme atendimento e compatibilidade antes de comprar.</p></section>)}</div></>}</Frame>
+
+  const categories = result?.opcoes.categorias.filter(group => group.produtos.length) || []
+  const services = result?.opcoes.servicos || []
+  const count = categories.reduce((sum, group) => sum + group.produtos.length, services.length)
+
+  return (
+    <Frame title="Buscar por objetivo" intro="Escolha o que você quer resolver e veja produtos e serviços do catálogo.">
+      <section className={styles.card} aria-label="Filtros da busca">
+        <form className={`${styles.form} ${styles.searchForm}`} onSubmit={submit}>
+          <label>Objetivo
+            <select required name="missao" disabled={busy} value={draft.missao} onChange={event => change('missao', event.target.value)}>
+              <option value="">Escolha um objetivo</option>
+              {missions.map(item => <option key={item.id} value={item.id}>{item.titulo}</option>)}
+            </select>
+          </label>
+          <label>Limite por item (R$)
+            <input required type="number" min="1" max="1000000" step="0.01" name="orcamento" placeholder="Ex.: 500" disabled={busy} value={draft.orcamento} onChange={event => change('orcamento', event.target.value)} />
+          </label>
+          <button disabled={busy || !missions.length}>{busy ? 'Buscando…' : 'Buscar opções'}</button>
+        </form>
+        <p className={styles.help}>O limite vale para cada produto ou serviço.</p>
+        <Feedback error={current?.error || missionError} />
+      </section>
+
+      {result && count === 0 && (
+        <section className={styles.card} role="status">
+          <h2>Nenhuma opção nesse valor</h2>
+          <p>Aumente o limite por item ou escolha outro objetivo.</p>
+          <Link href="/produtos">Ver todos os produtos</Link>
+        </section>
+      )}
+      {result && count > 0 && (
+        <section aria-label="Resultados da busca">
+          <div className={styles.resultHeading} role="status">
+            <h2>{result.missao.titulo}</h2>
+            <p>{count === 1 ? '1 opção' : `${count} opções`} até {price(result.orcamento)} por item</p>
+          </div>
+          <div className={styles.grid}>
+            {categories.map(group => <ResultsList key={group.categoria} id={`mission-${group.categoria}`} from={from} title={productCategoryLabel(group.categoria)} items={group.produtos.map(product => ({ href: `/produtos/${product.id_produto}`, name: product.nome, price: price(product.preco) }))} />)}
+            {services.length > 0 && <ResultsList id="mission-services" from={from} title="Serviços" items={services.map(service => ({ href: `/servicos/${service.slug}`, name: service.titulo, price: servicePrice(service), detail: modalityLabel(service.modalidade) }))} />}
+          </div>
+          <p className={styles.help}>Confirme frete, compatibilidade e valor final do serviço com o anunciante.</p>
+        </section>
+      )}
+    </Frame>
+  )
+}
+
+export default function MissionsPage() {
+  return <Suspense fallback={<Frame title="Buscar por objetivo"><p role="status">Carregando busca…</p></Frame>}><Missions /></Suspense>
 }

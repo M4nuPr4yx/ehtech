@@ -1,5 +1,6 @@
 'use client';
 import AdminLogin from './AdminLogin.js';
+import { ProductSpecificationList } from '../complements/ProductSpecifications';
 
 import { apiResponse } from '../../lib/api-request.js';
 
@@ -734,6 +735,12 @@ export default function Admin() {
                               <div className="min-w-0 max-w-xs">
                                 <p className="font-bold text-foreground truncate">{p.nome}</p>
                                 <p className="text-xs text-muted truncate">{p.descricao}</p>
+                                {Object.keys(p.especificacoes || {}).length > 0 && (
+                                  <details className="mt-1 text-xs">
+                                    <summary className="cursor-pointer text-accent">Ficha técnica</summary>
+                                    <ProductSpecificationList product={p} />
+                                  </details>
+                                )}
                               </div>
                             </div>
                           </td>

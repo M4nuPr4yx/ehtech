@@ -91,7 +91,7 @@ test('PostgreSQL aceita a migração de origens sem inventar data para anúncios
   assert.match(queries[5], /origem_envio TEXT NULL/)
 })
 
-test('migração de diferenciais é idempotente e traduz certificados/combos para PostgreSQL', async () => {
+test('migração de combos é idempotente e traduz o schema para PostgreSQL', async () => {
   const queries = []
   class Pool {
     async query(sql) {
@@ -104,11 +104,10 @@ test('migração de diferenciais é idempotente e traduz certificados/combos par
   const { initializeDifferentials } = require('../backend/database/differentials')
   await initializeDifferentials(pool)
   await initializeDifferentials(pool)
-  assert.equal(queries.length, 6)
+  assert.equal(queries.length, 4)
   assert.match(queries[0], /id SERIAL PRIMARY KEY/)
-  assert.match(queries[0], /expira_em TIMESTAMP/)
-  assert.match(queries[0], /REFERENCES passaportes\(id\) ON DELETE CASCADE/)
-  assert.match(queries[1], /ativo BOOLEAN NOT NULL DEFAULT TRUE/)
+  assert.match(queries[0], /ativo BOOLEAN NOT NULL DEFAULT TRUE/)
+  assert.ok(queries.every(sql => !/certificados_usado|passaportes/.test(sql)))
   for (const sql of queries) assert.doesNotMatch(sql, /AUTO_INCREMENT|INDEX idx_/)
 })
 
@@ -150,24 +149,6 @@ test('MySQL com URL conserva opções de conexão e SSL configuradas', () => {
   assert.equal(received.ssl, false)
   assert.equal(received.connectionLimit, 10)
   assert.equal(received.enableKeepAlive, true)
-})
-
-test('PostgreSQL traduz tabelas do passaporte e mantém vínculos em cascata', async () => {
-  const calls = []
-  class Pool {
-    async query(sql, params) { calls.push({ sql, params }); return { rows: [], rowCount: 0 } }
-  }
-  const pool = loadAdapter({ DATABASE_URL: 'postgresql://test.invalid/test' }, { pg: { Pool }, 'mysql2/promise': {} })
-  await require('../backend/database/passports').initializePassports(pool)
-  assert.equal(calls.length, 2)
-  for (const { sql } of calls) {
-    assert.match(sql, /id SERIAL PRIMARY KEY/)
-    assert.match(sql, /FOREIGN KEY.*REFERENCES.*ON DELETE CASCADE/)
-    assert.doesNotMatch(sql, /AUTO_INCREMENT|INDEX idx_/)
-  }
-  await pool.execute('SELECT id FROM passaportes WHERE transferencia_hash = ? AND destinatario_id = ? AND transferencia_expira_em > CURRENT_TIMESTAMP FOR UPDATE', ['test-hash', 7])
-  assert.match(calls[2].sql, /transferencia_hash = \$1 AND destinatario_id = \$2/)
-  assert.match(calls[2].sql, /FOR UPDATE$/)
 })
 
 test('PostgreSQL migra catálogo e preserva revisões existentes ao carregar os modelos iniciais', async () => {

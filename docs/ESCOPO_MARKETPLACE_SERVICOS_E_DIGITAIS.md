@@ -19,7 +19,7 @@ Na avaliação inicial, o projeto oferecia leitura do catálogo de serviços e c
 - Manter solicitação, orçamento, aceite, execução e conclusão; acrescentar entrega para análise, pedido de ajuste e contestação com papéis e transições explícitos.
 - O orçamento aceito guardará uma cópia das condições, valores e prazos. A edição posterior do anúncio não alterará contratações em andamento.
 - Ampliar categorias para programação e sites, design e ilustração, edição de vídeo/áudio, fotografia, marketing, redação/tradução, aulas e mentoria, consultoria e suporte/manutenção. A administração poderá gerenciar as categorias.
-- Generalizar termos como problema do aparelho, reputação técnica e garantia para necessidade, avaliação do prestador e condições do serviço. Integração com passaportes de equipamentos será opcional e específica das categorias pertinentes.
+- Generalizar termos como problema do aparelho, reputação técnica e garantia para necessidade, avaliação do prestador e condições do serviço. Passaportes de equipamento e inspeções declaradas foram retirados do escopo implementado em 19/11/2026.
 - Interromper a geração automática de ofertas de demonstração no catálogo real. Ofertas antigas e contratações não serão apagadas nem terão proprietário trocado automaticamente; a migração distinguirá exemplos de ofertas legítimas antes de ocultá-los ou arquivá-los.
 
 ## 2. Produtos digitais

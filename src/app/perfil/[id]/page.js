@@ -3,6 +3,7 @@ import { apiResponse } from '../../../lib/api-request.js';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { ListingDetailLink, useListingScroll } from '../../complements/ListingNavigation';
 import { useParams, useRouter } from 'next/navigation';
 import { getMainImage } from '../../complements/imageHelper';
 
@@ -35,6 +36,7 @@ export default function SellerProfile() {
   const [error, setError] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
   const [imgError, setImgError] = useState(false);
+  useListingScroll(!loading && !error, params.id);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -246,14 +248,14 @@ export default function SellerProfile() {
 
                   {/* Product Info */}
                   <div className="p-4">
-                    <Link href={`/produtos/${produto.id_produto}`} className="block">
+                    <ListingDetailLink from={`/perfil/${params.id}`} href={`/produtos/${produto.id_produto}`} className="block">
                       <h3 className="font-bold text-foreground mb-1 truncate group-hover:text-accent transition-colors">
                         {produto.nome}
                       </h3>
                       <p className="text-accent text-xl font-bold">
                         {formatPrice(produto.preco)}
                       </p>
-                    </Link>
+                    </ListingDetailLink>
                   </div>
                 </div>
               ))}

@@ -1,26 +1,27 @@
 const express = require('express')
-const { MISSIONS, recommend } = require('../differentials')
+const { MISSIONS, searchMissionOptions } = require('../differentials')
 
 function createMissionsRouter(pool) {
   const router = express.Router()
   router.get('/', (req, res) => res.json(MISSIONS))
-  router.post('/recomendar', async (req, res) => {
+  const search = async (req, res) => {
     const mission = MISSIONS.find(item => item.id === req.body.missao)
     const budget = req.body.orcamento
-    if (!mission || typeof budget !== 'number' || !Number.isFinite(budget) || budget < 1 || budget > 1000000) return res.status(400).json({ mensagem: 'Selecione uma missão e informe orçamento entre R$ 1 e R$ 1.000.000.' })
+    if (!mission || typeof budget !== 'number' || !Number.isFinite(budget) || budget < 1 || budget > 1000000) return res.status(400).json({ mensagem: 'Escolha um objetivo e informe um limite entre R$ 1 e R$ 1.000.000 por item.' })
     res.set('Cache-Control', 'no-store')
     try {
       const products = []
       for (const category of mission.categorias) {
-        const [rows] = await pool.execute("SELECT id_produto, nome, preco, estoque, categoria, componente_id FROM produtos WHERE status_aprovacao = 'aprovado' AND estoque > 0 AND LOWER(categoria) = ? ORDER BY preco, id_produto LIMIT 100", [category])
+        const [rows] = await pool.execute("SELECT id_produto, nome, preco, estoque, categoria, componente_id FROM produtos WHERE status_aprovacao = 'aprovado' AND estoque > 0 AND LOWER(categoria) = ? AND preco <= ? ORDER BY preco, id_produto LIMIT 100", [category, budget])
         products.push(...rows)
       }
-      const [services] = await pool.execute("SELECT id_servico, titulo, slug, categoria, preco_base, tipo_preco, modalidade, regiao FROM servicos WHERE status = 'ativo' AND status_aprovacao = 'aprovado' AND categoria = ? ORDER BY preco_base, id_servico LIMIT 100", [mission.servico])
-      res.json({ missao: mission, orcamento: budget, faixas: recommend(mission, budget, products, services), regras: ['Faixas usam 50%, 75% e 100% do saldo após o serviço de menor preço-base informado; valores maiores não significam maior desempenho.', 'Até 100 anúncios por categoria, ordenados por menor preço. Produtos aprovados e com estoque; disponibilidade pode mudar.', 'Compatibilidade, cobertura Wi-Fi, desempenho e consumo elétrico precisam de avaliação técnica. Consumo não estimado por falta de dados.', 'Preço-base de serviço não é proposta final. Frete não incluso. A partir de/sob consulta dependem de orçamento. Não compra nem reserva itens.'] })
+      const [services] = await pool.execute("SELECT id_servico, titulo, slug, categoria, preco_base, tipo_preco, modalidade, regiao FROM servicos WHERE status = 'ativo' AND status_aprovacao = 'aprovado' AND categoria = ? AND preco_base IS NOT NULL AND preco_base <= ? ORDER BY preco_base, id_servico LIMIT 100", [mission.servico, budget])
+      res.json({ missao: mission, orcamento: budget, opcoes: searchMissionOptions(mission, budget, products, services), regras: ['O limite vale para cada item; os resultados não são uma montagem recomendada.', 'Os anúncios disponíveis são ordenados pelo menor preço. Para home office, acessórios e áudio são filtrados pelo tipo identificado no título.', 'Confirme as especificações com o anunciante. Frete e valor final do serviço são combinados à parte.'] })
     } catch {
-      res.status(500).json({ mensagem: 'Não foi possível montar as opções para essa missão.' })
+      res.status(500).json({ mensagem: 'Não foi possível buscar agora. Tente novamente.' })
     }
-  })
+  }
+  router.post('/buscar', search)
   return router
 }
 module.exports = createMissionsRouter

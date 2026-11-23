@@ -1,6 +1,6 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const { integer } = require('../validation')
+const { integer, cleanText } = require('../validation')
 module.exports = function createReviewsRouter(pool) {
 const router = createRouter()
 router.get('/avaliacoes/elegibilidade/:id', autenticarToken, async (req, res) => {
@@ -24,7 +24,8 @@ router.post("/avaliacoes", autenticarToken, async (req, res) => {
     return res.status(400).json({ mensagem: "A nota deve ser um valor inteiro entre 1 e 5" })
   }
 
-  const cleanComentario = comentario ? String(comentario).trim().slice(0, 1000) : null
+  const cleanComentario = cleanText(comentario ?? '', 1000, { multiline: true })
+  if (cleanComentario === null) return res.status(400).json({ mensagem: 'Informe um comentário válido.' })
 
   try {
     const [produto] = await pool.execute('SELECT vendedor_id FROM produtos WHERE id_produto = ?', [numericProdutoId])
@@ -41,7 +42,7 @@ router.post("/avaliacoes", autenticarToken, async (req, res) => {
     await require('../addresses').transaction(pool, async connection => {
       await connection.execute(
         'INSERT INTO avaliacoes (produto_id, avaliador_id, nota, comentario) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nota = ?, comentario = ?',
-        [numericProdutoId, req.user.id, numericNota, cleanComentario, numericNota, cleanComentario]
+        [numericProdutoId, req.user.id, numericNota, cleanComentario || null, numericNota, cleanComentario || null]
       )
       await connection.execute('UPDATE avaliacoes SET pedido_id = ? WHERE produto_id = ? AND avaliador_id = ?', [pedido, numericProdutoId, req.user.id])
     })

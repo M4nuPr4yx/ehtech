@@ -11,6 +11,9 @@ module.exports = function createGoogleRedirectRouter(pool, { authLimiter, api_ch
   router.post('/redirecionar', authLimiter, (req, res, next) => req.body?.acao === 'vincular' ? autenticarToken(req, res, next) : next(), action(async (req, res) => {
     const config = oauth.configuration()
     if (!config) throw problem(503, 'O login com Google ainda não foi ativado. Configure Client ID, Client Secret e URL de retorno na API.')
+    if (!oauth.matchesRequestOrigin(config, req.get('origin'))) {
+      throw problem(409, 'Abra a EHtech no endereço configurado para o Google. Em desenvolvimento, use o mesmo host e a mesma porta cadastrados para o retorno.')
+    }
     if (Object.keys(req.body).some(key => !['acao', 'destino'].includes(key)) || !['entrar', 'vincular'].includes(req.body.acao)) throw problem(400, 'Ação inválida.')
     const secret = crypto.randomBytes(32).toString('hex'), hash = google.digest(secret)
     const nonce = crypto.randomBytes(32).toString('hex'), state = crypto.randomBytes(32).toString('hex'), verifier = crypto.randomBytes(48).toString('base64url')

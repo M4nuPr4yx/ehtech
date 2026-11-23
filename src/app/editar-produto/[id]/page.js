@@ -6,6 +6,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { getMainImage } from '../../complements/imageHelper';
 import TechnicalComponentPicker from '../../complements/TechnicalComponentPicker';
 import OriginSelector from '../../complements/OriginSelector';
+import { ProductSpecificationFields } from '../../complements/ProductSpecifications';
+import specs from '../../../../shared/product-specs.cjs';
 
 const isValidImageUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -35,6 +37,7 @@ export default function EditarProduto() {
   const [preco, setPreco] = useState('');
   const [categoria, setCategoria] = useState('');
   const [componenteId, setComponenteId] = useState(null);
+  const [specifications, setSpecifications] = useState({});
   const [origin, setOrigin] = useState(null);
   const [currentRegion, setCurrentRegion] = useState(null);
   const [requiresShipping, setRequiresShipping] = useState(true);
@@ -85,8 +88,9 @@ export default function EditarProduto() {
         const data = await res.json();
         setNome(data.nome || '');
         setDescricao(data.descricao || '');
-        setPreco(data.preco || '');
+        setPreco(String(data.preco ?? '').replace('.', ','));
         setCategoria(data.categoria || '');
+        setSpecifications(specs.readSpecifications(data.categoria, data.especificacoes));
         setComponenteId(data.componente_id || null);
         setCurrentRegion(data);
         setRequiresShipping(Boolean(data.exige_entrega));
@@ -106,17 +110,6 @@ export default function EditarProduto() {
 
     fetchProduto();
   }, [params.id, router]);
-
-  // Handle price input with mask (BRL format)
-  const handlePrecoChange = (e) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value === '') {
-      setPreco('');
-      return;
-    }
-    value = (parseInt(value) / 100).toFixed(2);
-    setPreco(value);
-  };
 
   // Upload imagem para o servidor e retorna URL
   const uploadImagem = async (file) => {
@@ -199,7 +192,7 @@ export default function EditarProduto() {
       setMessageType('error');
       return;
     }
-    if (!preco || parseFloat(preco) <= 0) {
+    if (!preco.trim()) {
       setMessage('Preço é obrigatório');
       setMessageType('error');
       return;
@@ -223,10 +216,11 @@ export default function EditarProduto() {
         body: JSON.stringify({
           nome: nome.trim(),
           descricao: descricao.trim(),
-          preco: parseFloat(preco),
-          estoque: parseInt(estoque) || 0,
+          preco,
+          estoque,
           categoria,
           componente_id: componenteId,
+          especificacoes: specs.normalizeSpecifications(categoria, specifications),
           exige_entrega: requiresShipping,
           ...(origin ? { origem_endereco_id: origin.id, origem_versao: origin.versao } : {}),
           imagem: imagemUrl || null
@@ -252,7 +246,7 @@ export default function EditarProduto() {
       }
 
       if (res.ok) {
-        setMessage('Produto atualizado com sucesso!');
+        setMessage(data.mensagem || 'Produto atualizado com sucesso!');
         setMessageType('success');
         setTimeout(() => { router.push('/perfil'); }, 1500);
       } else {
@@ -330,12 +324,14 @@ export default function EditarProduto() {
             </div>
 
             <TechnicalComponentPicker value={componenteId} onChange={setComponenteId} />
+            <ProductSpecificationFields category={categoria} value={specifications} onChange={setSpecifications} />
             {/* Descrição */}
             <div>
               <label className="block text-foreground font-medium mb-2">Descrição</label>
               <textarea
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
+                maxLength={5000}
                 placeholder="Descreva seu produto..."
                 rows={4}
                 className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors resize-none"
@@ -345,14 +341,18 @@ export default function EditarProduto() {
             {/* Preço e Estoque */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-foreground font-medium mb-2">Preço (R$)</label>
+                <label htmlFor="edit-product-price" className="block text-foreground font-medium mb-2">Preço (R$)</label>
                 <input
+                  id="edit-product-price"
                   type="text"
+                  inputMode="decimal"
                   value={preco}
-                  onChange={handlePrecoChange}
-                  placeholder="0,00"
+                  onChange={(e) => setPreco(e.target.value)}
+                  placeholder="Ex.: 129,90"
+                  aria-describedby="edit-product-price-help"
                   className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors"
                 />
+                <p id="edit-product-price-help" className="mt-1 text-xs text-muted">Digite em reais, sem separador de milhar.</p>
               </div>
               <div>
                 <label className="block text-foreground font-medium mb-2">Estoque</label>

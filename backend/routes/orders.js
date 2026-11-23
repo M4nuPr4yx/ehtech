@@ -2,7 +2,7 @@ const express = require('express')
 const { autenticarToken } = require('../middleware/auth')
 const { transaction, addressSnapshot, problem } = require('../addresses')
 const { getSession, inspectCheckout, requireReady, normalizeItems, orderView } = require('../checkout')
-const { readOrder, ensureDeliveries, changeDelivery, listOrders } = require('../order-deliveries')
+const { readOrder, ensureDeliveries, changeDelivery, cancelOrder, listOrders } = require('../order-deliveries')
 
 function createOrdersRouter(pool) {
   const router = express.Router()
@@ -11,7 +11,7 @@ function createOrdersRouter(pool) {
   router.post('/', async (req, res) => {
     try {
       if (req.body.itens !== undefined) normalizeItems(req.body.itens)
-      if (!req.body.checkout_id) throw problem(409, 'Para continuar sua compra, é necessário cadastrar e confirmar seu endereço de entrega no checkout.')
+      if (!req.body.checkout_id) throw problem(409, 'Para registrar o pedido, revise a entrega ou retirada no checkout.')
       const result = await transaction(pool, async connection => {
         const session = await getSession(connection, req.body.checkout_id, req.user.id, true)
         if (session.pedido_id) {
@@ -22,9 +22,10 @@ function createOrdersRouter(pool) {
         const state = await inspectCheckout(connection, session, req.user.id, true)
         requireReady(state)
         const total = Math.round((state.cart.subtotal + state.freight) * 100) / 100
+        const address = state.delivery.some(option => option.tipo !== 'retirada') ? JSON.stringify(addressSnapshot(state.address)) : null
         const [order] = await connection.execute(
           "INSERT INTO pedidos_produto (comprador_id, status, total, endereco_entrega, entrega, frete, status_pagamento, checkout_id) VALUES (?, 'registrado', ?, ?, ?, ?, 'nao_iniciado', ?)",
-          [req.user.id, total, state.cart.exige_entrega ? JSON.stringify(addressSnapshot(state.address)) : null, JSON.stringify(state.delivery), state.freight, session.id]
+          [req.user.id, total, address, JSON.stringify(state.delivery), state.freight, session.id]
         )
         const orderId = Number(order.insertId)
         if (!orderId) throw new Error('Pedido sem identificador')
@@ -38,12 +39,16 @@ function createOrdersRouter(pool) {
         await connection.execute('UPDATE checkout_sessoes SET pedido_id = ? WHERE id = ?', [orderId, session.id])
         const sellers = new Set(state.cart.items.map(item => Number(item.product.vendedor_id)))
         for (const sellerId of sellers) {
-          const pending = state.delivery.some(option => option.vendedor_id === sellerId && option.tipo === 'a_combinar')
-          await connection.execute('INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, ?, ?, ?)', [sellerId, null, 'pedido_registrado', `Novo pedido #${orderId} registrado.${pending ? ' Entrega, prazo e frete ainda precisam ser combinados; atendimento não confirmado.' : ''} Combine os próximos passos pelo chat.`])
+          const options = state.delivery.filter(option => option.vendedor_id === sellerId)
+          const instruction = options.some(option => option.tipo === 'retirada')
+            ? ' O comprador solicitou retirada. Combine local e prazo e envie a proposta no pedido.'
+            : options.some(option => option.tipo === 'a_combinar') ? ' Entrega, prazo e frete ainda precisam ser combinados; atendimento não confirmado.' : ''
+          await connection.execute('INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, ?, ?, ?)', [sellerId, null, 'pedido_registrado', `Novo pedido #${orderId} registrado.${instruction} Combine os próximos passos pelo chat.`])
         }
         return orderView({ id_pedido: orderId, total, frete: state.freight, entrega: state.delivery, status: 'registrado', status_pagamento: 'nao_iniciado' })
       })
-      return res.status(201).json({ ...result, mensagem: result.frete_pendente ? 'Pedido registrado com entrega e frete a combinar. Nenhuma entrega ou cobrança foi confirmada.' : 'Pedido registrado. Nenhuma cobrança foi realizada.' })
+      const message = result.status === 'cancelado' ? 'Este pedido foi cancelado. Consulte o histórico.' : result.frete_pendente ? 'Pedido registrado com entrega e frete a combinar. Nenhuma entrega ou cobrança foi confirmada.' : 'Pedido registrado. Nenhuma cobrança foi realizada.'
+      return res.status(201).json({ ...result, mensagem: message })
     } catch (error) {
       return res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível registrar o pedido.' })
     }
@@ -64,6 +69,12 @@ function createOrdersRouter(pool) {
     catch (error) { res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível carregar o pedido.' }) }
   })
   const actionLimiter = require('express-rate-limit')({ windowMs: 10 * 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false, message: { mensagem: 'Muitas atualizações de pedidos. Aguarde alguns minutos.' } })
+  router.patch('/:id/cancelar', actionLimiter, async (req, res) => {
+    try {
+      if (req.body?.confirmado !== true || Object.keys(req.body).length !== 1) throw problem(400, 'Confirme que deseja cancelar o pedido.')
+      res.json(await transaction(pool, connection => cancelOrder(connection, req.params.id, req.user.id)))
+    } catch (error) { res.status(error.status || 500).json({ mensagem: error.status ? error.message : 'Não foi possível cancelar o pedido.' }) }
+  })
   const codeLimiter = require('express-rate-limit')({ windowMs: 10 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { mensagem: 'Muitas solicitações de código. Aguarde alguns minutos.' } })
   const codeAction = handler => async (req, res) => {
       try {

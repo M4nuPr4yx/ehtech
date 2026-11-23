@@ -18,7 +18,7 @@ test('origem exige endereço salvo, próprio, confirmado e com a versão atual',
   row.confirmado_em = null
   await assert.rejects(selectOrigin(pool, 1, 2, 3), { status: 409 })
   const safe = publicProduct({ nome: 'Produto', origem_uf: 'SP', origem_endereco_id: 2, origem_snapshot: origin.snapshot })
-  assert.deepEqual(safe, { nome: 'Produto', origem_uf: 'SP' })
+  assert.deepEqual(safe, { nome: 'Produto', origem_uf: 'SP', especificacoes: {} })
   assert.equal(productOrigin({ origem_snapshot: '{broken' }), null)
 })
 test('catálogo filtra região, datas inclusivas e busca literal; relevância usa parâmetros', () => {

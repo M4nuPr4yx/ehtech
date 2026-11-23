@@ -28,9 +28,11 @@ Configure `SHIPPING_RULES_JSON` no ambiente do backend com as condições comerc
 
 ### Entrega e frete a combinar
 
-No anúncio, **Comprar agora** adiciona o produto se ainda não está no carrinho e abre o checkout, preservando os outros itens e sem aumentar novamente a quantidade já escolhida. **Adicionar ao Carrinho** mantém a navegação e oferece acesso ao carrinho. O próprio vendedor e anúncios sem estoque não oferecem compra.
+No anúncio, **Iniciar pedido** inclui o produto sem aumentar a quantidade já escolhida. Abre o carrinho para conferência quando ele contém outros itens. **Adicionar ao carrinho** mantém a navegação e oferece acesso ao carrinho. O próprio vendedor e anúncios sem estoque não oferecem compra.
 
-Quando a única opção de um grupo é frete a combinar, ela aparece selecionada como sugestão. O comprador confirma em **Continuar com frete a combinar**, revisa as condições e só então usa **Confirmar e registrar pedido**. A sugestão não salva a entrega nem cria pedido. Tarifas com preço, inclusive zero, não são pré-selecionadas. **Conversar antes de continuar (opcional)** abre o chat; não registra a compra. Ao voltar ao checkout, a opção pode ser revisada. Conversar não é pré-requisito para registrar o pedido e negociar depois.
+Para produtos físicos, **Receber por entrega** abre a confirmação de endereço e as opções de frete. **Solicitar retirada** segue para revisão sem cadastrar endereço. A modalidade vale para todos os grupos físicos da sessão. Cada vendedor precisa propor a retirada e combinar local e prazo com o comprador. O pedido guarda a modalidade inicial com frete zero e sem endereço de destino. Se a retirada não for possível, um pedido novo com endereço permite escolher envio.
+
+Quando a única opção de um grupo é frete a combinar, ela aparece selecionada como sugestão. O comprador confirma em **Continuar com frete a combinar**, revisa as condições e só então usa **Registrar pedido**. Tarifas com preço, inclusive zero, não são pré-selecionadas. **Tirar dúvidas com o vendedor (opcional)** abre o chat e oferece retorno ao checkout.
 
 Sem tarifa aplicável ao vendedor/origem/destino, o sistema agora oferece **Entrega e frete a combinar** (`id: a-combinar`, `tipo: a_combinar`, `valor: null`). O comprador precisa selecionar essa opção e revisar antes de registrar o pedido. Endereços próximos ou na mesma cidade não definem preço nem confirmam atendimento: disponibilidade, prazo e valor serão combinados pelo chat. A origem válida do anúncio e a confirmação do endereço próprio continuam obrigatórias.
 
@@ -44,7 +46,7 @@ A opção inicial a combinar não exige alteração nos campos de preço: por co
 
 A sessão do checkout é retomada por conta e conteúdo do carrinho. Sessão indisponível (404/409) com itens presentes inicia nova revisão e informa o usuário. Cliques simultâneos de confirmação são bloqueados. Se a resposta do registro se perder, a interface consulta a mesma sessão para recuperar o número do pedido; não repete a escrita automaticamente. Falha de armazenamento após sucesso não transforma o pedido em erro: a tela mantém a confirmação e orienta a conferir o carrinho. A jornada de navegador exercita uma resposta 503 após o registro real, recuperação, recarga e ausência de pedido duplicado. Verificações datadas em [CHECKUP.md](CHECKUP.md).
 
-O projeto não possui provedor de pagamento. `/checkout/:id/pagamento` valida conta, versão do endereço, confirmação por checkout, itens e entregas antes de responder que a cobrança online está indisponível. O fluxo existente de registrar pedido sem cobrança foi mantido após a revisão. Todos os pedidos novos têm `status_pagamento = nao_iniciado`. Não existe endpoint para o cliente marcar um pedido como pago. Uma futura integração deverá validar essas mesmas regras no servidor e usar confirmação autenticada do provedor.
+O projeto não possui provedor de pagamento. `/checkout/:id/pagamento` valida conta, itens, modalidade e, quando há envio, a versão do endereço confirmado antes de responder que a cobrança online está indisponível. Todos os pedidos novos têm `status_pagamento = nao_iniciado`. Uma futura integração deverá validar essas mesmas regras no servidor e usar confirmação autenticada do provedor.
 
 ## Operação e privacidade
 

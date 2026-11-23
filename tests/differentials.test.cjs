@@ -1,45 +1,35 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { CHECKS, MISSIONS, validId, fingerprint, checklistResult, certificateStatus, recommend, comboView } = require('../backend/differentials')
-
-test('certificado exige checklist completo e falhas impedem selo', () => {
-  const checks = Object.fromEntries(Object.keys(CHECKS).map(key => [key, 'aprovado']))
-  assert.equal(checklistResult(checks), 'emitido')
-  assert.equal(checklistResult({ ...checks, bateria: 'nao_aplicavel' }), 'emitido')
-  assert.equal(checklistResult({ ...checks, funcionamento: 'nao_aplicavel' }), null)
-  assert.equal(checklistResult({ ...checks, integridade: 'reprovado' }), 'reprovado')
-  assert.equal(checklistResult({ ...checks, extra: 'aprovado' }), null)
-  assert.equal(checklistResult({}), null)
-  assert.equal(checklistResult(null), null)
-  assert.equal(checklistResult([]), null)
-})
-test('selo expira e é invalidado por mudança de ficha, anúncio, dono ou aprovação', () => {
-  const passport = { id: 1, proprietario_id: 3, nome: 'Notebook', tipo: 'Notebook', modelo: 'Teste', componentes: '[]' }
-  const product = { id_produto: 2, vendedor_id: 3, nome: 'Notebook usado', descricao: 'Equipamento', imagem: 'foto.png', categoria: 'notebooks', status_aprovacao: 'aprovado' }
-  const now = Date.parse('2026-10-01T00:00:00Z')
-  const certificate = { status: 'emitido', ficha_hash: fingerprint(passport, product), expira_em: '2026-10-02T00:00:00Z' }
-  assert.equal(certificateStatus(certificate, passport, product, now), 'emitido')
-  assert.equal(certificateStatus(certificate, passport, { ...product, preco: 999, estoque: 0 }, now), 'emitido')
-  for (const changed of [{ modelo: 'Mudou' }, { proprietario_id: 8 }, { componentes: '[{}]' }]) assert.equal(certificateStatus(certificate, { ...passport, ...changed }, product, now), 'desatualizado')
-  for (const changed of [{ descricao: 'Mudou' }, { imagem: 'outra.png' }, { vendedor_id: 8 }, { status_aprovacao: 'pendente' }]) assert.equal(certificateStatus(certificate, passport, { ...product, ...changed }, now), 'desatualizado')
-  assert.equal(certificateStatus(certificate, passport, product, now + 86400000), 'expirado')
-  assert.equal(certificateStatus({ ...certificate, status: 'revogado' }, passport, product, now), 'revogado')
-  assert.equal(certificateStatus(certificate, null, product, now), 'desatualizado')
-})
-test('missões geram três faixas determinísticas com centavos, lacunas e sem desempenho inventado', () => {
+const { MISSIONS, validId, searchMissionOptions, comboView } = require('../backend/differentials')
+test('missões agrupam opções disponíveis por categoria e filtram pelo orçamento por item', () => {
   const categories = new Set(['notebooks', 'acessorios', 'audio', 'redes'])
   assert.ok(MISSIONS.every(mission => mission.categorias.every(category => categories.has(category))))
   const products = [500, 1100, 1800].map((preco, index) => ({ id_produto: index + 1, categoria: 'notebooks', preco, estoque: 1 }))
   const services = [{ id_servico: 1, categoria: 'suporte', preco_base: '100.10' }]
-  const tiers = recommend(MISSIONS[0], 2000.10, products, services)
-  assert.equal(tiers.length, 3)
-  assert.deepEqual(tiers.map(tier => tier.total_estimado), [600.1, 600.1, 1900.1])
-  assert.ok(tiers.every(tier => tier.completo && tier.total_estimado <= 2000.10 && tier.consumo_estimado === null))
-  assert.deepEqual(tiers, recommend(MISSIONS[0], 2000.10, products, services))
-  const empty = recommend(MISSIONS[1], 10, [], [])
-  assert.ok(empty.every(tier => !tier.completo && tier.produtos.length === 0 && tier.faltantes.length === 3 && tier.servico === null))
-  assert.ok(recommend(MISSIONS[0], 10, products, services).every(tier => !tier.completo))
-  assert.ok(recommend(MISSIONS[0], 1000, products, [{ ...services[0], preco_base: null }]).every(tier => !tier.completo && tier.servico === null))
+  const options = searchMissionOptions(MISSIONS[0], 1000, products, services)
+  assert.deepEqual(options.categorias.map(group => group.categoria), ['notebooks'])
+  assert.deepEqual(options.categorias[0].produtos.map(item => item.id_produto), [1])
+  assert.equal(options.categorias[0].produtos[0].preco, 500)
+  assert.equal(options.servicos[0].preco_base, 100.1)
+  const empty = searchMissionOptions(MISSIONS[1], 10, [], [])
+  assert.deepEqual(empty.categorias.map(group => group.produtos), [[], [], []])
+  assert.deepEqual(empty.servicos, [])
+  assert.equal(searchMissionOptions(MISSIONS[0], 1000, products, [{ ...services[0], preco_base: null }]).servicos.length, 0)
+})
+
+test('home office filtra acessórios e áudio pelo tipo anunciado, mantendo os limites de preço e estoque', () => {
+  const mission = MISSIONS.find(item => item.id === 'home-office')
+  const products = [
+    { id_produto: 1, categoria: 'acessorios', nome: 'Película para celular', preco: 20, estoque: 2 },
+    { id_produto: 2, categoria: 'acessorios', nome: 'Mouse sem fio', preco: 90, estoque: 1 },
+    { id_produto: 3, categoria: 'audio', nome: 'Caixa de som para festa', preco: 80, estoque: 1 },
+    { id_produto: 4, categoria: 'audio', nome: 'Fones USB', preco: 100, estoque: 1 },
+    { id_produto: 5, categoria: 'audio', nome: 'Headset', preco: 130, estoque: 1 },
+    { id_produto: 6, categoria: 'acessorios', nome: 'Teclado', preco: 49, estoque: 0 },
+    { id_produto: 7, categoria: 'notebooks', nome: 'ThinkPad', preco: 100, estoque: 1 },
+  ]
+  const result = searchMissionOptions(mission, 100, products, [])
+  assert.deepEqual(result.categorias.map(group => group.produtos.map(item => item.id_produto)), [[7], [2], [4]])
 })
 test('combos somam centavos sem transformar preço desconhecido em gratuito; IDs são estritos', () => {
   assert.equal(comboView({ produto_preco: '0.10', preco_base: '0.20' }).total_estimado, 0.3)

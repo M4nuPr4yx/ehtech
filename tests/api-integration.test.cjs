@@ -242,6 +242,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
         process.env.GOOGLE_CLIENT_SECRET = ''; process.env.GOOGLE_REDIRECT_URI = origin + '/api/auth/google/callback'
         await request('POST', '/auth/google/redirecionar', { body: { acao: 'entrar' }, expected: 503 })
         process.env.GOOGLE_CLIENT_SECRET = 'redirect-test-secret'
+        await request('POST', '/auth/google/redirecionar', { headers: { Origin: 'http://localhost:3100' }, body: { acao: 'entrar' }, expected: 409 })
         async function redirectStart(token, destination = '/pedidos') {
           const response = await fetch(origin + '/auth/google/redirecionar', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ acao: token ? 'vincular' : 'entrar', destino: destination }) })
           assert.equal(response.status, 200); covered.add('POST /auth/google/redirecionar')
@@ -336,7 +337,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
     let productId
     let sellerOrigin
     const originDraft = { destinatario: 'Pessoa Vendedora', telefone: '11999991234', identificacao: 'Origem', cep: '01001000', uf: 'SP', cidade: 'São Paulo', bairro: 'Sé', logradouro: 'Praça da Sé', numero: '10', complemento: '', referencia: '', instrucoes: '', salvar: true, principal: true }
-    const product = { nome: 'Notebook de teste', descricao: 'Produto criado apenas para testes automáticos.', preco: 1234.56, estoque: 5, categoria: 'notebooks', imagem: '', componente_id: components.find(item => item.tipo === 'processador').id }
+    const product = { nome: 'Notebook de teste', descricao: 'Produto criado apenas para testes automáticos.', preco: 1234.56, estoque: 5, categoria: 'notebooks', imagem: '', componente_id: components.find(item => item.tipo === 'processador').id, especificacoes: { memoria_ram: '8 GB', armazenamento: 'SSD de 256 GB' } }
     await t.test('produto: criar, aprovar, filtrar, editar parcialmente e proteger contra outro usuário', async () => {
       sellerOrigin = await request('POST', '/enderecos', { token: users.seller.token, body: originDraft, expected: 201 })
       await request('POST', '/enderecos/' + sellerOrigin.id + '/confirmar', { token: users.seller.token, body: { versao: sellerOrigin.versao } })
@@ -364,6 +365,13 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('GET', '/produtos/catalogo?precoMin=2000&precoMax=100', { expected: 400 })
       await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { nome: 'Notebook atualizado' } })
       const updated = await request('GET', `/produtos/${productId}`)
+      assert.deepEqual(updated.especificacoes, product.especificacoes)
+      await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { especificacoes: { padrao_wifi: 'Wi-Fi 6' } }, expected: 400 })
+      const revised = await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { especificacoes: { memoria_ram: '16 GB' } } })
+      assert.equal(revised.status_aprovacao, 'pendente')
+      await request('GET', `/produtos/${productId}`, { expected: 404 })
+      await request('PUT', `/admin/produtos/${productId}/aprovacao`, { token: users.admin.token, body: { status: 'aprovado' } })
+      assert.deepEqual((await request('GET', `/produtos/${productId}`)).especificacoes, { memoria_ram: '16 GB' })
       assert.equal(updated.nome, 'Notebook atualizado')
       assert.equal(updated.descricao, product.descricao)
       assert.equal(Number(updated.preco), product.preco)
@@ -379,8 +387,30 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('GET', '/produtos/999999', { expected: 404 })
     })
     await t.test('entradas inválidas recebem 400, sem erro interno ou arredondamento silencioso', async () => {
-      for (const value of ['Infinity', '12abc', -1, 0, {}, null]) await request('POST', '/produtos', { token: users.seller.token, body: { ...product, preco: value }, expected: 400 })
-      for (const estoque of [1.5, '2abc', -1]) await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { estoque }, expected: 400 })
+      for (const value of ['Infinity', '12abc', -1, 0, {}, null, '1.500,00', 1.234, '1e2']) await request('POST', '/produtos', { token: users.seller.token, body: { ...product, preco: value }, expected: 400 })
+      for (const estoque of [1.5, '2abc', -1, '1e2', ' ']) await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { estoque }, expected: 400 })
+      for (const nome of ['  ', '\u200b\u200d', 'nome\u0000', '\uD800', null, {}]) {
+        await request('PUT', `/produtos/${productId}`, { token: users.seller.token, body: { nome }, expected: 400 })
+      }
+      const draft = await request('POST', '/produtos', {
+        token: users.seller.token, body: { ...product, nome: "  Peça d'Ávila ⚙️  ", descricao: '  Primeira linha\nCabo < 2 m 👩‍🔧  ', preco: ' 129,90 ', exige_entrega: false }, expected: 201,
+      })
+      const [[saved]] = await pool.execute('SELECT nome, descricao, preco FROM produtos WHERE id_produto = ?', [draft.id])
+      assert.equal(saved.nome, "Peça d'Ávila ⚙️")
+      assert.equal(saved.descricao, 'Primeira linha\nCabo < 2 m 👩‍🔧')
+      assert.equal(Number(saved.preco), 129.9)
+      await request('PUT', `/produtos/${draft.id}`, { token: users.seller.token, body: { preco: '130.50' } })
+      const [[updated]] = await pool.execute('SELECT preco FROM produtos WHERE id_produto = ?', [draft.id])
+      assert.equal(Number(updated.preco), 130.5)
+      for (const senha of ['        ', '\u200B'.repeat(8)]) {
+        await request('POST', '/cadastro', { body: { username: 'senha_invisivel', email: 'senha.invisivel@gmail.com', senha, confirmarSenha: senha }, expected: 400 })
+      }
+      const senha = '  chá e café 🔧  '
+      const email = 'senha.espacos@gmail.com'
+      await request('POST', '/cadastro', { body: { username: 'senha_espacos', email, senha, confirmarSenha: senha }, expected: 201 })
+      await request('POST', '/login', { body: { email, senha: senha.trim() }, expected: 401 })
+      await request('POST', '/login', { body: { email, senha } })
+      await request('POST', '/avaliacoes', { token: users.buyer.token, body: { produtoId: productId, nota: 5, comentario: {} }, expected: 400 })
       for (const id of ['1abc', '-1', '0', '1.5']) await request('GET', `/produtos/${id}`, { expected: 400 })
       await request('POST', '/produtos', { token: users.seller.token, raw: '{broken', expected: 400 })
       await request('POST', '/produtos', { token: users.seller.token, body: [], expected: 400 })
@@ -588,6 +618,57 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
         await update(first.grupo_id, users.seller.token, { ...offer, versao: 2 }, 409)
         await update(first.grupo_id, users.buyer.token, { acao: 'receber', versao: 2 }, 409)
         const pickup = { acao: 'propor', versao: 0, modalidade: 'retirada', valor_frete: 0, prazo: 'Retirada sábado à tarde' }
+        const cancelPath = orderId => `/pedidos/${orderId}/cancelar`
+        const cancel = (orderId, token, expected = 200, body = { confirmado: true }) => request('PATCH', cancelPath(orderId), { token, body, expected })
+        await cancel(order.id_pedido, users.buyer.token, 409)
+        async function orderForPickup(productIds) {
+          const token = users.buyer.token
+          const draft = await request('POST', '/checkout', { token, body: { itens: productIds.map(produto_id => ({ produto_id, quantidade: 1 })) } })
+          assert.equal(draft.endereco, null)
+          assert.equal(draft.pronto, false)
+          assert.deepEqual(draft.modalidades, [])
+          const modalities = draft.modalidades_retirada.map(group => ({ grupo_id: group.grupo_id, vendedor_id: group.vendedor_id, id: group.opcoes[0].id, valor: 10 }))
+          const chosen = await request('PUT', `/checkout/${draft.id}/entrega`, { token, body: { modalidades: modalities } })
+          assert.equal(chosen.endereco_confirmado, false)
+          assert.equal(chosen.pronto, true)
+          assert.ok(chosen.entrega.every(item => item.tipo === 'retirada' && item.valor === 0))
+          const restored = await request('GET', `/checkout/${draft.id}`, { token })
+          assert.deepEqual(restored.entrega, chosen.entrega)
+          const registered = await request('POST', '/pedidos', { token, body: { checkout_id: draft.id }, expected: 201 })
+          const pickupDetail = await request('GET', `/pedidos/${registered.id_pedido}`, { token })
+          assert.equal(pickupDetail.endereco_entrega, null)
+          assert.equal(pickupDetail.pode_cancelar, true)
+          assert.ok(pickupDetail.entregas.every(group => group.retirada_solicitada))
+          return { ...pickupDetail, checkout: draft.id }
+        }
+        const pickupOrder = await orderForPickup(ids)
+        await cancel(pickupOrder.id_pedido, users.seller.token, 403)
+        await cancel(pickupOrder.id_pedido, users.admin.token, 404)
+        await cancel(pickupOrder.id_pedido, users.buyer.token, 400, { confirmado: false })
+        const pickupOfferPath = `/pedidos/${pickupOrder.id_pedido}/entregas/${encodeURIComponent(pickupOrder.entregas[0].grupo_id)}`
+        await request('PATCH', pickupOfferPath, { token: users.seller.token, body: offer, expected: 409 })
+        const cancelled = await cancel(pickupOrder.id_pedido, users.buyer.token)
+        assert.equal(cancelled.status, 'cancelado')
+        assert.equal(cancelled.status_pagamento, 'nao_iniciado')
+        assert.equal(cancelled.total, null)
+        assert.equal(cancelled.pode_cancelar, false)
+        assert.ok(cancelled.entregas.every(group => group.estado === 'cancelado' && group.versao === 1))
+        assert.deepEqual(cancelled.historico.map(event => event.acao), ['cancelar', 'cancelar'])
+        await request('PATCH', pickupOfferPath, { token: users.seller.token, body: { ...pickup, versao: 1 }, expected: 409 })
+        const repeatedCancel = await cancel(pickupOrder.id_pedido, users.buyer.token)
+        assert.deepEqual(repeatedCancel.historico, cancelled.historico)
+        const [cancellationNotices] = await pool.execute("SELECT usuario_id FROM notificacoes WHERE tipo = 'pedido_cancelado' AND mensagem LIKE ? ORDER BY usuario_id", [`Pedido #${pickupOrder.id_pedido}:%`])
+        assert.deepEqual(cancellationNotices.map(row => Number(row.usuario_id)), [users.seller.id, users.other.id].sort((a, b) => a - b))
+        assert.equal((await request('GET', `/checkout/${pickupOrder.checkout}`, { token: users.buyer.token })).status, 'cancelado')
+        const racingPickup = await orderForPickup([ids[0]])
+        const racingProposalPath = `/pedidos/${racingPickup.id_pedido}/entregas/${encodeURIComponent(racingPickup.entregas[0].grupo_id)}`
+        const contenders = [[cancelPath(racingPickup.id_pedido), users.buyer.token, { confirmado: true }], [racingProposalPath, users.seller.token, pickup]]
+        const race = await Promise.all(contenders.map(([path, token, body]) => fetch(origin + path, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })))
+        assert.deepEqual(race.map(response => response.status).sort(), [200, 409])
+        await Promise.all(race.map(response => response.json()))
+        const afterRace = await request('GET', `/pedidos/${racingPickup.id_pedido}`, { token: users.buyer.token })
+        assert.equal(afterRace.historico.length, 1)
+        assert.equal(afterRace.status, race[0].status === 200 ? 'cancelado' : 'em_negociacao')
         await update(second.grupo_id, users.other.token, { ...pickup, valor_frete: 10 }, 400)
         await update(second.grupo_id, users.other.token, pickup)
         await update(second.grupo_id, users.buyer.token, { acao: 'recusar', versao: 1 })
@@ -673,10 +754,17 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       } finally { if (previousRules === undefined) delete process.env.SHIPPING_RULES_JSON; else process.env.SHIPPING_RULES_JSON = previousRules }
     })
     await t.test('chat, conversas, leitura e notificações', async () => {
-      await request('POST', '/mensagens', { token: users.buyer.token, body: { destinatarioId: users.seller.id, produtoId: productId, conteudo: 'Mensagem automática de teste local.' }, expected: 201 })
+      const message = { destinatarioId: users.seller.id, produtoId: productId }
+      for (const conteudo of ['  ', '\u200B', 'texto\u0000', null]) {
+        await request('POST', '/mensagens', { token: users.buyer.token, body: { ...message, conteudo }, expected: 400 })
+      }
+      const text = 'á'.repeat(37) + '🔧\n' + 'a'.repeat(1959)
+      await request('POST', '/mensagens', { token: users.buyer.token, body: { ...message, conteudo: '  ' + text + '🔧  ' }, expected: 201 })
       assert.equal((await request('GET', '/mensagens/conversas', { token: users.seller.token })).length, 1)
       assert.equal((await request('GET', '/mensagens/nao-lidas/total', { token: users.seller.token })).totalNaoLidas, 1)
-      assert.equal((await request('GET', `/mensagens/${users.buyer.id}`, { token: users.seller.token })).mensagens.length, 1)
+      const { mensagens } = await request('GET', `/mensagens/${users.buyer.id}`, { token: users.seller.token })
+      assert.equal(mensagens.length, 1)
+      assert.equal(mensagens[0].conteudo, text)
       await request('PUT', `/mensagens/${users.buyer.id}/lidas`, { token: users.seller.token, body: {} })
       assert.equal((await request('GET', '/mensagens/nao-lidas/total', { token: users.seller.token })).totalNaoLidas, 0)
       const notifications = await request('GET', '/notificacoes', { token: users.seller.token })
@@ -809,7 +897,9 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       assert.ok((await request('GET', '/contratacoes', { token: users.buyer.token })).some(item => item.id_contratacao === contract.id))
     })
     await t.test('contratação completa: solicitação, orçamento, aceite, execução, garantia e avaliação', async () => {
-      const body = { servico_id: serviceId, descricao_problema: 'Preciso de suporte técnico para um computador de teste.', modalidade: 'remoto', urgencia: 'normal', orcamento_max: 200, disponibilidade: 'Durante a tarde' }
+      const body = { servico_id: serviceId, descricao_problema: 'Preciso de suporte técnico para um computador de teste.', modalidade: 'remoto', urgencia: 'normal', orcamento_max: '200,50', disponibilidade: 'Durante a tarde' }
+      for (const orcamento_max of [true, [], '200.555', 200.555]) await request('POST', '/contratacoes', { token: users.buyer.token, body: { ...body, orcamento_max }, expected: 400 })
+      await request('POST', '/contratacoes', { token: users.buyer.token, body: { ...body, descricao_problema: '\u200B'.repeat(20) }, expected: 400 })
       const contract = await request('POST', '/contratacoes', { token: users.buyer.token, body, expected: 201 })
       assert.ok(contract.id)
       await request('POST', '/contratacoes', { token: users.buyer.token, body, expected: 409 })
@@ -832,62 +922,12 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       assert.equal(reputation.media, 5)
     })
 
-    await t.test('passaporte: privacidade, histórico, serviço, convites e transferência atômica', async () => {
-      const owner = users.buyer.token
-      const recipient = users.other.token
-      const cpuId = components.find(item => item.slug === 'amd-ryzen-5-5600').id
-      const equipment = { nome: 'PC de teste', tipo: 'Computador', modelo: 'Montagem própria', componentes: [{ tipo: 'Memória', modelo: 'DDR4 16 GB' }, { componente_id: cpuId }] }
-      await request('GET', '/passaportes', { expected: 401 })
-      await request('POST', '/passaportes', { token: owner, body: { ...equipment, componentes: [{}] }, expected: 400 })
-      await request('POST', '/passaportes', { token: owner, body: { ...equipment, componentes: [{ componente_id: 999999 }] }, expected: 400 })
-      const { id } = await request('POST', '/passaportes', { token: owner, body: equipment, expected: 201 })
-      assert.ok((await request('GET', '/passaportes', { token: owner })).some(item => item.id === id))
-      assert.equal((await request('GET', '/passaportes', { token: recipient })).length, 0)
-      for (const method of ['GET', 'PUT', 'DELETE']) await request(method, `/passaportes/${id}`, { token: recipient, ...(method === 'PUT' ? { body: equipment } : {}), expected: 404 })
-      await request('PUT', `/passaportes/${id}`, { token: owner, body: { ...equipment, modelo: 'Modelo atualizado' } })
-      await request('POST', `/passaportes/${id}/registros`, { token: owner, body: { tipo: 'upgrade', titulo: 'Memória ampliada para 16 GB', data: '2026-02-01' }, expected: 201 })
-      for (const data of ['2026-02-30', '2099-01-01']) await request('POST', `/passaportes/${id}/registros`, { token: owner, body: { tipo: 'reparo', titulo: 'Data inválida de manutenção', data }, expected: 400 })
-      const [completed] = await pool.execute("SELECT id_contratacao FROM contratacoes_servico WHERE cliente_id = ? AND status = 'concluido'", [users.buyer.id])
-      const service = { contratacao_id: completed[0].id_contratacao }
-      await request('POST', `/passaportes/${id}/servicos`, { token: recipient, body: service, expected: 404 })
-      await request('POST', `/passaportes/${id}/servicos`, { token: owner, body: service, expected: 201 })
-      await request('POST', `/passaportes/${id}/servicos`, { token: owner, body: service, expected: 409 })
-      const detail = await request('GET', `/passaportes/${id}`, { token: owner })
-      assert.equal(detail.publico_codigo, null)
-      assert.equal(detail.componentes[1].componente_id, cpuId)
-      assert.equal(detail.componentes[1].modelo, 'AMD Ryzen 5 5600', 'Nome técnico é normalizado no backend')
-      assert.equal(detail.registros.length, 3)
-      assert.ok(detail.registros.some(item => item.origem === 'ehtech' && item.garantia_fim_em))
-      const first = await request('POST', `/passaportes/${id}/compartilhamento`, { token: owner })
-      const visible = await request('GET', `/passaportes/publico/${first.codigo}`)
-      for (const key of ['proprietario_id', 'email', 'transferencia_hash', 'publico_codigo', 'destinatario_id']) assert.ok(!(key in visible), key)
-      assert.ok(visible.registros.every(item => !('contratacao_id' in item)))
-      await request('DELETE', `/passaportes/${id}/compartilhamento`, { token: owner })
-      await request('GET', `/passaportes/publico/${first.codigo}`, { expected: 404 })
-      await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_buyer' }, expected: 400 })
-      const invite = await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_other' } })
-      const [stored] = await pool.execute('SELECT transferencia_hash FROM passaportes WHERE id = ?', [id])
-      assert.notEqual(stored[0].transferencia_hash, invite.codigo)
-      await request('POST', '/passaportes/receber', { token: users.seller.token, body: { codigo: invite.codigo }, expected: 404 })
-      await request('DELETE', `/passaportes/${id}/transferencia`, { token: owner })
-      await request('POST', '/passaportes/receber', { token: recipient, body: { codigo: invite.codigo }, expected: 404 })
-      const expired = await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_other' } })
-      await pool.execute("UPDATE passaportes SET transferencia_expira_em = '2000-01-01 00:00:00' WHERE id = ?", [id])
-      await request('POST', '/passaportes/receber', { token: recipient, body: { codigo: expired.codigo }, expected: 404 })
-      const replacement = await request('POST', `/passaportes/${id}/transferencia`, { token: owner, body: { username: 'test_other' } })
-      const publicLink = await request('POST', `/passaportes/${id}/compartilhamento`, { token: owner })
-      const responses = await Promise.all([1, 2].map(() => fetch(origin + '/passaportes/receber', { method: 'POST', headers: { Authorization: `Bearer ${recipient}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: replacement.codigo }) })))
-      assert.deepEqual(responses.map(item => item.status).sort(), [200, 404])
-      await request('GET', `/passaportes/publico/${publicLink.codigo}`, { expected: 404 })
-      await request('GET', `/passaportes/${id}`, { token: owner, expected: 404 })
-      await request('POST', `/passaportes/${id}/registros`, { token: owner, body: { tipo: 'reparo', titulo: 'Acesso anterior revogado', data: '2026-02-01' }, expected: 404 })
-      const received = await request('GET', `/passaportes/${id}`, { token: recipient })
-      assert.equal(received.registros.filter(item => item.tipo === 'transferencia').length, 1)
-      assert.equal(received.componentes[0].modelo, 'DDR4 16 GB')
-      assert.equal(received.transferencia_expira_em, null)
-      await request('DELETE', `/passaportes/${id}`, { token: recipient })
-      const [records] = await pool.execute('SELECT id FROM passaporte_registros WHERE passaporte_id = ?', [id])
-      assert.equal(records.length, 0)
+    await t.test('passaportes e certificados foram retirados das rotas ativas', async () => {
+      for (const path of ['/passaportes', '/passaportes/receber', '/passaportes/1', '/passaportes/publico/codigo', '/certificados', '/certificados/produto/1']) {
+        await request('GET', path, { token: users.buyer.token, expected: 404 })
+      }
+      await request('POST', '/passaportes', { token: users.buyer.token, body: {}, expected: 404 })
+      await request('POST', '/certificados', { token: users.buyer.token, body: {}, expected: 404 })
     })
 
     await t.test('combos e missões: propriedade, disponibilidade e snapshot da contratação', async () => {
@@ -896,6 +936,10 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const body = { produto_id: product.insertId, servico_id: serviceId, titulo: 'Notebook com configuração', descricao: 'Configuração inicial após validar o equipamento e o atendimento.' }
       await request('POST', '/combos', { token: buyer, body, expected: 403 })
       await request('POST', '/combos', { token: seller, body: { ...body, titulo: 'X' }, expected: 400 })
+      await pool.execute('UPDATE produtos SET estoque = 0 WHERE id_produto = ?', [product.insertId])
+      assert.ok(!(await request('GET', '/combos/opcoes', { token: seller })).produtos.some(item => item.id_produto === product.insertId))
+      await request('POST', '/combos', { token: seller, body, expected: 403 })
+      await pool.execute('UPDATE produtos SET estoque = 2 WHERE id_produto = ?', [product.insertId])
       const combo = await request('POST', '/combos', { token: seller, body, expected: 201 })
       await request('POST', '/combos', { token: seller, body, expected: 409 })
       assert.ok((await request('GET', '/combos/opcoes', { token: seller })).produtos.some(item => item.id_produto === product.insertId))
@@ -906,6 +950,7 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('GET', '/combos?produto_id=1x', { expected: 400 })
       const quote = { combo_id: combo.id, servico_id: serviceId, descricao_problema: 'Configurar este notebook após confirmar instalação e compatibilidade.', modalidade: 'remoto', urgencia: 'normal', disponibilidade: 'Durante a tarde' }
       await request('POST', '/contratacoes', { token: buyer, body: { ...quote, servico_id: 999999 }, expected: 400 })
+      await request('POST', '/contratacoes', { token: buyer, body: { ...quote, modalidade: 'presencial' }, expected: 400 })
       await pool.execute('UPDATE produtos SET estoque = 0 WHERE id_produto = ?', [product.insertId])
       assert.equal((await request('GET', '/combos')).length, 0)
       await request('POST', '/contratacoes', { token: buyer, body: quote, expected: 409 })
@@ -919,67 +964,20 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       await request('PATCH', `/contratacoes/${contract.id}/status`, { token: buyer, body: { status: 'cancelado' } })
       const missions = await request('GET', '/missoes')
       assert.equal(missions.length, 3)
-      await request('POST', '/missoes/recomendar', { body: { missao: 'invalida', orcamento: 1000 }, expected: 400 })
-      await request('POST', '/missoes/recomendar', { body: { missao: 'estudar', orcamento: '1000' }, expected: 400 })
-      const result = await request('POST', '/missoes/recomendar', { body: { missao: 'estudar', orcamento: 1000 } })
-      assert.equal(result.faixas.length, 3)
-      assert.ok(result.faixas.some(tier => tier.produtos.some(item => item.id_produto === product.insertId)))
-      assert.ok(result.faixas.every(tier => tier.consumo_estimado === null && tier.total_estimado <= 1000))
+      await request('POST', '/missoes/buscar', { body: { missao: 'invalida', orcamento: 1000 }, expected: 400 })
+      await request('POST', '/missoes/buscar', { body: { missao: 'estudar', orcamento: '1000' }, expected: 400 })
+      const result = await request('POST', '/missoes/buscar', { body: { missao: 'estudar', orcamento: 1000 } })
+      assert.equal(result.opcoes.categorias.length, 1)
+      assert.ok(result.opcoes.categorias.some(group => group.produtos.some(item => item.id_produto === product.insertId)))
+      assert.ok(result.opcoes.categorias.every(group => group.produtos.every(item => Number(item.preco) <= 1000)))
+      assert.ok(result.opcoes.servicos.every(item => Number(item.preco_base) <= 1000))
       await pool.execute("UPDATE produtos SET status_aprovacao = 'pendente' WHERE id_produto = ?", [product.insertId])
-      const hidden = await request('POST', '/missoes/recomendar', { body: { missao: 'estudar', orcamento: 1000 } })
-      assert.ok(hidden.faixas.every(tier => tier.produtos.every(item => item.id_produto !== product.insertId)))
+      const hidden = await request('POST', '/missoes/buscar', { body: { missao: 'estudar', orcamento: 1000 } })
+      assert.ok(hidden.opcoes.categorias.every(group => group.produtos.every(item => item.id_produto !== product.insertId)))
     })
-    await t.test('certificado: prestador responsável, laudo, validade, revogação e privacidade na transferência', async () => {
-      const owner = users.buyer.token, provider = users.seller.token, other = users.other.token
-      const equipment = { nome: 'Notebook usado certificado', tipo: 'Notebook', modelo: 'Modelo original', componentes: [] }
-      const passport = await request('POST', '/passaportes', { token: owner, body: equipment, expected: 201 })
-      const [product] = await pool.execute("INSERT INTO produtos (nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, status_aprovacao) VALUES ('Usado para inspeção', 'Produto usado fictício', 300, 1, 'notebooks', 'test_buyer', ?, 'aprovado')", [users.buyer.id])
-      const contract = await request('POST', '/contratacoes', { token: owner, body: { servico_id: serviceId, descricao_problema: 'Inspecionar o notebook usado e documentar os testes realizados.', modalidade: 'remoto', urgencia: 'normal', disponibilidade: 'Durante a tarde' }, expected: 201 })
-      await request('PATCH', `/contratacoes/${contract.id}/orcamento`, { token: provider, body: { valor_proposto: 100, escopo_proposto: 'Inspeção documentada do equipamento usado descrito pelo cliente.', prazo_proposto: '1 dia', garantia_dias: 0 } })
-      await request('PATCH', `/contratacoes/${contract.id}/status`, { token: owner, body: { status: 'aceito' } })
-      await request('PATCH', `/contratacoes/${contract.id}/status`, { token: provider, body: { status: 'em_execucao' } })
-      const body = { passaporte_id: passport.id, produto_id: product.insertId, contratacao_id: contract.id, produto_usado: true }
-      await request('POST', '/certificados', { token: owner, body, expected: 409 })
-      await request('PATCH', `/contratacoes/${contract.id}/status`, { token: provider, body: { status: 'concluido' } })
-      await request('POST', '/passaportes/' + passport.id + '/servicos', { token: owner, body: { contratacao_id: contract.id }, expected: 201 })
-      await request('POST', '/certificados', { token: other, body, expected: 404 })
-      await request('POST', '/certificados', { token: owner, body: { ...body, produto_usado: false }, expected: 400 })
-      const created = await request('POST', '/certificados', { token: owner, body, expected: 201 })
-      await request('POST', '/certificados', { token: owner, body, expected: 409 })
-      const checklist = Object.fromEntries(['funcionamento', 'integridade', 'temperatura', 'armazenamento', 'bateria'].map(key => [key, 'aprovado']))
-      const report = { checklist, laudo: 'Teste fictício: bateria íntegra, armazenamento sem erros e temperatura de 45°C em repouso.', confirmo_inspecao: true }
-      await request('POST', `/certificados/${created.id}/laudo`, { token: owner, body: report, expected: 404 })
-      await request('POST', `/certificados/${created.id}/laudo`, { token: other, body: report, expected: 404 })
-      await request('POST', `/certificados/${created.id}/laudo`, { token: provider, body: { ...report, checklist: {} }, expected: 400 })
-      await request('POST', `/certificados/${created.id}/laudo`, { token: provider, body: report })
-      await request('POST', `/certificados/${created.id}/laudo`, { token: provider, body: report, expected: 409 })
-      const publicView = (await request('GET', `/certificados/produto/${product.insertId}`)).certificado
-      assert.equal(publicView.id, created.id)
-      assert.equal(Object.keys(publicView.equipamento).length, 3)
-      for (const field of ['solicitante_id', 'tecnico_id', 'contratacao_id', 'passaporte_id', 'ficha_hash', 'ficha_snapshot']) assert.ok(!(field in publicView))
-      await pool.execute("UPDATE certificados_usado SET expira_em = '2000-01-01' WHERE id = ?", [created.id])
-      assert.equal((await request('GET', `/certificados/produto/${product.insertId}`)).certificado, null)
-      await pool.execute("UPDATE certificados_usado SET expira_em = '2099-01-01' WHERE id = ?", [created.id])
-      await request('PUT', `/passaportes/${passport.id}`, { token: owner, body: { ...equipment, modelo: 'Modelo corrigido' } })
-      assert.equal((await request('GET', `/certificados/produto/${product.insertId}`)).certificado, null)
-      await request('DELETE', `/certificados/${created.id}`, { token: other, expected: 404 })
-      await request('DELETE', `/certificados/${created.id}`, { token: owner })
-      const rejected = await request('POST', '/certificados', { token: owner, body, expected: 201 })
-      await request('POST', `/certificados/${rejected.id}/laudo`, { token: provider, body: { ...report, checklist: { ...checklist, bateria: 'reprovado' } } })
-      assert.equal((await request('GET', `/certificados/produto/${product.insertId}`)).certificado, null)
-      const last = await request('POST', '/certificados', { token: owner, body, expected: 201 })
-      await request('POST', `/certificados/${last.id}/laudo`, { token: provider, body: report })
-      const invite = await request('POST', `/passaportes/${passport.id}/transferencia`, { token: owner, body: { username: 'test_other' } })
-      await request('POST', '/passaportes/receber', { token: other, body: { codigo: invite.codigo } })
-      assert.equal((await request('GET', `/certificados/produto/${product.insertId}`)).certificado, null)
-      await request('PUT', `/passaportes/${passport.id}`, { token: other, body: { ...equipment, modelo: 'Detalhe privado do novo dono' } })
-      const history = await request('GET', '/certificados', { token: owner })
-      assert.equal(history.itens.find(item => item.id === last.id).status, 'desatualizado')
-      assert.ok(!JSON.stringify(history).includes('Detalhe privado do novo dono'))
-      assert.equal((await request('GET', '/certificados', { token: other })).itens.length, 0)
-      assert.ok((await request('GET', '/certificados', { token: provider })).itens.length >= 3)
-      await request('DELETE', `/passaportes/${passport.id}`, { token: other })
-      assert.equal((await request('GET', '/certificados', { token: owner })).itens.length, 0)
+    await t.test('rotas de certificados retiradas permanecem indisponíveis', async () => {
+      await request('POST', '/certificados/1/laudo', { token: users.seller.token, body: {}, expected: 404 })
+      await request('DELETE', '/certificados/1', { token: users.buyer.token, expected: 404 })
     })
 
     await t.test('origem reutilizável, privacidade, mudança de endereço e filtros reais do catálogo', async () => {

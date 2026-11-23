@@ -3,7 +3,7 @@ const { autenticarToken, verifyAdmin } = require('../middleware/auth')
 const { hashPassword, verifyPassword, validPasswordInput } = require('../passwords')
 const path = require('path')
 const multer = require('multer')
-const { isValidPassword, isAllowedUserEmail } = require('../user-validation')
+const { isValidPassword, isAllowedUserEmail, passwordValidationMessage } = require('../user-validation')
 const { normalizeProfileName, NAME_MESSAGE } = require('../profile-name')
 const { defaultProfilePhoto, profilePhoto } = require('../../shared/profile-defaults.cjs')
 const { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_IMAGE_SIZE, matchesImageType, extensionFor, createImageFilename, saveImage } = require('../media')
@@ -136,7 +136,7 @@ router.put("/perfil/senha", autenticarToken, async (req, res) => {
   }
 
   if (!isValidPassword(novaSenha)) {
-    return res.status(400).json({ mensagem: "A nova senha deve ter pelo menos 8 caracteres e não pode ser muito longa." })
+    return res.status(400).json({ mensagem: passwordValidationMessage })
   }
 
   try {

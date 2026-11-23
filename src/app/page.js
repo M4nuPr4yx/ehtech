@@ -8,6 +8,7 @@ import ImageWithFallback from './complements/ImageWithFallback';
 import { getMainImage } from './complements/imageHelper';
 import styles from './home.module.css';
 import LoadingState from './complements/LoadingState';
+import { ListingDetailLink, useListingScroll } from './complements/ListingNavigation';
 
 export default function Home() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function Home() {
   const [productsError, setProductsError] = useState('');
   const [heroSearch, setHeroSearch] = useState('');
   const [retry, setRetry] = useState(0);
+  useListingScroll(!loading && !productsError);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,11 +173,11 @@ export default function Home() {
         </div>
         <div className={styles.showcase} data-motion="fade" data-motion-delay="120">
           {loading ? <div className={styles.skeleton}><LoadingState label="Buscando anúncios da comunidade…" detail="Enquanto isso, explore as categorias abaixo." /></div> : featured ? (
-            <Link href={'/produtos/' + featured.id_produto} className={styles.heroProduct}>
+            <ListingDetailLink from="/" href={'/produtos/' + featured.id_produto} className={styles.heroProduct}>
               <div className={styles.heroLabel}><span>{Number(featured.estoque) <= 0 ? 'Anúncio esgotado' : 'Anúncio da comunidade'}</span><span>Ver na vitrine ↗</span></div>
               <div className={styles.heroPhoto}>{getMainImage(featured.imagem) ? <ImageWithFallback src={getMainImage(featured.imagem)} alt={featured.nome} sizes="(max-width: 759px) 90vw, 42vw" loading="eager" /> : emptyPhoto}</div>
               <div className={styles.heroCaption}><div><small>{categoryName(featured.categoria)}</small><h2>{featured.nome}</h2></div><strong>{formatPrice(featured.preco)}</strong></div>
-            </Link>
+            </ListingDetailLink>
           ) : (
             <Link href="/produtos" className={styles.heroProduct}><div className={styles.heroLabel}><span>Seu próximo equipamento</span><span>Explorar ↗</span></div><div className={styles.heroPhoto}>{emptyPhoto}</div><div className={styles.heroCaption}><h2>Encontre o que combina com você.</h2></div></Link>
           )}
@@ -188,7 +190,7 @@ export default function Home() {
 
       <section className={styles.quickStart} aria-labelledby="por-onde-comecar">
         <h2 id="por-onde-comecar">O que você quer fazer?</h2>
-        <div>{[['/produtos', 'Comprar produtos', 'Busque, filtre e converse com o vendedor.'], ['/servicos', 'Contratar serviços', 'Encontre ajuda e peça um orçamento.'], ['/anunciar', 'Vender ou oferecer um serviço', 'Escolha o tipo de anúncio e publique.']].map(([href, title, hint]) => <Link key={href} href={href}><strong>{title} <span aria-hidden="true">→</span></strong><small>{hint}</small></Link>)}</div>
+        <div>{[['/produtos', 'Comprar produtos', 'Escolha um anúncio e inicie um pedido.'], ['/servicos', 'Contratar serviços', 'Encontre ajuda e peça um orçamento.'], ['/anunciar', 'Vender ou oferecer um serviço', 'Escolha o tipo de anúncio e publique.']].map(([href, title, hint]) => <Link key={href} href={href}><strong>{title} <span aria-hidden="true">→</span></strong><small>{hint}</small></Link>)}</div>
         <p>O pagamento é combinado entre as partes, fora do site. <Link href="/sobre">Veja como funciona →</Link></p>
       </section>
 
@@ -207,10 +209,10 @@ export default function Home() {
           <div className={styles.state} role="status"><p>{productsError}</p><button type="button" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button></div>
         ) : produtos.length ? (
           <div className={styles.productGrid}>{produtos.map((produto, index) => (
-            <Link key={produto.id_produto} href={'/produtos/' + produto.id_produto} className={styles.productCard} data-motion="rise" data-motion-delay={(index % 4) * 55}>
+            <ListingDetailLink from="/" key={produto.id_produto} href={'/produtos/' + produto.id_produto} className={styles.productCard} data-motion="rise" data-motion-delay={(index % 4) * 55}>
               <div className={styles.productPhoto}>{getMainImage(produto.imagem) ? <ImageWithFallback src={getMainImage(produto.imagem)} alt={produto.nome} sizes="(max-width: 759px) 44vw, 22vw" loading="lazy" /> : emptyPhoto}{Number(produto.estoque) <= 0 && <span className={styles.soldOut}>Esgotado</span>}</div>
               <div className={styles.productBody}><small>{categoryName(produto.categoria)}</small><h3>{produto.nome}</h3><div className={styles.productBottom}><strong>{formatPrice(produto.preco)}</strong><span aria-hidden="true">↗</span></div></div>
-            </Link>
+            </ListingDetailLink>
           ))}</div>
         ) : <div className={styles.state}><p>A vitrine está esperando o primeiro anúncio.</p><Link href="/anunciar">Anunciar um equipamento →</Link></div>}
       </section>

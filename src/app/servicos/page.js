@@ -4,7 +4,7 @@ import { apiResponse } from '../../lib/api-request.js';
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { ListingDetailLink, useCatalogDraft, useListingQuery, useListingScroll } from '../complements/ListingNavigation'
 import ServiceIcon from './ServiceIcon'
 import { MODALITIES, SERVICE_CATEGORIES, categoryLabel, modalityLabel, servicePrice } from './serviceData'
 import styles from './servicos.module.css'
@@ -12,27 +12,30 @@ import LoadingState from '../complements/LoadingState'
 
 const PAGE_SIZE = 9
 const INITIAL = { search: '', categoria: '', modalidade: '', ordenacao: 'recentes' }
+const defaults = { ...INITIAL, page: 1 }
 
 function Skeletons() {
   return <div className={styles.grid} aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <div className={styles.skeleton} key={index}><span /><i /><i /></div>)}</div>
 }
 
-function ServiceCatalog({ initial }) {
-  const [draft, setDraft] = useState(initial)
-  const [query, setQuery] = useState({ ...initial, page: 1 })
+function ServiceCatalog() {
+  const { query, search, update } = useListingQuery(defaults)
+  const { page, ...appliedFilters } = query
+  const { draft, change, reset } = useCatalogDraft(appliedFilters, search)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
   const resultsRef = useRef(null)
-  const appliedFilters = { search: query.search, categoria: query.categoria, modalidade: query.modalidade, ordenacao: query.ordenacao }
   const pending = JSON.stringify(draft) !== JSON.stringify(appliedFilters)
+  const returnTo = search ? '/servicos?' + search : '/servicos'
+  useListingScroll(Boolean(result) && !loading, search)
 
   useEffect(() => {
     if (!pending) return
-    const timer = setTimeout(() => setQuery({ ...draft, page: 1 }), 300)
+    const timer = setTimeout(() => update({ ...draft, page: 1 }), 300)
     return () => clearTimeout(timer)
-  }, [draft, pending])
+  }, [draft, pending, update])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,7 +49,10 @@ function ServiceCatalog({ initial }) {
         const response = await apiResponse(`/servicos?${params}`, { signal: controller.signal, cache: 'default' })
         const data = await response.json()
         if (!response.ok || !Array.isArray(data.items)) throw new Error(data.mensagem || 'Não foi possível carregar os serviços.')
-        if (active) setResult(data)
+        if (active) {
+          setResult(data)
+          if (Number.isSafeInteger(data.page) && data.page > 0 && data.page < page) update({ page: data.page })
+        }
       } catch (requestError) {
         if (active) setError(requestError.name === 'AbortError' ? 'A busca demorou mais que o esperado.' : requestError.message)
       } finally {
@@ -56,24 +62,21 @@ function ServiceCatalog({ initial }) {
     }
     load()
     return () => { active = false; clearTimeout(timer); controller.abort() }
-  }, [query, retry])
-
-  function change(field, value) {
-    setDraft((current) => ({ ...current, [field]: value }))
-  }
+  }, [query, page, retry, update])
 
   function changePage(page) {
-    setQuery((current) => ({ ...current, page }))
-    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    update({ page })
+    resultsRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' })
+    resultsRef.current?.focus({ preventScroll: true })
   }
 
   function clearFilters() {
-    setDraft(INITIAL)
-    setQuery({ ...INITIAL, page: 1 })
+    reset()
+    update(defaults)
   }
 
   const busy = loading || pending
-  const hasFilters = draft.search || draft.categoria || draft.modalidade
+  const hasFilters = Object.entries(draft).some(([key, value]) => value !== INITIAL[key])
 
   return (
     <div className={styles.page}>
@@ -112,7 +115,7 @@ function ServiceCatalog({ initial }) {
           {SERVICE_CATEGORIES.map(([value, label]) => <button key={value} type="button" aria-pressed={draft.categoria === value} onClick={() => change('categoria', value)}>{label}</button>)}
         </nav>
 
-        <section className={styles.results} ref={resultsRef} aria-busy={loading}>
+        <section className={styles.results} ref={resultsRef} tabIndex={-1} aria-label="Resultados de serviços" aria-busy={loading}>
           <div className={styles.heading}>
             <div><span>CATÁLOGO PROFISSIONAL</span><h2>{draft.categoria ? categoryLabel(draft.categoria) : 'Serviços para cada desafio'}</h2><p role="status">{busy ? 'Atualizando resultados…' : result ? `${result.total} serviços encontrados` : 'Carregando serviços…'}</p></div>
             {hasFilters && <button type="button" onClick={clearFilters}>Limpar filtros</button>}
@@ -123,7 +126,7 @@ function ServiceCatalog({ initial }) {
           {!result && loading ? <Skeletons /> : result?.items?.length ? (
             <div className={styles.grid} data-updating={busy}>
               {result.items.map((service) => (
-                <Link href={`/servicos/${service.slug}`} prefetch={false} className={styles.card} key={service.id_servico} data-motion="rise">
+                <ListingDetailLink href={`/servicos/${service.slug}`} from={returnTo} prefetch={false} className={styles.card} key={service.id_servico} data-motion="rise">
                   <div className={styles.cardTop}>
                     <span className={styles.icon}><ServiceIcon category={service.categoria} /></span>
                     <span className={styles.mode}>{modalityLabel(service.modalidade)}</span>
@@ -135,7 +138,7 @@ function ServiceCatalog({ initial }) {
                   <div className={styles.providerRating}><span>★</span><strong>{service.prestador_nota ? service.prestador_nota.toFixed(1) : 'Novo'}</strong><small>{service.prestador_avaliacoes ? `${service.prestador_avaliacoes} avaliações` : 'prestador sem avaliações'}</small></div>
                   <div className={styles.meta}><span>Prazo estimado</span><strong>{service.prazo}</strong></div>
                   <div className={styles.cardBottom}><div><span>Investimento</span><strong>{servicePrice(service)}</strong></div><i aria-hidden="true">→</i></div>
-                </Link>
+                </ListingDetailLink>
               ))}
             </div>
           ) : !loading && !error ? <div className={styles.empty}><ServiceIcon category="suporte" size={38} /><h3>Nenhum serviço encontrado</h3><p>Tente outros termos ou remova os filtros.</p><button type="button" onClick={clearFilters}>Ver todos</button></div> : null}
@@ -147,12 +150,6 @@ function ServiceCatalog({ initial }) {
   )
 }
 
-function CatalogFromUrl() {
-  const params = useSearchParams()
-  const initial = { ...INITIAL, search: params.get('search') || '', categoria: params.get('categoria') || '' }
-  return <ServiceCatalog key={JSON.stringify(initial)} initial={initial} />
-}
-
 export default function ServicesPage() {
-  return <Suspense fallback={<div className={styles.page}><div className={styles.shell}><Skeletons /></div></div>}><CatalogFromUrl /></Suspense>
+  return <Suspense fallback={<div className={styles.page}><div className={styles.shell}><Skeletons /></div></div>}><ServiceCatalog /></Suspense>
 }

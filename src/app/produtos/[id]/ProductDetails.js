@@ -6,21 +6,21 @@ import ImageWithFallback from '../../complements/ImageWithFallback';
 import { getProductImages, isValidImageUrl } from '../../complements/imageHelper';
 import { ProductExtras } from '../../complements/DifferentialsUI';
 import { ProductActions, ReportControl } from '../../complements/TrustControls';
+import { ProductSpecificationList } from '../../complements/ProductSpecifications';
+import { ListingBackLink } from '../../complements/ListingNavigation';
 import { apiRequest, apiResponse } from '../../../lib/api-request';
+import { productCategoryLabel } from '../../../lib/product-category.mjs';
+
+const demoNotice = 'DEMONSTRAÇÃO EHtech: anúncio fictício para testar o marketplace. Não é uma oferta comercial; não efetue pagamento, contato telefônico ou envio para estes dados.';
+const surface = 'rounded-2xl border border-line bg-surface';
 
 // ImageGallery Component - galeria interativa com miniaturas
-function ImageGallery({ images }) {
+function ImageGallery({ images, name }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const validImages = Array.isArray(images) ? images.filter(isValidImageUrl) : [];
 
   if (validImages.length === 0) {
-    return (
-      <div className="aspect-square bg-surface border border-line rounded-2xl flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      </div>
-    );
+    return <div className={`${surface} grid h-44 place-items-center text-sm text-muted`}>Anúncio sem fotos</div>;
   }
 
   const prev = () => setActiveIdx((i) => (i - 1 + validImages.length) % validImages.length);
@@ -29,11 +29,13 @@ function ImageGallery({ images }) {
   return (
     <div className="flex flex-col gap-3">
       {/* Imagem Principal */}
-      <div className="relative bg-surface border border-line rounded-2xl overflow-hidden aspect-square group">
+      <div className={`${surface} relative aspect-[4/3] max-h-56 overflow-hidden sm:max-h-[26rem]`}>
         <ImageWithFallback
           src={validImages[activeIdx]}
-          alt={`Foto ${activeIdx + 1}`}
-          className="w-full h-full object-contain p-2 transition-opacity duration-300"
+          alt={`Foto ${activeIdx + 1} de ${name}`}
+          loading={activeIdx === 0 ? 'eager' : 'lazy'}
+          sizes="(max-width: 767px) 92vw, 55vw"
+          className="h-full w-full object-contain p-3"
         />
 
         {/* Badge contagem */}
@@ -50,7 +52,7 @@ function ImageGallery({ images }) {
               type="button"
               onClick={prev}
               aria-label="Imagem anterior"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-accent-fill text-white hover:text-accent-contrast rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+              className="absolute left-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/70 text-2xl text-white hover:bg-black"
             >
               ‹
             </button>
@@ -58,7 +60,7 @@ function ImageGallery({ images }) {
               type="button"
               onClick={next}
               aria-label="Próxima imagem"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 hover:bg-accent-fill text-white hover:text-accent-contrast rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+              className="absolute right-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/70 text-2xl text-white hover:bg-black"
             >
               ›
             </button>
@@ -75,7 +77,8 @@ function ImageGallery({ images }) {
               key={idx}
               onClick={() => setActiveIdx(idx)}
               aria-label={`Ver foto ${idx + 1}`}
-              className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+              aria-pressed={idx === activeIdx}
+              className={`size-12 shrink-0 rounded-xl overflow-hidden border-2 transition-all sm:size-16 ${
                 idx === activeIdx
                   ? 'border-accent shadow-md shadow-transparent'
                   : 'border-line hover:border-line'
@@ -101,7 +104,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
   const [produto, setProduto] = useState(initialProduct);
   const loading = false;
   const error = ''; 
-  const [cartMessage, setCartMessage] = useState('');
+  const [cartMessage, setCartMessage] = useState(null);
   
   // Rating state
   const [avaliacoes, setAvaliacoes] = useState({ avaliacoes: [], media: 0, total: 0 });
@@ -221,7 +224,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
       const data = await res.json();
       if (res.ok) {
         setEditMessage('Produto atualizado!');
-        setProduto({ ...produto, ...editData });
+        setProduto({ ...produto, ...editData, preco: Number(String(editData.preco).replace(',', '.')) });
         setEditMode(false);
       } else {
         setEditMessage(data.mensagem || 'Erro ao atualizar');
@@ -235,7 +238,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
 
   const addToCart = (checkout = false) => {
     if (!isLoggedIn) {
-      router.push(`/?login=1&next=${encodeURIComponent(`/produtos/${produto.id_produto}`)}`);
+      router.push(`/?login=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     if (isOwner || Number(produto.estoque) < 1) return;
@@ -249,10 +252,10 @@ export default function ProdutoDetalhes({ initialProduct }) {
         cart.push({ ...produto, quantidade: 1 });
       }
       localStorage.setItem('cart', JSON.stringify(cart));
-      if (checkout) router.push('/checkout');
-      else setCartMessage('Produto adicionado ao carrinho!');
+      if (checkout) router.push(cart.length > 1 ? '/carrinho' : '/checkout');
+      else setCartMessage({ text: 'Produto adicionado ao carrinho!', added: true });
     } catch {
-      setCartMessage('Não foi possível atualizar o carrinho neste navegador. Verifique se o armazenamento está disponível e tente novamente.');
+      setCartMessage({ text: 'Não foi possível atualizar o carrinho neste navegador. Verifique se o armazenamento está disponível e tente novamente.', added: false });
     }
   };
 
@@ -297,27 +300,39 @@ export default function ProdutoDetalhes({ initialProduct }) {
     );
   }
 
+  const demo = /^\[DEMO\]\s*/i.test(produto.nome);
+  const name = demo ? produto.nome.replace(/^\[DEMO\]\s*/i, '') || produto.nome : produto.nome;
+  const description = String(produto.descricao || '').trim();
+  const descriptionParts = (demo && description.startsWith(demoNotice) ? description.slice(demoNotice.length).trim() : description)
+    .split(/\r?\n(?:[ \t]*\r?\n)+/).filter(Boolean);
+  const origin = [produto.origem_cidade, produto.origem_uf].filter(Boolean).join('/');
+  const inStock = Number(produto.estoque) > 0;
+
   return (
-    <div className="site-background min-h-screen text-foreground pt-20 pb-20">
+    <div className="site-background min-h-screen pb-16 pt-5 text-foreground sm:pt-9">
       {cartMessage && (
-        <div className="fixed right-5 top-24 z-50 rounded-xl border border-success bg-success-soft px-4 py-3 text-sm font-medium text-success shadow-xl" role="status">
-          {cartMessage}
-          {cartMessage === 'Produto adicionado ao carrinho!' && <Link href="/carrinho" className="ml-3 font-bold underline">Ir para o carrinho →</Link>}
-          <button type="button" onClick={() => setCartMessage('')} className="ml-3 text-success hover:text-foreground" aria-label="Fechar mensagem">×</button>
+        <div className={`fixed right-5 top-24 z-50 max-w-[calc(100%_-_2.5rem)] rounded-xl border px-4 py-3 text-sm font-medium shadow-xl ${cartMessage.added ? 'border-success bg-success-soft text-success' : 'border-danger bg-danger-soft text-danger'}`} role={cartMessage.added ? 'status' : 'alert'}>
+          {cartMessage.text}
+          {cartMessage.added && <Link href="/carrinho" className="ml-3 font-bold underline">Ir para o carrinho</Link>}
+          <button type="button" onClick={() => setCartMessage(null)} className="ml-3 hover:text-foreground" aria-label="Fechar mensagem">×</button>
         </div>
       )}
-      <div className="max-w-4xl mx-auto px-6">
-        {/* Back button */}
-        <Link href="/produtos" className="inline-flex items-center text-muted hover:text-accent mb-6 transition-colors">
-          ← Voltar aos produtos
-        </Link>
+      <div className="mx-auto max-w-6xl space-y-4 px-4 sm:space-y-5 sm:px-6">
+        <ListingBackLink fallback="/produtos" fallbackLabel="Voltar aos produtos" className="inline-flex items-center text-sm font-semibold text-muted hover:text-accent" />
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Galeria de Fotos do Produto */}
-          <ImageGallery images={getProductImages(produto.imagem)} />
+        <header className={`${surface} p-4 sm:px-6 sm:py-5`}>
+          <div className="mb-2 flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-surface-raised px-3 py-1 text-muted">{productCategoryLabel(produto.categoria)}</span>
+            {demo && <span className="rounded-full border border-line px-3 py-1 text-accent">Demonstração</span>}
+          </div>
+          <h1 className="break-words text-2xl font-bold leading-tight sm:text-3xl">{name}</h1>
+        </header>
+
+        <div className="grid min-w-0 items-start gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:gap-6">
+          <ImageGallery images={getProductImages(produto.imagem)} name={name} />
 
           {/* Product Info */}
-          <div>
+          <div className={`${surface} min-w-0 p-5 sm:p-6`}>
             {editMode ? (
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold text-accent mb-4">Editar Produto</h2>
@@ -333,8 +348,9 @@ export default function ProdutoDetalhes({ initialProduct }) {
                 <div>
                   <label className="block text-sm text-muted mb-1">Preço</label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex.: 129,90"
                     value={editData.preco}
                     onChange={(e) => setEditData({ ...editData, preco: e.target.value })}
                     className="w-full p-3 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none"
@@ -379,79 +395,99 @@ export default function ProdutoDetalhes({ initialProduct }) {
                 )}
               </div>
             ) : (
-              <>
-                <h1 className="text-3xl font-bold text-foreground mb-2">{produto.nome}</h1>
-                <p className="text-accent text-3xl font-bold mb-4">
-                  {formatPrice(produto.preco)}
-                </p>
-                <p className="text-muted mb-6">{produto.descricao}</p>
-                <p className="mb-3 text-sm text-muted">{produto.exige_entrega ? produto.origem_uf ? `Origem do envio: ${produto.origem_cidade}/${produto.origem_uf}` : 'Origem do envio ainda não cadastrada pelo vendedor.' : 'Produto sem entrega física.'}{produto.data_criacao && ` · Publicado em ${new Date(produto.data_criacao).toLocaleDateString('pt-BR')}`}</p>
-                {isOwner && <Link href={`/editar-produto/${produto.id_produto}`} className="mb-4 block text-sm text-accent underline">Editar endereço de origem e dados do anúncio</Link>}
-                <ProductExtras productId={produto.id_produto} />
-                
-                {/* Seller info */}
-                <div className="bg-surface border border-line rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="shrink-0">
-                      {sellerInfo?.foto && isValidImageUrl(sellerInfo.foto) ? (
-                        <img
-                          src={sellerInfo.foto}
-                          alt={produto.vendedor}
-                          className="w-12 h-12 rounded-full object-cover border border-accent bg-surface-raised"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-accent-fill flex items-center justify-center text-accent-contrast font-bold text-lg">
-                          {produto.vendedor?.charAt(0).toUpperCase() || 'V'}
-                        </div>
-                      )}
+
+              <section className="space-y-4" aria-label="Compra e vendedor">
+                <div className="space-y-1">
+                  <p className="text-4xl font-extrabold tracking-tight text-accent">{formatPrice(produto.preco)}</p>
+                  <p className="text-sm font-semibold text-muted">{inStock ? 'Em estoque' : 'Sem estoque'}</p>
+                </div>
+
+                {demo && <p className="rounded-lg border border-line bg-surface-raised p-3 text-sm text-muted">Anúncio fictício. Evite pagamentos, contatos e envios usando estes dados.</p>}
+
+                {isOwner ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="button" onClick={() => setEditMode(true)} className="rounded-xl bg-accent-fill px-4 py-3 font-bold text-accent-contrast hover:brightness-110">Editar</button>
+                    <Link href={'/editar-produto/' + produto.id_produto} className="text-sm font-semibold text-accent underline">Editar origem e dados do anúncio</Link>
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    <button type="button" onClick={() => addToCart(true)} disabled={!inStock} className="min-h-11 rounded-xl bg-accent-fill px-4 py-3 font-bold text-accent-contrast hover:brightness-110 disabled:opacity-50">
+                      {inStock ? 'Iniciar pedido' : 'Sem estoque'}
+                    </button>
+                    <button type="button" onClick={() => addToCart()} disabled={!inStock} className="min-h-11 rounded-xl border border-line bg-surface-raised px-4 py-3 font-bold hover:bg-surface disabled:opacity-50">
+                      Adicionar ao carrinho
+                    </button>
+                  </div>
+                )}
+
+                {!isOwner && inStock && <div className="space-y-2 rounded-xl bg-surface-raised p-4 text-sm text-muted">
+                  <h2 className="font-bold text-foreground">Como funciona a compra</h2>
+                  <ol className="list-decimal space-y-1 pl-5">
+                    <li>{produto.exige_entrega ? 'Escolha entrega ou solicite retirada, revise e registre o pedido.' : 'Revise os itens e registre o pedido na EHtech.'}</li>
+                    <li>{produto.exige_entrega ? 'Abra o pedido para combinar entrega ou retirada e aceitar a proposta do vendedor.' : 'Combine com o vendedor como receber seu produto.'}</li>
+                    <li>Combine o pagamento diretamente com o vendedor, fora da EHtech.</li>
+                  </ol>
+                </div>}
+
+                <dl className="space-y-2 border-y border-line py-3 text-sm">
+                  <div className="flex flex-wrap justify-between gap-x-4">
+                    <dt className="text-muted">Entrega</dt>
+                    <dd>{produto.exige_entrega ? 'A combinar' : 'Sem entrega física'}</dd>
+                  </div>
+                  {produto.exige_entrega && (
+                    <div className="flex flex-wrap justify-between gap-x-4">
+                      <dt className="text-muted">Origem do envio</dt>
+                      <dd>{origin || 'A confirmar com o vendedor'}</dd>
                     </div>
-                    <div>
-                      <p className="text-muted text-xs uppercase tracking-wider">Vendido por</p>
-                      <Link href={`/perfil/${produto.vendedor_id}`} className="text-accent hover:underline font-bold text-lg">
-                        {sellerInfo?.nome || produto.vendedor}
-                      </Link>
+                  )}
+                </dl>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {sellerInfo?.foto && isValidImageUrl(sellerInfo.foto) ? (
+                      <ImageWithFallback src={sellerInfo.foto} alt="" sizes="36px" className="size-9 shrink-0 rounded-full bg-surface-raised object-cover" />
+                    ) : (
+                      <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-raised font-bold text-accent">{(sellerInfo?.nome || produto.vendedor || 'V').charAt(0).toUpperCase()}</span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted">Vendido por</p>
+                      {produto.vendedor_id ? (
+                        <Link href={'/perfil/' + produto.vendedor_id} className="break-words font-semibold text-accent hover:underline">{sellerInfo?.nome || produto.vendedor}</Link>
+                      ) : <span className="font-semibold">{sellerInfo?.nome || produto.vendedor}</span>}
                     </div>
                   </div>
-
                   {!isOwner && produto.vendedor_id && (
-                    <Link
-                      href={`/mensagens?vendedor=${produto.vendedor_id}&produto=${produto.id_produto}`}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-accent-fill hover:text-accent-contrast text-foreground text-sm font-semibold rounded-xl border border-line hover:border-accent transition-all"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      Conversar
-                    </Link>
+                    <Link href={'/mensagens?vendedor=' + produto.vendedor_id + '&produto=' + produto.id_produto} className="rounded-xl border border-line px-3 py-2 text-sm font-semibold hover:bg-surface-raised">Tirar dúvidas com o vendedor</Link>
                   )}
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-wrap gap-3">
-                  {!isOwner && <button type="button" onClick={() => addToCart(true)} disabled={Number(produto.estoque) < 1} className="flex-1 rounded-xl bg-accent-fill px-6 py-3 font-bold text-accent-contrast transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">{Number(produto.estoque) < 1 ? 'Sem estoque' : 'Comprar agora'}</button>}
-                  <button
-                    onClick={() => addToCart()}
-                    disabled={isOwner || Number(produto.estoque) < 1}
-                    className="flex-1 rounded-xl border border-line bg-surface px-6 py-3 font-bold text-foreground transition hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Adicionar ao Carrinho
-                  </button>
-                  {isOwner && (
-                    <button
-                      onClick={() => setEditMode(true)}
-                      className="px-6 py-3 border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all"
-                    >
-                      Editar
-                    </button>
-                  )}
-                </div>
-              </>
+                <ProductActions key={produto.id_produto} productId={produto.id_produto} />
+              </section>
             )}
           </div>
         </div>
 
+        <section className={surface + ' space-y-3 p-5 sm:p-6'} aria-labelledby="specifications-heading">
+          <h2 id="specifications-heading" className="text-xl font-bold">Ficha técnica</h2>
+          <ProductSpecificationList product={produto} />
+        </section>
+
+        {!editMode && <ProductExtras productId={produto.id_produto} />}
+
+        <section className={surface + ' p-5 sm:p-6'} aria-labelledby="description-heading">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="description-heading" className="text-xl font-bold">Sobre o produto</h2>
+            {produto.data_criacao && <p className="text-xs text-muted">Publicado em {new Date(produto.data_criacao).toLocaleDateString('pt-BR')}</p>}
+          </div>
+          <div className="mt-4 max-w-[72ch] space-y-4 break-words leading-relaxed text-muted">
+            {descriptionParts.length
+              ? descriptionParts.map((part, index) => <p className="whitespace-pre-line" key={index}>{part}</p>)
+              : <p>O anunciante ainda não informou detalhes.</p>}
+          </div>
+        </section>
+
         {/* Ratings Section */}
-        <div className="mt-12 bg-surface border border-line rounded-2xl p-6">
+        <div className={surface + ' p-5 sm:p-6'}>
           <h2 className="text-2xl font-bold text-foreground mb-4">Avaliações</h2>
           
           {/* Average rating */}
@@ -463,7 +499,6 @@ export default function ProdutoDetalhes({ initialProduct }) {
             <span className="text-muted">({avaliacoes.total} {avaliacoes.total === 1 ? 'avaliação' : 'avaliações'})</span>
           </div>
 
-          <div className="my-6 space-y-4"><ProductActions productId={params.id} />{!isOwner && <ReportControl type="produto" targetId={params.id} label="Denunciar anúncio" />}</div>
           {isLoggedIn && !isOwner && <p className="my-3 text-sm text-muted">{reviewNotice}</p>}
           {isLoggedIn && !isOwner && canReview && (
             <div className="border-t border-line pt-6 mt-6">
@@ -518,6 +553,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
             <p className="text-muted">Este produto ainda não tem avaliações de compras verificadas.</p>
           )}
         </div>
+        {!isOwner && <ReportControl type="produto" targetId={params.id} label="Denunciar anúncio" />}
       </div>
     </div>
   );

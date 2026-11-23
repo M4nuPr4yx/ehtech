@@ -1,10 +1,12 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const { money, integer } = require('../validation')
+const { money, integer, cleanText } = require('../validation')
 const { selectOrigin, publicProduct } = require('../product-origins')
 const { catalogQuery } = require('../product-catalog')
 const { publicCatalogCache } = require('../public-catalog-cache')
 const { findComponent } = require('../components/catalog')
+const { normalizeSpecifications, readSpecifications } = require('../../shared/product-specs.cjs')
+const invalidSpecifications = 'Confira os campos da ficha técnica desta categoria. Use até 80 caracteres por campo.'
 module.exports = function createProductsRouter(pool, { criarNotificacao }) {
 const router = createRouter()
 router.get("/produtos", async (req, res) => {
@@ -62,7 +64,7 @@ router.get("/produtos/meus", autenticarToken, async (req, res) => {
       'SELECT * FROM produtos WHERE vendedor_id = ? OR vendedor = ? ORDER BY id_produto DESC',
       [req.user.id, req.user.email]
     )
-    return res.json(rows)
+    return res.json(rows.map(row => ({ ...row, especificacoes: readSpecifications(row.categoria, row.especificacoes) })))
   } catch (error) {
     console.error('[produtos/meus] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao listar seus produtos" })
@@ -105,20 +107,23 @@ router.get("/produtos/:id", (req, res, next) => req.headers.authorization ? aute
 router.post("/produtos", autenticarToken, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
 
-  if (!nome || typeof nome !== 'string' || nome.trim() === '') {
-    return res.status(400).json({ mensagem: "Nome do produto é obrigatório" })
+  const cleanNome = cleanText(nome, 255)
+  const cleanDescricao = cleanText(descricao, 5000, { multiline: true })
+  const cleanCategoria = cleanText(categoria, 60)
+  if (!cleanNome) {
+    return res.status(400).json({ mensagem: 'Informe um nome válido para o produto.' })
   }
-  if (!descricao || typeof descricao !== 'string' || descricao.trim() === '') {
-    return res.status(400).json({ mensagem: "Descrição é obrigatória" })
+  if (!cleanDescricao) {
+    return res.status(400).json({ mensagem: 'Informe uma descrição válida para o produto.' })
   }
 
   const parsedPreco = money(preco)
   if (!Number.isFinite(parsedPreco)) {
-    return res.status(400).json({ mensagem: "Preço deve ser um valor numérico positivo" })
+    return res.status(400).json({ mensagem: 'Informe um preço positivo com até duas casas decimais, como 129,90.' })
   }
 
-  if (!categoria || typeof categoria !== 'string' || categoria.trim() === '') {
-    return res.status(400).json({ mensagem: "Categoria é obrigatória" })
+  if (!cleanCategoria) {
+    return res.status(400).json({ mensagem: 'Informe uma categoria válida.' })
   }
 
   const cleanEstoque = estoque === undefined ? 0 : integer(estoque)
@@ -126,9 +131,8 @@ router.post("/produtos", autenticarToken, async (req, res) => {
     return res.status(400).json({ mensagem: 'Estoque deve ser um número inteiro não negativo.' })
   }
 
-  const cleanNome = nome.trim().slice(0, 255)
-  const cleanDescricao = descricao.trim().slice(0, 5000)
-  const cleanCategoria = categoria.trim().slice(0, 60)
+  const specifications = normalizeSpecifications(cleanCategoria, req.body.especificacoes, true)
+  if (!specifications) return res.status(400).json({ mensagem: invalidSpecifications })
   
   let cleanImagem = ''
   if (imagem) {
@@ -154,8 +158,8 @@ router.post("/produtos", autenticarToken, async (req, res) => {
     if (req.body.exige_entrega !== undefined && typeof req.body.exige_entrega !== 'boolean') return res.status(400).json({ mensagem: 'Informe se o produto exige entrega física.' })
     const origin = requiresShipping ? await selectOrigin(pool, vendedorId, req.body.origem_endereco_id, req.body.origem_versao) : null
     const result = await pool.execute(
-      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao, componente_id, exige_entrega, origem_endereco_id, origem_snapshot, origem_uf, origem_cidade, data_criacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-      [cleanNome, cleanDescricao, parsedPreco, cleanEstoque, cleanCategoria, cleanImagem, vendedorName, vendedorId, componentId, requiresShipping, origin?.id ?? null, origin?.snapshot ?? null, origin?.uf ?? null, origin?.cidade ?? null]
+      "INSERT INTO produtos (nome, descricao, preco, estoque, categoria, imagem, vendedor, vendedor_id, status_aprovacao, componente_id, exige_entrega, origem_endereco_id, origem_snapshot, origem_uf, origem_cidade, especificacoes, data_criacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+      [cleanNome, cleanDescricao, parsedPreco, cleanEstoque, cleanCategoria, cleanImagem, vendedorName, vendedorId, componentId, requiresShipping, origin?.id ?? null, origin?.snapshot ?? null, origin?.uf ?? null, origin?.cidade ?? null, JSON.stringify(specifications)]
     )
 
     await criarNotificacao({
@@ -183,7 +187,7 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
 
   try {
-    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao, componente_id, exige_entrega, origem_endereco_id, origem_snapshot, origem_uf, origem_cidade FROM produtos WHERE id_produto = ?', [numericId])
+    const [rows] = await pool.execute('SELECT nome, descricao, preco, estoque, categoria, vendedor, vendedor_id, imagem, status_aprovacao, componente_id, exige_entrega, origem_endereco_id, origem_snapshot, origem_uf, origem_cidade, especificacoes FROM produtos WHERE id_produto = ?', [numericId])
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Produto não encontrado" })
     }
@@ -195,21 +199,25 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
       return res.status(403).json({ mensagem: "Você não tem permissão para editar este produto" })
     }
 
-    const cleanNome = (nome !== undefined ? String(nome) : rows[0].nome).trim().slice(0, 255)
-    const cleanDescricao = (descricao !== undefined ? String(descricao) : rows[0].descricao).trim().slice(0, 5000)
+    const cleanNome = nome === undefined ? rows[0].nome : cleanText(nome, 255)
+    const cleanDescricao = descricao === undefined ? rows[0].descricao : cleanText(descricao, 5000, { multiline: true })
     const parsedPreco = money(preco !== undefined ? preco : rows[0].preco)
     const parsedEstoque = integer(estoque !== undefined ? estoque : rows[0].estoque)
-    const cleanCategoria = (categoria !== undefined ? String(categoria) : rows[0].categoria).trim().slice(0, 60)
-    if (!cleanNome || !cleanDescricao || !cleanCategoria ||
-        [nome, descricao, categoria].some(value => value !== undefined && typeof value !== 'string') ||
-        !Number.isFinite(parsedPreco) || !Number.isInteger(parsedEstoque) || parsedEstoque < 0 || parsedEstoque > 2147483647) {
-      return res.status(400).json({ mensagem: 'Informe nome, descrição, categoria, preço positivo e estoque inteiro válido.' })
-    }
+    const cleanCategoria = categoria === undefined ? rows[0].categoria : cleanText(categoria, 60)
+    if (!cleanNome || !cleanDescricao || !cleanCategoria) return res.status(400).json({ mensagem: 'Informe um nome, uma descrição e uma categoria válidos.' })
+    if (!Number.isFinite(parsedPreco)) return res.status(400).json({ mensagem: 'Informe um preço positivo com até duas casas decimais, como 129,90.' })
+    if (!Number.isInteger(parsedEstoque) || parsedEstoque < 0 || parsedEstoque > 2147483647) return res.status(400).json({ mensagem: 'Estoque deve ser um número inteiro não negativo.' })
 
     const statusesValidos = ['aprovado', 'reprovado', 'pendente']
     let statusAprovacao = (isAdmin && req.body.status_aprovacao && statusesValidos.includes(req.body.status_aprovacao))
       ? req.body.status_aprovacao
       : rows[0].status_aprovacao
+    const previousSpecifications = readSpecifications(rows[0].categoria, rows[0].especificacoes)
+    const specifications = req.body.especificacoes === undefined
+      ? normalizeSpecifications(cleanCategoria, previousSpecifications)
+      : normalizeSpecifications(cleanCategoria, req.body.especificacoes, true)
+    if (!specifications) return res.status(400).json({ mensagem: invalidSpecifications })
+    if (!isAdmin && JSON.stringify(specifications) !== JSON.stringify(previousSpecifications)) statusAprovacao = 'pendente'
 
     let imagemValue = rows[0].imagem
     if (imagem !== undefined) {
@@ -240,9 +248,9 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
     if (!requiresShipping) origin = null
     else if (req.body.origem_endereco_id !== undefined) origin = await selectOrigin(pool, rows[0].vendedor_id, req.body.origem_endereco_id, req.body.origem_versao)
     else if (!origin.snapshot) return res.status(400).json({ mensagem: 'Selecione um endereço de origem para este anúncio antigo.' })
-    if (!isAdmin && (origin?.snapshot !== rows[0].origem_snapshot || requiresShipping !== Boolean(rows[0].exige_entrega))) statusAprovacao = 'pendente'
+    if (!isAdmin && ((origin?.snapshot ?? null) !== (rows[0].origem_snapshot ?? null) || requiresShipping !== Boolean(rows[0].exige_entrega))) statusAprovacao = 'pendente'
     await pool.execute(
-      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ?, status_aprovacao = ?, componente_id = ?, exige_entrega = ?, origem_endereco_id = ?, origem_snapshot = ?, origem_uf = ?, origem_cidade = ? WHERE id_produto = ?',
+      'UPDATE produtos SET nome = ?, descricao = ?, preco = ?, estoque = ?, categoria = ?, imagem = ?, status_aprovacao = ?, componente_id = ?, exige_entrega = ?, origem_endereco_id = ?, origem_snapshot = ?, origem_uf = ?, origem_cidade = ?, especificacoes = ? WHERE id_produto = ?',
       [
         cleanNome,
         cleanDescricao,
@@ -257,6 +265,7 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
         origin?.snapshot ?? null,
         origin?.uf ?? null,
         origin?.cidade ?? null,
+        JSON.stringify(specifications),
         numericId
       ]
     )
@@ -270,7 +279,7 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
       })
     }
 
-    return res.json({ mensagem: "Produto atualizado com sucesso" })
+    return res.json({ mensagem: statusAprovacao === 'pendente' ? 'Produto atualizado e enviado para análise.' : 'Produto atualizado com sucesso', status_aprovacao: statusAprovacao })
   } catch (error) {
     if (error.status) return res.status(error.status).json({ mensagem: error.message })
     console.error('[produtos/update] Erro:', error.message)

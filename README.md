@@ -1,6 +1,6 @@
 # EHtech
 
-Marketplace acadêmico de tecnologia: produtos com aprovação administrativa, serviços técnicos, pedidos, mensagens, passaporte de equipamentos e verificação de compatibilidade de componentes.
+Marketplace acadêmico de tecnologia: produtos com aprovação administrativa, serviços técnicos, pedidos, mensagens e verificação de compatibilidade de componentes.
 
 Next.js 16 / React 19 no frontend, Express no backend e MySQL (local) ou PostgreSQL/Neon. Interface em português do Brasil.
 

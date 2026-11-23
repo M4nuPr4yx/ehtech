@@ -11,6 +11,9 @@ function configuration() {
     return { clientId: id, secret, redirectUri: redirect.href, site: redirect.origin }
   } catch { return null }
 }
+function matchesRequestOrigin(config, origin) {
+  return origin === undefined || origin === config.site
+}
 function destination(value) {
   if (typeof value !== 'string' || value.length > 1000 || !value.startsWith('/') || value.startsWith('//') || /[\\\u0000-\u0020]/.test(value)) return '/perfil'
   try { const url = new URL(value, 'https://ehtech.invalid'); return url.origin === 'https://ehtech.invalid' && url.pathname !== '/login/google' ? url.pathname + url.search + url.hash : '/perfil' } catch { return '/perfil' }
@@ -44,4 +47,4 @@ async function exchangeCode(config, code, verifier) {
     return data.id_token
   } catch (error) { if (error.status) throw error; throw problem(503, 'O Google está temporariamente indisponível. Tente novamente.') }
 }
-module.exports = { configuration, destination, encrypt, decrypt, authorizationUrl, exchangeCode }
+module.exports = { configuration, matchesRequestOrigin, destination, encrypt, decrypt, authorizationUrl, exchangeCode }

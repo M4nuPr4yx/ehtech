@@ -1,5 +1,6 @@
 const { integer } = require('./validation')
 const { problem, validateAddress, addressSnapshot } = require('./addresses')
+const { readSpecifications } = require('../shared/product-specs.cjs')
 
 async function selectOrigin(pool, userId, addressId, version) {
   if (!(integer(addressId) > 0) || !(integer(version) > 0)) throw problem(400, 'Selecione e confirme um endereço salvo de origem do envio.')
@@ -11,8 +12,8 @@ async function selectOrigin(pool, userId, addressId, version) {
   return { id: Number(address.id), snapshot: JSON.stringify(addressSnapshot(address)), uf: address.uf, cidade: address.cidade }
 }
 function publicProduct(row) {
-  const { origem_snapshot: _snapshot, origem_endereco_id: _addressId, ...safe } = row
-  return safe
+  const { origem_snapshot: _snapshot, origem_endereco_id: _addressId, especificacoes, ...safe } = row
+  return { ...safe, especificacoes: readSpecifications(row.categoria, especificacoes) }
 }
 function productOrigin(product) {
   if (!product.origem_snapshot) return null

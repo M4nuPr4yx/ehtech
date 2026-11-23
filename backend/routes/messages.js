@@ -1,6 +1,6 @@
 const createRouter = require('./router')
 const { autenticarToken, verifyAdmin } = require('../middleware/auth')
-const { integer } = require('../validation')
+const { integer, cleanText, truncateText } = require('../validation')
 const { profilePhoto } = require('../../shared/profile-defaults.cjs')
 module.exports = function createMessagesRouter(pool, { criarNotificacao }) {
 const router = createRouter()
@@ -21,11 +21,10 @@ router.post("/mensagens", autenticarToken, async (req, res) => {
     return res.status(400).json({ mensagem: "Você não pode enviar mensagens para si mesmo" })
   }
 
-  if (!conteudo || typeof conteudo !== 'string' || conteudo.trim() === '') {
-    return res.status(400).json({ mensagem: "O conteúdo da mensagem é obrigatório" })
+  const cleanConteudo = cleanText(conteudo, 2000, { multiline: true })
+  if (!cleanConteudo) {
+    return res.status(400).json({ mensagem: 'Digite uma mensagem válida.' })
   }
-
-  const cleanConteudo = conteudo.trim().slice(0, 2000)
 
   try {
     // Verificar se destinatário existe
@@ -45,7 +44,7 @@ router.post("/mensagens", autenticarToken, async (req, res) => {
       usuarioId: parsedDestinatarioId,
       produtoId: parsedProdutoId,
       tipo: 'nova_mensagem',
-      mensagem: `Nova mensagem de ${req.user.username || 'um usuário'}: "${cleanConteudo.length > 40 ? cleanConteudo.slice(0, 37) + '...' : cleanConteudo}"`
+      mensagem: `Nova mensagem de ${req.user.username || 'um usuário'}: "${cleanConteudo.length > 40 ? truncateText(cleanConteudo, 37) + '...' : cleanConteudo}"`
     })
 
     return res.status(201).json({

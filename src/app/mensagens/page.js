@@ -28,6 +28,11 @@ function MensagensContent() {
   const searchParams = useSearchParams();
   const urlVendedorId = searchParams.get('usuario') || searchParams.get('vendedor');
   const urlProdutoId = searchParams.get('produto');
+  const orderId = searchParams.get('pedido');
+  const backTo = /^[1-9]\d*$/.test(orderId || '') ? { href: `/pedidos/${orderId}`, label: `Voltar ao pedido #${orderId}` }
+    : searchParams.get('checkout') === '1' ? { href: '/checkout', label: 'Voltar à preparação do pedido' }
+    : /^[1-9]\d*$/.test(urlProdutoId || '') ? { href: `/produtos/${urlProdutoId}`, label: 'Voltar ao anúncio' }
+    : null;
 
   const [currentUser, setCurrentUser] = useState(null);
   const [conversations, setConversations] = useState([]);
@@ -291,6 +296,7 @@ function MensagensContent() {
         </div>
       )}
       <div className="max-w-7xl mx-auto">
+        {backTo && <Link href={backTo.href} className="mb-4 inline-flex items-center rounded-xl border border-line bg-surface px-4 py-2 text-sm font-bold text-accent hover:bg-surface-raised">{backTo.label}</Link>}
         {/* Cabeçalho da página */}
         <div className="flex items-center justify-between mb-6">
           <div>

@@ -4,7 +4,7 @@ import LoadingState from '../complements/LoadingState';
 
 import { apiResponse } from '../../lib/api-request.js';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from '../complements/ImageWithFallback';
@@ -12,15 +12,21 @@ import { DEFAULT_PROFILE_PHOTO, getMainImage, isValidImageUrl, isDefaultProfileP
 import AddressBook, { AddressDetails } from '../complements/AddressBook';
 import { freightLabel } from '../../lib/shipping';
 import { orderStatus } from '../../lib/order-status';
+import { ListingDetailLink, replaceListingParams, useListingQuery, useListingScroll } from '../complements/ListingNavigation';
 
 const CONTRACT_STATUS = {
   solicitado: 'Solicitado', orcamento_enviado: 'Orçamento enviado', aceito: 'Aceito',
   em_execucao: 'Em execução', concluido: 'Concluído', cancelado: 'Cancelado'
 };
 
-export default function Perfil() {
+const profileQuery = { aba: 'perfil', pedido: '' };
+const profileTabs = ['perfil', 'seguranca', 'produtos', 'enderecos', 'historico'];
+
+function PerfilContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('perfil');
+  const { query, search } = useListingQuery(profileQuery);
+  const activeTab = profileTabs.includes(query.aba) ? query.aba : 'perfil';
+  const returnTo = search ? '/perfil?' + search : '/perfil';
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState(null);
   const [profileError, setProfileError] = useState('');
@@ -55,6 +61,14 @@ export default function Perfil() {
   const sectionLoadedAt = useRef({ produtos: 0, historico: 0 });
   const [productsError, setProductsError] = useState('');
   const [historyError, setHistoryError] = useState('');
+  useListingScroll(!loading && (activeTab === 'produtos'
+    ? !loadingProducts && userProducts.length > 0
+    : activeTab === 'historico' && !loadingHistory && productOrders.length > 0), search);
+
+  function setActiveTab(aba) {
+    replaceListingParams({ aba, pedido: '' }, profileQuery);
+    setMessage('');
+  }
 
   const fetchPerfil = useCallback(async () => {
     setLoading(true);
@@ -62,7 +76,7 @@ export default function Perfil() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        router.replace('/?login=1&next=%2Fperfil');
+        router.replace(`/?login=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       const res = await apiResponse('/perfil', {
@@ -145,18 +159,12 @@ export default function Perfil() {
   }, [activeTab, fetchUserProducts, fetchHistory]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('aba') === 'enderecos') setActiveTab('enderecos');
-    if (params.get('aba') === 'seguranca') setActiveTab('seguranca');
-    if (params.get('aba') === 'historico') {
-      setActiveTab('historico');
-      if (params.get('pedido') === '1') {
-        setMessage('Pedido registrado no seu histórico. Nenhuma cobrança foi realizada.');
-        setMessageType('success');
-        window.history.replaceState({}, '', '/perfil?aba=historico');
-      }
+    if (activeTab === 'historico' && query.pedido === '1') {
+      setMessage('Pedido registrado no seu histórico. Nenhuma cobrança foi realizada.');
+      setMessageType('success');
+      replaceListingParams({ pedido: '' });
     }
-  }, []);
+  }, [activeTab, query.pedido]);
 
   const handleSaveName = async event => {
     event.preventDefault();
@@ -404,26 +412,26 @@ const handleChangeEmail = async (e) => {
 {/* Tabs */}
           <div className="flex mb-6 border-b border-line overflow-x-auto">
             <button
-              aria-pressed={activeTab === 'perfil'} onClick={() => { setActiveTab('perfil'); setMessage(''); }}
+              aria-pressed={activeTab === 'perfil'} onClick={() => setActiveTab('perfil')}
               className={`py-3 px-4 whitespace-nowrap text-sm font-semibold transition-all ${activeTab === 'perfil' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Perfil
             </button>
             <button
-              aria-pressed={activeTab === 'seguranca'} onClick={() => { setActiveTab('seguranca'); setMessage(''); }}
+              aria-pressed={activeTab === 'seguranca'} onClick={() => setActiveTab('seguranca')}
               className={`py-3 px-6 font-bold transition-all ${activeTab === 'seguranca' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Segurança
             </button>
             <button
-              aria-pressed={activeTab === 'produtos'} onClick={() => { setActiveTab('produtos'); setMessage(''); }}
+              aria-pressed={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')}
               className={`py-3 px-6 font-bold transition-all ${activeTab === 'produtos' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Seus Produtos
             </button>
-            <button aria-pressed={activeTab === 'enderecos'} onClick={() => { setActiveTab('enderecos'); setMessage(''); }} className={`whitespace-nowrap px-4 py-3 text-sm font-bold ${activeTab === 'enderecos' ? 'border-b-2 border-accent text-accent' : 'text-muted hover:text-foreground'}`}>Meus Endereços</button>
+            <button aria-pressed={activeTab === 'enderecos'} onClick={() => setActiveTab('enderecos')} className={`whitespace-nowrap px-4 py-3 text-sm font-bold ${activeTab === 'enderecos' ? 'border-b-2 border-accent text-accent' : 'text-muted hover:text-foreground'}`}>Meus Endereços</button>
             <button
-              aria-pressed={activeTab === 'historico'} onClick={() => { setActiveTab('historico'); setMessage(''); }}
+              aria-pressed={activeTab === 'historico'} onClick={() => setActiveTab('historico')}
               className={`py-3 px-6 whitespace-nowrap font-bold transition-all ${activeTab === 'historico' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-foreground'}`}
             >
               Histórico
@@ -551,9 +559,9 @@ const handleChangeEmail = async (e) => {
                           Editar
                         </Link>
                         {produto.status_aprovacao === 'aprovado' && (
-                          <Link href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-surface hover:bg-surface text-foreground font-bold rounded text-sm text-center">
+                          <ListingDetailLink from={returnTo} href={`/produtos/${produto.id_produto}`} className="px-3 py-1 bg-surface hover:bg-surface text-foreground font-bold rounded text-sm text-center">
                             Ver
-                          </Link>
+                          </ListingDetailLink>
                         )}
                         <button 
                           onClick={async () => {
@@ -632,15 +640,15 @@ const handleChangeEmail = async (e) => {
                     <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-foreground">Pedidos de produtos</h3><Link href="/pedidos" className="text-sm font-bold text-accent underline">Acompanhar compras e vendas →</Link></div><span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent">{productOrders.length}</span></div>
                     {productOrders.length ? <div className="space-y-4">{productOrders.map((order) => (
                       <article key={order.id_pedido} className="overflow-hidden rounded-2xl border border-line bg-surface-raised">
-                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><span className="text-xs uppercase tracking-wider text-muted">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-muted">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-info-soft px-2.5 py-1 text-xs font-bold text-info">{orderStatus[order.status] || order.status}{order.frete_pendente ? ' · Frete pendente' : ''}</span><strong className="mt-1 block text-lg text-accent">{order.frete_pendente || order.acordo_pendente ? 'Parcial / referência: ' : ''}{formatCurrency(order.total_parcial ?? order.total)}</strong></div></header>
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4"><div><span className="text-xs uppercase tracking-wider text-muted">Pedido #{order.id_pedido}</span><p className="mt-1 text-xs text-muted">Registrado em {formatDate(order.created_at)}</p></div><div className="text-right"><span className="block rounded-full bg-info-soft px-2.5 py-1 text-xs font-bold text-info">{orderStatus[order.status] || order.status}{order.frete_pendente ? ' · Frete pendente' : ''}</span>{order.status !== 'cancelado' && <strong className="mt-1 block text-lg text-accent">{order.frete_pendente || order.acordo_pendente ? 'Parcial / referência: ' : ''}{formatCurrency(order.total_parcial ?? order.total)}</strong>}</div></header>
                         <div className="divide-y divide-line">{order.itens.map((item) => (
-                          <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><Link href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-foreground hover:text-accent">{item.nome_produto}</Link><p className="truncate text-xs text-muted">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-muted">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-muted">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
+                          <div key={item.id_item} className="flex items-center gap-4 p-4"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface"><ImageWithFallback src={getMainImage(item.imagem)} alt={item.nome_produto} className="h-full w-full object-cover" sizes="56px" /></div><div className="min-w-0 flex-1"><ListingDetailLink from={returnTo} href={`/produtos/${item.produto_id}`} className="block truncate text-sm font-bold text-foreground hover:text-accent">{item.nome_produto}</ListingDetailLink><p className="truncate text-xs text-muted">Vendedor: {item.vendedor_nome}</p></div><div className="text-right"><span className="block text-xs text-muted">{item.quantidade} × {formatCurrency(item.preco_unitario)}</span><strong className="text-sm text-muted">{formatCurrency(item.quantidade * item.preco_unitario)}</strong></div></div>
                         ))}</div>
                         <footer className="space-y-3 border-t border-line bg-surface px-5 py-4 text-xs text-muted">
-                          <Link href={`/pedidos/${order.id_pedido}`} className="inline-block text-sm font-bold text-accent underline">Ver pedido, propostas e entrega →</Link>
+                          <ListingDetailLink from={returnTo} href={`/pedidos/${order.id_pedido}`} className="inline-block text-sm font-bold text-accent underline">Ver pedido, propostas e entrega</ListingDetailLink>
                           {order.endereco_entrega && <div><p className="mb-2 font-bold">Endereço registrado neste pedido</p><AddressDetails address={order.endereco_entrega} /></div>}
                           {order.entrega?.map(option => <div key={option.grupo_id || option.vendedor_id}><p>{option.vendedor}{option.origem ? ` (${option.origem.cidade}/${option.origem.uf})` : ''}: {option.nome} · {freightLabel(option)} · {option.prazo}</p>{option.tipo === 'a_combinar' && <Link href={`/mensagens?usuario=${option.vendedor_id}`} className="font-bold text-accent underline">Combinar entrega e frete com o vendedor →</Link>}</div>)}
-                          <p>Frete: {order.frete_pendente ? 'A combinar (não incluído no subtotal)' : formatCurrency(order.frete || 0)}{order.frete_pendente && order.frete_conhecido > 0 ? ` · Fretes já definidos: ${formatCurrency(order.frete_conhecido)}` : ''} · Pagamento: {order.status_pagamento === 'pago' ? 'Pago' : 'Não iniciado'}. Nenhuma cobrança online realizada pelo registro do pedido.</p>
+                          {order.status !== 'cancelado' && <p>Frete: {order.frete_pendente ? 'A combinar (não incluído no subtotal)' : formatCurrency(order.frete || 0)}{order.frete_pendente && order.frete_conhecido > 0 ? ` · Fretes já definidos: ${formatCurrency(order.frete_conhecido)}` : ''} · Pagamento: {order.status_pagamento === 'pago' ? 'Pago' : 'Não iniciado'}. Nenhuma cobrança online realizada pelo registro do pedido.</p>}
                           {order.frete_pendente && <p className="text-warning">O subtotal inclui os itens e fretes já definidos, mas não os fretes pendentes. O valor final, a disponibilidade de entrega e o prazo dependem de acordo pelo chat.</p>}
                         </footer>
                       </article>
@@ -654,4 +662,8 @@ const handleChangeEmail = async (e) => {
       </div>
     </div>
   );
+}
+
+export default function Perfil() {
+  return <Suspense fallback={<LoadingState label="Carregando perfil…" fullPage />}><PerfilContent /></Suspense>;
 }

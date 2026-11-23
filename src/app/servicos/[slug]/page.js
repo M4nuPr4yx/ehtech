@@ -9,6 +9,7 @@ import { ReportControl } from '../../complements/TrustControls'
 import ServiceIcon from '../ServiceIcon'
 import { categoryLabel, modalityLabel, servicePrice } from '../serviceData'
 import styles from '../servicos.module.css'
+import { ListingBackLink } from '../../complements/ListingNavigation'
 
 export default function ServiceDetailPage() {
   const { slug } = useParams()
@@ -38,7 +39,7 @@ export default function ServiceDetailPage() {
     return () => controller.abort()
   }, [slug])
 
-  if (error) return <div className={styles.detailState}><h1>Serviço indisponível</h1><p>{error}</p><Link href="/servicos">Voltar aos serviços</Link></div>
+  if (error) return <div className={styles.detailState}><h1>Serviço indisponível</h1><p>{error}</p><ListingBackLink fallback="/servicos" fallbackLabel="Voltar aos serviços" /></div>
   if (!service) return <div className={styles.detailState} role="status"><div className={styles.loadingMark} />Carregando serviço…</div>
 
   const initials = String(service.prestador || 'EH').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()
@@ -46,7 +47,7 @@ export default function ServiceDetailPage() {
   const openQuoteForm = () => {
     const token = localStorage.getItem('token')
     if (!token) {
-      const destination = `/servicos/${encodeURIComponent(slug)}`
+      const destination = window.location.pathname + window.location.search
       router.push(`/?login=1&next=${encodeURIComponent(destination)}`)
       return
     }
@@ -81,7 +82,7 @@ export default function ServiceDetailPage() {
   return (
     <div className={styles.detailPage}>
       <div className={styles.detailShell}>
-        <div className={styles.breadcrumb}><Link href="/">Início</Link><span>/</span><Link href="/servicos">Serviços</Link><span>/</span><span>{service.titulo}</span></div>
+        <div className={styles.breadcrumb}><ListingBackLink fallback="/servicos" fallbackLabel="Voltar aos serviços" /></div>
         <div className={styles.detailGrid}>
           <article>
             <div className={styles.detailHero}>

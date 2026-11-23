@@ -19,6 +19,13 @@ test('endereço valida todos os obrigatórios, CEP, DDD, UF e sem número', () =
   assert.ok(validateAddress({ ...address, telefone: '999999999' }).errors.telefone)
   assert.equal(validateAddress({ ...address, salvar: false }).value.principal, false)
   assert.equal(addressFingerprint(result.value), addressFingerprint(validateAddress({ ...address, principal: false }).value))
+  const accented = validateAddress({ ...address, destinatario: "  Ana-Lúcia D'Ávila  ", logradouro: '  Praça da Sé  ' })
+  assert.equal(accented.valid, true)
+  assert.equal(accented.value.destinatario, "Ana-Lúcia D'Ávila")
+  assert.equal(accented.value.logradouro, 'Praça da Sé')
+  assert.ok(validateAddress({ ...address, destinatario: '-- --' }).errors.destinatario)
+  assert.ok(validateAddress({ ...address, cidade: '\u200B\u200B' }).errors.cidade)
+  assert.ok(validateAddress({ ...address, complemento: {} }).errors.complemento)
 })
 
 test('CEP: válido, inválido, inexistente, sem bairro e indisponibilidade', async () => {

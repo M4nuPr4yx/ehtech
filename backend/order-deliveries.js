@@ -1,19 +1,21 @@
-const { integer } = require('./validation')
+const { integer, money, cleanText } = require('./validation')
 const { problem } = require('./addresses')
 const { parse, freightSummary } = require('./checkout')
 
-const LABELS = { aguardando_proposta: 'Aguardando proposta', proposta_enviada: 'Proposta aguardando aceite', acordo_confirmado: 'Acordo confirmado', enviado: 'Enviado', pronto_retirada: 'Pronto para retirada', recebido: 'Recebimento confirmado' }
+const LABELS = { aguardando_proposta: 'Aguardando proposta', proposta_enviada: 'Proposta aguardando aceite', acordo_confirmado: 'Acordo confirmado', enviado: 'Enviado', pronto_retirada: 'Pronto para retirada', recebido: 'Recebimento confirmado', cancelado: 'Cancelado' }
 const ACTIONS = ['propor', 'aceitar', 'recusar', 'despachar', 'receber']
 const empty = () => ({ proposta: null, acordo: null, despacho: null, proposta_em: null, aceito_em: null, recebido_em: null })
 const decoded = row => ({ id: Number(row.id), pedido_id: Number(row.pedido_id), grupo_id: row.grupo_id, vendedor_id: Number(row.vendedor_id), estado: row.estado, versao: Number(row.versao), ...parse(row.dados) })
-const text = (value, max, min = 0) => typeof value === 'string' && value.trim().length >= min && value.length <= max && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/.test(value) ? value.trim() : null
+function text(value, max, min = 0) {
+  const cleaned = cleanText(value, max, { multiline: true })
+  return cleaned !== null && cleaned.length >= min && value.length <= max && !/[<>]/.test(value) ? cleaned : null
+}
 
 function proposal(input) {
-  const raw = input.valor_frete
-  const value = typeof raw === 'number' || (typeof raw === 'string' && /^\d+(?:\.\d{1,2})?$/.test(raw.trim())) ? Number(raw) : NaN
+  const value = money(input.valor_frete, { min: 0, max: 100000 })
   const prazo = text(input.prazo, 300, 5), observations = text(input.observacoes ?? '', 500)
-  if (!Number.isFinite(value) || value < 0 || value > 100000 || Math.abs(value * 100 - Math.round(value * 100)) > 0.000001 || !['entrega', 'retirada'].includes(input.modalidade) || !prazo || observations === null || (input.modalidade === 'retirada' && value !== 0)) throw problem(400, 'Informe modalidade, frete de 0 a 100.000 com até duas casas decimais e prazo de 5 a 300 caracteres. Retirada não tem frete.')
-  return { modalidade: input.modalidade, valor_frete: Math.round(value * 100) / 100, prazo, observacoes: observations }
+  if (!Number.isFinite(value) || !['entrega', 'retirada'].includes(input.modalidade) || !prazo || observations === null || (input.modalidade === 'retirada' && value !== 0)) throw problem(400, 'Informe modalidade, frete de 0 a 100.000 com até duas casas decimais e prazo de 5 a 300 caracteres. Retirada não tem frete.')
+  return { modalidade: input.modalidade, valor_frete: value, prazo, observacoes: observations }
 }
 
 function transition(current, input, role, now = new Date().toISOString()) {
@@ -52,35 +54,44 @@ function deliveryRecords(order, records) {
   return original.map((option, index) => {
     const group = option.grupo_id || `${Number(option.vendedor_id)}:${index + 1}`
     const record = records.find(item => item.grupo_id === group)
-    return { ...empty(), grupo_id: group, vendedor_id: Number(option.vendedor_id), vendedor: option.vendedor, origem: option.origem || null, referencia: option, estado: 'aguardando_proposta', versao: 0, ...(record ? decoded(record) : {}) }
+    return { ...empty(), grupo_id: group, vendedor_id: Number(option.vendedor_id), vendedor: option.vendedor, origem: option.origem || null, retirada_solicitada: option.tipo === 'retirada', referencia: option, estado: 'aguardando_proposta', versao: 0, ...(record ? decoded(record) : {}) }
   })
 }
 
 function orderStatus(deliveries) {
   if (!deliveries.length || deliveries.every(item => item.estado === 'aguardando_proposta')) return 'registrado'
+  if (deliveries.every(item => item.estado === 'cancelado')) return 'cancelado'
   if (deliveries.every(item => item.estado === 'recebido')) return 'concluido'
   if (deliveries.some(item => ['enviado', 'pronto_retirada', 'recebido'].includes(item.estado))) return 'em_entrega'
   if (deliveries.every(item => item.acordo)) return 'acordo_confirmado'
   return 'em_negociacao'
 }
 
+function waitingForProposals(deliveries) {
+  return deliveries.length > 0 && deliveries.every(item => item.estado === 'aguardando_proposta' && !item.acordo)
+}
+
 function projectOrder(order, items, records, userId) {
   const buyer = Number(order.comprador_id) === Number(userId)
   const ownItems = buyer ? items : items.filter(item => Number(item.vendedor_id) === Number(userId))
   if (!buyer && !ownItems.length) throw problem(404, 'Pedido não encontrado.')
-  const progress = deliveryRecords(order, records).filter(item => buyer || item.vendedor_id === Number(userId))
+  const allDeliveries = deliveryRecords(order, records)
+  const progress = allDeliveries.filter(item => buyer || item.vendedor_id === Number(userId))
+  const status = order.status === 'cancelado' || !progress.length ? order.status : orderStatus(progress)
+  const cancelled = status === 'cancelado'
   const effective = progress.map(item => {
     const option = { ...item.referencia, grupo_id: item.grupo_id }
     if (item.acordo) return { ...option, tipo: 'acordada', valor: item.acordo.valor_frete, nome: item.acordo.modalidade === 'retirada' ? 'Retirada acordada' : 'Entrega acordada', prazo: item.acordo.prazo }
-    if (item.proposta) return { ...option, tipo: 'a_combinar', valor: null }
+    if (item.proposta && !item.retirada_solicitada) return { ...option, tipo: 'a_combinar', valor: null }
     return option
   })
   const subtotal = ownItems.reduce((sum, item) => sum + Math.round(Number(item.preco_unitario) * 100) * Number(item.quantidade), 0) / 100
   const { pending, known } = freightSummary(effective)
   const partial = Math.round((subtotal + known) * 100) / 100
   const maySeeAddress = buyer || progress.some(item => item.acordo?.modalidade === 'entrega' && ['acordo_confirmado', 'enviado', 'recebido'].includes(item.estado))
-  return { id_pedido: Number(order.id_pedido), comprador_id: Number(order.comprador_id), comprador_nome: order.comprador_nome || 'Comprador', papel: buyer ? 'comprador' : 'vendedor', status: progress.length ? orderStatus(progress) : order.status, status_pagamento: order.status_pagamento, created_at: order.created_at, updated_at: order.updated_at,
-    subtotal, total: pending ? null : partial, total_parcial: partial, frete: pending ? null : known, frete_conhecido: known, frete_pendente: pending, acordo_pendente: progress.some(item => !item.acordo),
+  return { id_pedido: Number(order.id_pedido), comprador_id: Number(order.comprador_id), comprador_nome: order.comprador_nome || 'Comprador', papel: buyer ? 'comprador' : 'vendedor', status, status_pagamento: order.status_pagamento, created_at: order.created_at, updated_at: order.updated_at,
+    pode_cancelar: buyer && order.status === 'registrado' && !cancelled && waitingForProposals(allDeliveries),
+    subtotal, total: pending || cancelled ? null : partial, total_parcial: partial, frete: pending || cancelled ? null : known, frete_conhecido: known, frete_pendente: !cancelled && pending, acordo_pendente: !cancelled && progress.some(item => !item.acordo),
     endereco_entrega: maySeeAddress && order.endereco_entrega ? parse(order.endereco_entrega) : null,
     entrega: effective, entregas: progress.map(({ referencia, ...item }) => ({ ...item, rotulo: LABELS[item.estado] })),
     itens: ownItems.map(({ origem_envio, ...item }) => ({ ...item, preco_unitario: Number(item.preco_unitario), quantidade: Number(item.quantidade) })) }
@@ -111,20 +122,46 @@ async function ensureDeliveries(connection, order, items, records = []) {
   }
 }
 
+async function saveDeliveryChange(connection, orderId, current, next, author, action, eventData = {}) {
+  const group = current.grupo_id
+  const [rows] = await connection.execute('SELECT id FROM pedido_entregas WHERE pedido_id = ? AND grupo_id = ?', [orderId, group])
+  if (!rows.length) throw problem(404, 'Entrega sem vendedor identificado no pedido.')
+  const id = rows[0].id
+  const data = Object.fromEntries(['proposta', 'acordo', 'despacho', 'proposta_em', 'aceito_em', 'recebido_em'].map(key => [key, next[key]]))
+  const [updated] = await connection.execute('UPDATE pedido_entregas SET estado = ?, versao = ?, dados = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND versao = ?', [next.estado, next.versao, JSON.stringify(data), id, current.versao])
+  if (Number(updated.affectedRows) !== 1) throw problem(409, 'A entrega mudou. Recarregue antes de continuar.')
+  await connection.execute('INSERT INTO pedido_entrega_eventos (entrega_id, autor_id, acao, versao, dados) VALUES (?, ?, ?, ?, ?)', [id, author, action, next.versao, JSON.stringify({ estado: next.estado, ...data, ...eventData })])
+  return id
+}
+
+async function cancelOrder(connection, orderId, userId) {
+  const loaded = await readOrder(connection, orderId, userId, { lock: true })
+  const { order, items, records, view } = loaded
+  if (view.papel !== 'comprador') throw problem(403, 'Somente o comprador pode cancelar este pedido.')
+  if (view.status === 'cancelado') return (await readOrder(connection, orderId, userId, { events: true })).view
+  if (!view.pode_cancelar) throw problem(409, 'O cancelamento está disponível enquanto todas as entregas aguardam proposta.')
+  await ensureDeliveries(connection, order, items, records)
+  for (const current of view.entregas) {
+    await saveDeliveryChange(connection, order.id_pedido, current, { ...current, estado: 'cancelado', versao: current.versao + 1 }, userId, 'cancelar')
+  }
+  await connection.execute("UPDATE pedidos_produto SET status = 'cancelado', updated_at = CURRENT_TIMESTAMP WHERE id_pedido = ?", [order.id_pedido])
+  const sellers = new Set(items.map(item => Number(item.vendedor_id)))
+  for (const seller of sellers) {
+    await connection.execute('INSERT INTO notificacoes (usuario_id, produto_id, tipo, mensagem) VALUES (?, NULL, ?, ?)', [seller, 'pedido_cancelado', `Pedido #${order.id_pedido}: o comprador cancelou o pedido.`])
+  }
+  return (await readOrder(connection, orderId, userId, { events: true })).view
+}
+
 async function changeDelivery(connection, orderId, group, userId, input, { codeSellerId = null } = {}) {
   if (typeof group !== 'string' || !/^[1-9]\d*:[1-9]\d*$/.test(group) || group.length > 80) throw problem(400, 'Grupo de entrega inválido.')
   const loaded = await readOrder(connection, orderId, userId, { lock: true })
   const current = loaded.view.entregas.find(item => item.grupo_id === group)
   if (!current) throw problem(404, 'Entrega não encontrada neste pedido.')
   const next = transition(current, input, loaded.view.papel)
+  if (current.retirada_solicitada && input.acao === 'propor' && next.proposta.modalidade !== 'retirada') throw problem(409, 'O comprador solicitou retirada neste pedido. Envie uma proposta de retirada.')
   await ensureDeliveries(connection, loaded.order, loaded.items, loaded.records)
-  const [rows] = await connection.execute('SELECT id FROM pedido_entregas WHERE pedido_id = ? AND grupo_id = ?', [loaded.order.id_pedido, group])
-  if (!rows.length) throw problem(404, 'Entrega sem vendedor identificado no pedido.')
-  const data = Object.fromEntries(['proposta', 'acordo', 'despacho', 'proposta_em', 'aceito_em', 'recebido_em'].map(key => [key, next[key]]))
-  const [updated] = await connection.execute('UPDATE pedido_entregas SET estado = ?, versao = ?, dados = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND versao = ?', [next.estado, next.versao, JSON.stringify(data), rows[0].id, current.versao])
-  if (Number(updated.affectedRows) !== 1) throw problem(409, 'A entrega mudou. Recarregue antes de continuar.')
-  await connection.execute('INSERT INTO pedido_entrega_eventos (entrega_id, autor_id, acao, versao, dados) VALUES (?, ?, ?, ?, ?)', [rows[0].id, codeSellerId || userId, input.acao, next.versao, JSON.stringify({ estado: next.estado, ...data, ...(codeSellerId ? { confirmacao: 'codigo_do_comprador' } : {}) })])
-  if (input.acao === 'receber') await connection.execute('DELETE FROM pedido_recebimento_codigos WHERE entrega_id = ?', [rows[0].id])
+  const deliveryId = await saveDeliveryChange(connection, loaded.order.id_pedido, current, next, codeSellerId || userId, input.acao, codeSellerId ? { confirmacao: 'codigo_do_comprador' } : {})
+  if (input.acao === 'receber') await connection.execute('DELETE FROM pedido_recebimento_codigos WHERE entrega_id = ?', [deliveryId])
   const complete = await readOrder(connection, loaded.order.id_pedido, loaded.order.comprador_id)
   await connection.execute('UPDATE pedidos_produto SET status = ?, total = ?, frete = ?, updated_at = CURRENT_TIMESTAMP WHERE id_pedido = ?', [complete.view.status, complete.view.total_parcial, complete.view.frete_conhecido, loaded.order.id_pedido])
   const descriptions = { propor: 'O vendedor enviou uma proposta de entrega. Revise valor, modalidade e prazo antes de aceitar.', aceitar: 'O comprador aceitou a proposta de entrega. O acordo foi registrado; o pagamento continua externo.', recusar: 'O comprador recusou a proposta de entrega. Envie uma nova proposta após combinar pelo chat.', despachar: next.estado === 'pronto_retirada' ? 'O vendedor informou que o produto está pronto para retirada.' : 'O vendedor informou o envio do produto.', receber: 'O comprador confirmou o recebimento. Esta entrega foi concluída.' }
@@ -142,4 +179,4 @@ async function listOrders(connection, userId, sales = false) {
   return orders.map(order => projectOrder(order, items.filter(item => Number(item.pedido_id) === Number(order.id_pedido)), records.filter(item => Number(item.pedido_id) === Number(order.id_pedido)), userId))
 }
 
-module.exports = { LABELS, transition, proposal, deliveryRecords, orderStatus, projectOrder, readOrder, ensureDeliveries, changeDelivery, listOrders }
+module.exports = { LABELS, transition, proposal, deliveryRecords, orderStatus, projectOrder, readOrder, ensureDeliveries, changeDelivery, cancelOrder, listOrders }

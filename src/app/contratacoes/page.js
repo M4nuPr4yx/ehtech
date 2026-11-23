@@ -2,11 +2,12 @@
 import { apiResponse } from '../../lib/api-request.js';
 
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ReportControl } from '../complements/TrustControls'
 import { useRouter } from 'next/navigation'
 import styles from './contratacoes.module.css'
+import { ListingDetailLink, useListingQuery, useListingScroll } from '../complements/ListingNavigation'
 
 const STATUS = {
   solicitado: { label: 'Solicitado', help: 'Aguardando análise do prestador' },
@@ -21,6 +22,7 @@ const STEPS = [
   ['aceito', 'aceito_em'], ['em_execucao', 'iniciado_em'], ['concluido', 'concluido_em']
 ]
 const EMPTY_QUOTE = { valor_proposto: '', escopo_proposto: '', prazo_proposto: '', garantia_dias: '30', observacoes_prestador: '' }
+const defaults = { filtro: 'todos', novo: '' }
 
 const currency = (value) => value === null || value === undefined
   ? 'Não informado'
@@ -34,23 +36,26 @@ const dateOnly = (value) => value
   ? new Date(value).toLocaleDateString('pt-BR', { dateStyle: 'long' })
   : ''
 
-export default function ContractsPage() {
+function Contracts() {
   const router = useRouter()
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [filter, setFilter] = useState('todos')
+  const { query, search, update } = useListingQuery(defaults)
+  const filter = ['ativos', 'cliente', 'prestador'].includes(query.filtro) ? query.filtro : 'todos'
+  const from = search ? '/contratacoes?' + search : '/contratacoes'
   const [editingId, setEditingId] = useState(null)
   const [quote, setQuote] = useState(EMPTY_QUOTE)
   const [reviewingId, setReviewingId] = useState(null)
   const [review, setReview] = useState({ nota: 5, comentario: '' })
   const [saving, setSaving] = useState(false)
+  useListingScroll(!loading && !error, search)
 
   const loadContracts = useCallback(async () => {
     const token = localStorage.getItem('token')
     if (!token) {
-      router.replace('/?login=1&next=%2Fcontratacoes')
+      router.replace(`/?login=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`)
       return
     }
     setLoading(true)
@@ -70,10 +75,13 @@ export default function ContractsPage() {
   }, [router])
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('novo') === '1') {
+    if (query.novo === '1') {
       setNotice('Solicitação enviada. O prestador já foi notificado.')
-      window.history.replaceState({}, '', '/contratacoes')
+      update({ novo: '' })
     }
+  }, [query.novo, update])
+
+  useEffect(() => {
     loadContracts()
   }, [loadContracts])
 
@@ -178,7 +186,7 @@ export default function ContractsPage() {
         <div className={styles.toolbar}>
           <div role="group" aria-label="Filtrar contratações">
             {[['todos', 'Todas'], ['ativos', 'Em andamento'], ['cliente', 'Como cliente'], ['prestador', 'Como prestador']].map(([value, label]) => (
-              <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>
+              <button key={value} type="button" aria-pressed={filter === value} onClick={() => update({ filtro: value })}>{label}</button>
             ))}
           </div>
           <button type="button" className={styles.refresh} onClick={loadContracts} disabled={loading}>↻ Atualizar</button>
@@ -217,7 +225,7 @@ export default function ContractsPage() {
                   )}
 
                   <ReportControl type="contratacao" targetId={contract.id_contratacao} label="Relatar problema na contratação" /><Link className="text-accent underline" href="/politicas#servicos">Pagamento e condições do serviço</Link><div className={styles.requestGrid}>
-                    {contract.combo_snapshot && <div className={styles.description}><span>Combo solicitado: {contract.combo_snapshot.titulo}</span><p><Link href={`/produtos/${contract.combo_snapshot.produto_id}`}>{contract.combo_snapshot.produto_nome}</Link> · produto na solicitação: {currency(contract.combo_snapshot.produto_preco)}. Referência do conjunto: {currency(contract.combo_snapshot.total_estimado)}. O orçamento e a garantia desta contratação cobrem apenas o serviço; a compra do produto é separada.</p></div>}
+                    {contract.combo_snapshot && <div className={styles.description}><span>Combo solicitado: {contract.combo_snapshot.titulo}</span><p><ListingDetailLink from={from} href={`/produtos/${contract.combo_snapshot.produto_id}`}>{contract.combo_snapshot.produto_nome}</ListingDetailLink> · produto na solicitação: {currency(contract.combo_snapshot.produto_preco)}. Referência do conjunto: {currency(contract.combo_snapshot.total_estimado)}. O orçamento e a garantia desta contratação cobrem apenas o serviço; a compra do produto é separada.</p></div>}
                     <div className={styles.description}><span>Condições do anúncio na solicitação</span><p>{contract.servico_snapshot?.entregaveis || 'Conforme orçamento acordado'}</p><p>{contract.servico_snapshot?.criterios_aceite}</p></div><div className={styles.description}><span>Necessidade informada</span><p>{contract.descricao_problema}</p></div>
                     <dl><div><dt>Modalidade</dt><dd>{contract.modalidade}</dd></div><div><dt>Urgência</dt><dd>{contract.urgencia}</dd></div><div><dt>Limite do cliente</dt><dd>{currency(contract.orcamento_max)}</dd></div><div><dt>Disponibilidade</dt><dd>{contract.disponibilidade}</dd></div></dl>
                   </div>
@@ -294,4 +302,8 @@ export default function ContractsPage() {
       </div>
     </div>
   )
+}
+
+export default function ContractsPage() {
+  return <Suspense fallback={<p className={styles.loading} role="status">Carregando contratações…</p>}><Contracts /></Suspense>
 }

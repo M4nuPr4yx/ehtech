@@ -226,7 +226,7 @@
                   },
                   "preco_invalido": {
                     "summary": "Preço inválido",
-                    "value": { "mensagem": "Preço deve ser um valor numérico positivo" }
+                    "value": { "mensagem": "Informe um preço positivo com até duas casas decimais, como 129,90." }
                   },
                   "categoria_ausente": {
                     "summary": "Categoria ausente",
@@ -435,324 +435,6 @@
       }
     },
     "schemas": {
-      "PassaporteComponente": {
-        "type": "object",
-        "description": "Registro manual ou modelo do catálogo. Com componente_id, o backend usa nomes canônicos. Quantidade acima de 1 apenas para kits de memória.",
-        "anyOf": [
-          {
-            "required": [
-              "componente_id"
-            ],
-            "properties": {
-              "componente_id": {
-                "type": "integer",
-                "minimum": 1
-              }
-            }
-          },
-          {
-            "required": [
-              "tipo",
-              "modelo"
-            ],
-            "properties": {
-              "modelo": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 120
-              }
-            }
-          }
-        ],
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 50
-          },
-          "modelo": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 201
-          },
-          "componente_id": {
-            "type": "integer",
-            "minimum": 1,
-            "nullable": true
-          },
-          "revisao": {
-            "type": "integer",
-            "minimum": 1,
-            "readOnly": true
-          },
-          "quantidade": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 4,
-            "default": 1
-          }
-        }
-      },
-      "PassaporteEquipamento": {
-        "type": "object",
-        "required": [
-          "nome",
-          "tipo",
-          "modelo",
-          "componentes"
-        ],
-        "properties": {
-          "nome": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 100
-          },
-          "tipo": {
-            "type": "string",
-            "enum": [
-              "Computador",
-              "Notebook",
-              "Celular",
-              "Tablet",
-              "Periférico",
-              "Outro"
-            ]
-          },
-          "modelo": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "componentes": {
-            "type": "array",
-            "maxItems": 20,
-            "items": { "$ref": "#/components/schemas/PassaporteComponente" }
-          }
-        }
-      },
-      "PassaporteResumo": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "nome": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 100
-          },
-          "tipo": {
-            "type": "string",
-            "enum": [
-              "Computador",
-              "Notebook",
-              "Celular",
-              "Tablet",
-              "Periférico",
-              "Outro"
-            ]
-          },
-          "modelo": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "componentes": {
-            "type": "array",
-            "maxItems": 20,
-            "items": { "$ref": "#/components/schemas/PassaporteComponente" }
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "PassaportePublico": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "nome": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 100
-          },
-          "tipo": {
-            "type": "string",
-            "enum": [
-              "Computador",
-              "Notebook",
-              "Celular",
-              "Tablet",
-              "Periférico",
-              "Outro"
-            ]
-          },
-          "modelo": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "componentes": {
-            "type": "array",
-            "maxItems": 20,
-            "items": { "$ref": "#/components/schemas/PassaporteComponente" }
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "registros": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "tipo": {
-                  "type": "string"
-                },
-                "titulo": {
-                  "type": "string"
-                },
-                "ocorrido_em": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "origem": {
-                  "type": "string",
-                  "enum": [
-                    "manual",
-                    "ehtech",
-                    "plataforma"
-                  ]
-                },
-                "garantia_fim_em": {
-                  "type": "string",
-                  "format": "date-time",
-                  "nullable": true
-                }
-              }
-            }
-          }
-        }
-      },
-      "PassaporteDetalhe": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "nome": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 100
-          },
-          "tipo": {
-            "type": "string",
-            "enum": [
-              "Computador",
-              "Notebook",
-              "Celular",
-              "Tablet",
-              "Periférico",
-              "Outro"
-            ]
-          },
-          "modelo": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "componentes": {
-            "type": "array",
-            "maxItems": 20,
-            "items": {
-              "type": "object",
-              "required": [
-                "tipo",
-                "modelo"
-              ],
-              "properties": {
-                "tipo": {
-                  "type": "string",
-                  "minLength": 2,
-                  "maxLength": 50
-                },
-                "modelo": {
-                  "type": "string",
-                  "minLength": 2,
-                  "maxLength": 120
-                }
-              }
-            }
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "registros": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "tipo": {
-                  "type": "string"
-                },
-                "titulo": {
-                  "type": "string"
-                },
-                "ocorrido_em": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "origem": {
-                  "type": "string",
-                  "enum": [
-                    "manual",
-                    "ehtech",
-                    "plataforma"
-                  ]
-                },
-                "garantia_fim_em": {
-                  "type": "string",
-                  "format": "date-time",
-                  "nullable": true
-                }
-              }
-            }
-          },
-          "publico_codigo": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$",
-            "nullable": true
-          },
-          "transferencia_expira_em": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          }
-        }
-      },
       "CredenciaisLogin": {
         "type": "object",
         "required": ["email", "senha"],
@@ -792,26 +474,31 @@
           "origem_endereco_id": { "type": "integer", "minimum": 1, "description": "Endereço salvo da conta; obrigatório quando exige_entrega=true ou omitido." },
           "origem_versao": { "type": "integer", "minimum": 1, "description": "Versão confirmada do endereço selecionado." },
           "componente_id": { "type": "integer", "minimum": 1, "nullable": true, "description": "Modelo técnico ativo e verificado do catálogo; associação opcional e informada pelo vendedor." },
+          "especificacoes": { "$ref": "#/components/schemas/EspecificacoesProduto" },
           "nome": {
             "type": "string",
             "maxLength": 255,
-            "description": "Nome do produto. Obrigatório, não pode ser vazio."
+            "description": "Nome obrigatório em uma linha, com texto visível."
           },
           "descricao": {
             "type": "string",
             "maxLength": 5000,
-            "description": "Descrição detalhada do produto. Obrigatória."
+            "description": "Descrição obrigatória com texto visível. Aceita quebras de linha, acentos e emojis."
           },
           "preco": {
-            "type": "number",
-            "minimum": 0.01,
-            "description": "Preço em reais. Deve ser numérico e positivo."
+            "description": "Preço em reais entre 0,01 e 99.999.999,99. Aceita número ou texto com vírgula ou ponto decimal, até duas casas e sem separador de milhar.",
+            "oneOf": [
+              { "type": "number", "minimum": 0.01, "maximum": 99999999.99, "multipleOf": 0.01 },
+              { "type": "string", "pattern": "^\\s*[0-9]+([.,][0-9]{1,2})?\\s*$", "example": "129,90" }
+            ]
           },
           "estoque": {
-            "type": "integer",
-            "minimum": 0,
             "default": 0,
-            "description": "Quantidade em estoque. Valores negativos ou ausentes são tratados como 0."
+            "description": "Quantidade inteira entre 0 e 2147483647. Se omitida, usa 0.",
+            "oneOf": [
+              { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+              { "type": "string", "pattern": "^\\s*[0-9]+\\s*$" }
+            ]
           },
           "categoria": {
             "type": "string",
@@ -864,6 +551,12 @@
           }
         }
       },
+      "EspecificacoesProduto": {
+        "type": "object",
+        "additionalProperties": { "type": "string", "maxLength": 80 },
+        "description": "Ficha opcional declarada pelo vendedor. As chaves aceitas variam conforme a categoria. A ficha vazia é representada por {}.",
+        "example": { "marca": "Lenovo", "modelo": "ThinkPad T480", "memoria_ram": "16 GB", "armazenamento": "SSD de 512 GB" }
+      },
       "ProdutoCompleto": {
         "allOf": [
           { "$ref": "#/components/schemas/Produto" },
@@ -872,6 +565,7 @@
             "properties": {
               "vendedor": { "type": "string" },
               "vendedor_id": { "type": "integer" },
+              "especificacoes": { "$ref": "#/components/schemas/EspecificacoesProduto" },
               "status_aprovacao": {
                 "type": "string",
                 "enum": ["aprovado"]

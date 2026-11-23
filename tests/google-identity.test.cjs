@@ -43,6 +43,10 @@ test('redirecionamento Google restringe retorno, protege PKCE e criptografa dado
     Object.assign(process.env, { GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', GOOGLE_CLIENT_SECRET: 'local-test-secret', GOOGLE_REDIRECT_URI: 'http://localhost:3001/api/auth/google/callback', NODE_ENV: 'test' })
     const config = oauth.configuration()
     assert.equal(config.site, 'http://localhost:3001')
+    assert.equal(oauth.matchesRequestOrigin(config, 'http://localhost:3001'), true)
+    assert.equal(oauth.matchesRequestOrigin(config, 'http://127.0.0.1:3001'), false)
+    assert.equal(oauth.matchesRequestOrigin(config, 'http://localhost:3100'), false)
+    assert.equal(oauth.matchesRequestOrigin(config, undefined), true)
     for (const uri of ['https://attacker.invalid/elsewhere', 'https://user:pass@site.invalid/api/auth/google/callback', 'http://example.com/api/auth/google/callback', 'http://localhost:3001/api/auth/google/callback?next=1']) { process.env.GOOGLE_REDIRECT_URI = uri; assert.equal(oauth.configuration(), null) }
     process.env.GOOGLE_REDIRECT_URI = 'http://localhost:3001/api/auth/google/callback'; process.env.NODE_ENV = 'production'; assert.equal(oauth.configuration(), null)
     const encrypted = oauth.encrypt('secret-pkce', 'server-secret', 'attempt-A')

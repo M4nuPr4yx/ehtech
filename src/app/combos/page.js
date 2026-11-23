@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useListingScroll } from '../complements/ListingNavigation'
 import { ComboCard, Frame, Feedback, request, styles } from '../complements/DifferentialsUI'
 
 export default function CombosPage() {
   const [combos, setCombos] = useState([]), [own, setOwn] = useState([]), [options, setOptions] = useState(null), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('')
+  useListingScroll(!loading)
   async function load(signal) {
     const catalog = await request('/combos', 'GET', undefined, signal)
     setCombos(catalog)
@@ -27,5 +29,73 @@ export default function CombosPage() {
     const form = event.currentTarget, data = Object.fromEntries(new FormData(form))
     run(async () => { const result = await request('/combos', 'POST', data); form.reset(); return result })
   }
-  return <Frame title="Produto + instalação" intro="Encontre o equipamento e o atendimento do mesmo anunciante. Confirme o orçamento do serviço antes de comprar o produto: as duas etapas permanecem separadas e transparentes."><Feedback error={error} notice={notice} />{loading ? <p role="status">Carregando combos…</p> : <><div className={styles.grid}>{combos.map(combo => <ComboCard key={combo.id} combo={combo} />)}</div>{!combos.length && <section className={styles.card}><h2>Ainda não há combos disponíveis</h2><p>Combos só aparecem com anúncio aprovado, estoque disponível e serviço ativo do mesmo anunciante.</p><Link href="/produtos">Explorar produtos</Link></section>}{options ? <section className={styles.card}><h2>Gerenciar meus combos</h2><p>Associe um anúncio aprovado a um serviço ativo que você presta. A descrição deve explicar o escopo de instalação e os requisitos; o orçamento final será negociado na contratação.</p>{options.produtos.length && options.servicos.length ? <form className={styles.form} onSubmit={submit}><label>Título<input name="titulo" required minLength={5} maxLength={120} /></label><label>O que inclui e quais os requisitos?<textarea name="descricao" required minLength={20} maxLength={2000} /></label><label>Anúncio aprovado<select name="produto_id" required><option value="">Selecione</option>{options.produtos.map(item => <option key={item.id_produto} value={item.id_produto}>{item.nome}</option>)}</select></label><label>Meu serviço ativo<select name="servico_id" required><option value="">Selecione</option>{options.servicos.map(item => <option key={item.id_servico} value={item.id_servico}>{item.titulo}</option>)}</select></label><button disabled={busy}>Publicar combo</button></form> : <p>Para publicar, sua conta precisa de um anúncio aprovado e de um serviço ativo cadastrado na plataforma.</p>}<ul>{own.map(item => <li key={item.id}>{item.titulo} · {item.ativo ? 'Ativo (disponibilidade depende do anúncio e serviço)' : 'Desativado'} {Boolean(item.ativo) && <button className={styles.button} disabled={busy} onClick={() => run(() => request(`/combos/${item.id}`, 'DELETE'))}>Desativar</button>}</li>)}</ul></section> : <section className={styles.card}><p><Link href="/?login=1&next=%2Fcombos">Entre na sua conta</Link> para gerenciar combos ou solicitar um orçamento.</p></section>}</>}</Frame>
+  return (
+    <Frame title="Produto + instalação" intro="Compre um produto e, se precisar, contrate a instalação com o mesmo anunciante.">
+      <section className={styles.purchaseSteps} aria-label="Como comprar e contratar">
+        <div><strong>Comprar o produto</strong><p>Abra o anúncio para ver o produto e combinar a compra.</p></div>
+        <div><strong>Contratar a instalação</strong><p>Peça orçamento e aceite a proposta em Minhas contratações.</p></div>
+      </section>
+
+      <Feedback error={error} notice={notice} />
+      {loading ? <p role="status">Carregando ofertas…</p> : (
+        <>
+          {combos.length > 0 && <div className={styles.grid}>{combos.map(combo => <ComboCard key={combo.id} combo={combo} from="/combos" />)}</div>}
+          {!combos.length && !error && (
+            <section className={styles.card}>
+              <h2>Nenhuma oferta disponível</h2>
+              <p>Você ainda pode procurar um produto ou pedir ajuda a um prestador.</p>
+              <nav className={styles.actions} aria-label="Continuar procurando">
+                <Link href="/produtos">Ver produtos</Link>
+                <Link href="/servicos">Ver serviços</Link>
+              </nav>
+            </section>
+          )}
+
+          <details className={styles.card}>
+            <summary>Ofereço instalação</summary>
+            {options ? (
+              <>
+                <p>Vincule um produto aprovado com estoque a um serviço ativo e aprovado da sua conta.</p>
+                {options.produtos.length && options.servicos.length ? (
+                  <form className={styles.form} onSubmit={submit}>
+                    <label>Título<input name="titulo" required minLength={5} maxLength={120} /></label>
+                    <label>O que está incluído?<textarea name="descricao" required minLength={20} maxLength={2000} /></label>
+                    <label>Anúncio aprovado
+                      <select name="produto_id" required>
+                        <option value="">Escolha um produto</option>
+                        {options.produtos.map(item => <option key={item.id_produto} value={item.id_produto}>{item.nome}</option>)}
+                      </select>
+                    </label>
+                    <label>Meu serviço ativo
+                      <select name="servico_id" required>
+                        <option value="">Escolha um serviço</option>
+                        {options.servicos.map(item => <option key={item.id_servico} value={item.id_servico}>{item.titulo}</option>)}
+                      </select>
+                    </label>
+                    <button disabled={busy}>Publicar oferta</button>
+                  </form>
+                ) : (
+                  <nav className={styles.actions} aria-label="Preparar minha oferta">
+                    <Link href="/anunciar">Anunciar produto</Link>
+                    <Link href="/meus-servicos">Gerenciar serviços</Link>
+                  </nav>
+                )}
+                {own.length > 0 && (
+                  <>
+                    <h2>Minhas ofertas</h2>
+                    <ul className={styles.resultList}>{own.map(item => (
+                      <li key={item.id}>
+                        <div><strong>{item.titulo}</strong><small>{item.ativo ? 'Ativa' : 'Desativada'}</small></div>
+                        {Boolean(item.ativo) && <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => run(() => request('/combos/' + item.id, 'DELETE'))}>Desativar</button>}
+                      </li>
+                    ))}</ul>
+                  </>
+                )}
+              </>
+            ) : <p><Link href="/?login=1&next=%2Fcombos">Entre na sua conta</Link> para publicar uma oferta.</p>}
+          </details>
+        </>
+      )}
+    </Frame>
+  )
 }

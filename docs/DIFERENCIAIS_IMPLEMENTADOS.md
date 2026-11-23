@@ -1,6 +1,6 @@
-# Certificados de usados, compra por missão e combos
+# Histórico de inspeções, busca por objetivo e combos
 
-MVPs gratuitos da ordem de implementação do [roadmap](ROADMAP_DIFERENCIAIS.md), adicionados em 15/10/2026. Não utilizam APIs pagas nem alteram a aprovação administrativa dos anúncios.
+Histórico de recursos gratuitos da ordem de implementação do [roadmap](ROADMAP_DIFERENCIAIS.md), adicionados em 15/10/2026. Os fluxos de passaporte e inspeção foram retirados da versão atual em 19/11/2026; as seções correspondentes abaixo descrevem apenas o histórico, não funcionalidades disponíveis.
 
 ## Certificados de usados
 
@@ -16,29 +16,28 @@ O snapshot da solicitação não acompanha alterações privadas futuras do novo
 
 ## Compra por missão
 
-`/missoes` oferece estudar/trabalhar (notebook + suporte), home office (notebook, acessórios, áudio + suporte) e melhorar Wi-Fi (equipamento de rede + serviço de redes), usando categorias que já existem no cadastro de anúncios.
+O histórico de `/missoes` oferece estudar/trabalhar, home office e melhorar Wi-Fi, usando categorias do cadastro de anúncios. Em 19/11/2026, a tela deixou de montar três faixas e passou a buscar opções do catálogo por objetivo e orçamento máximo por item.
 
 - Preço e categoria são dados do catálogo, não indicadores de qualidade ou desempenho.
 - Consulta até 100 anúncios aprovados/com estoque por categoria, ordenados por menor preço, e até 100 serviços ativos da categoria.
-- Escolhe o menor preço-base conhecido de serviço que caiba no orçamento. Serviço sob consulta não é tratado como gratuito; sem serviço precificado a composição fica incompleta.
-- Reserva esse preço-base e usa 50%, 75% e 100% do saldo para as faixas Essencial, Intermediária e Ampliada. Para cada categoria reserva o menor preço das próximas; escolhe, entre os candidatos que cabem, o menor, o intermediário ou o maior preço conforme a faixa. Empates usam o ID.
-- Informa lacunas sem inventar estoque. Catálogo reduzido pode gerar faixas iguais. “Completo” significa apenas que as categorias e um serviço precificado foram encontrados dentro do orçamento, não aprovação técnica.
-- Não estima consumo, FPS, alcance, dimensionamento de rede ou compatibilidade sem dados. A interface direciona à análise por regras e ao prestador. Frete, preço final e disponibilidade precisam ser confirmados; não há compra/reserva automática.
+- Mostra anúncios aprovados com estoque e serviços ativos com preço-base, agrupados por categoria e limitados ao orçamento por item.
+- Em home office, itens de áudio ou acessórios precisam ter um periférico relacionado no título, como teclado, mouse, webcam ou fone. A interface exibe somente grupos com resultados.
+- A busca não monta um conjunto nem avalia desempenho, compatibilidade, cobertura, consumo ou qualidade. Preços, estoque e propostas finais precisam ser confirmados; não há compra ou reserva automática.
 
 ## Combos
 
-`/combos` tem catálogo público e gerenciamento autenticado. Para publicar, o anúncio aprovado e o serviço ativo devem pertencer à mesma conta. A API revalida propriedade; desativar oferta alheia é negado. Par ativo produto/serviço não pode ser duplicado.
+`/combos` tem catálogo público e gerenciamento autenticado. Para publicar, a mesma conta precisa ter o anúncio aprovado com estoque e o serviço ativo e aprovado. A API revalida propriedade e elegibilidade. Só o dono pode desativar a oferta. Cada par de produto e serviço aceita uma oferta ativa.
 
-O preço do produto é somado ao preço-base do serviço em centavos, sem desconto inventado. Sem preço-base o total fica sob consulta. Oferta só aparece com estoque positivo, aprovação e serviço ativo. A modalidade e a região são exibidas para confirmação de atendimento.
+A tela mostra separadamente o preço do anúncio e o preço ou orçamento do serviço. A API continua calculando o total estimado quando existe preço-base. A oferta exige estoque positivo, anúncio aprovado e serviço ativo. Modalidade e região aparecem junto do serviço.
 
-Solicitar orçamento envia `combo_id` a `POST /contratacoes`; o servidor confere disponibilidade e correspondência do serviço. A contratação guarda referência imutável do produto, serviço e valores no momento da solicitação. A proposta final, o aceite e a garantia cobrem **somente o serviço**. O produto segue o checkout existente separadamente. Não há pagamento conjunto, reserva atômica de estoque, desconto automático ou confirmação de compatibilidade. Desativação do combo preserva contratos anteriores.
+Solicitar orçamento envia `combo_id` a `POST /contratacoes`. O servidor confere disponibilidade, correspondência do serviço, modalidade e identidade do comprador. A contratação guarda referência imutável do produto, serviço e valores no momento da solicitação. A proposta final, o aceite e a garantia cobrem o serviço. O produto segue o checkout existente separadamente. Desativar a oferta preserva contratos anteriores.
 
 ## Código e migração
 
-- Regras: `backend/differentials.js`; rotas `certificates.js`, `missions.js`, `combos.js` em `backend/routes/`.
-- Migração idempotente `backend/database/differentials.js`: cria `certificados_usado`, `combos_instalacao` e adiciona `contratacoes_servico.combo_snapshot`.
-- A inicialização normal do backend aplica a migração. Não é preciso importar outro dump ou executar SQL manualmente.
-- SQL segue placeholders `?`, booleanos portáveis e interface `[rows, fields]`. A integração real automatizada é executada em MySQL/MariaDB e PostgreSQL descartáveis. A revisão de 10/11/2026 verificou nos dois bancos passaporte, certificados, missões e combos; resultados em [CHECKUP.md](CHECKUP.md).
+- Regras: `backend/differentials.js`; rotas ativas `missions.js` e `combos.js` em `backend/routes/`. Rotas de passaporte e certificado não são montadas pelo servidor.
+- Migração idempotente `backend/database/differentials.js`: cria `combos_instalacao` e adiciona `contratacoes_servico.combo_snapshot`.
+- A inicialização normal do backend aplica a migração de combos. Não cria tabelas de passaportes/inspeções em bases novas. Se tabelas históricas já existirem, permanecem intactas, mas sem API ou tela ativa; não são apagadas automaticamente.
+- SQL segue placeholders `?`, booleanos portáveis e interface `[rows, fields]`. A integração real automatizada é executada em MySQL/MariaDB e PostgreSQL descartáveis. A revisão histórica de 10/11/2026 verificou nos dois bancos as versões então ativas de passaportes, inspeções, missões e combos; resultados em [CHECKUP.md](CHECKUP.md).
 - OpenAPI completo em `/docs/openapi.json`, incluindo corpos, autorização, respostas e limitações.
 
 ## Verificar

@@ -18,7 +18,7 @@ Roteiro de demonstração da versão acadêmica revisada em 10/11/2026. A EHtech
 | 0–1 min | Problema e proposta | Centralizar ofertas e serviços, com responsáveis identificados e negociação registrada |
 | 1–2 min | Início e catálogo | Pesquisa, categoria, preço, paginação, temas e acesso pelo celular |
 | 2–4 min | Anúncio e administração | Usuário publica; anúncio pendente depende de aprovação para entrar na vitrine |
-| 4–7 min | Compra e recebimento | Carrinho, endereço revisado, frete a combinar, pedido sem cobrança, proposta e aceite; vendedor disponibiliza retirada, comprador gera código após receber e vendedor confirma |
+| 4–7 min | Compra e recebimento | Solicitar retirada, revisar sem endereço e registrar o pedido. Em pedido preparado, mostrar proposta, aceite e código de retirada após o recebimento simulado |
 | 7–9 min | Serviços da comunidade | Prestador identificado, solicitação, orçamento, aceite e execução; usar contratação preparada para mostrar conclusão e garantia registrada |
 | 9–10 min | Diferenciais | Compatibilidade básica explicável sem IA; selecionar modelos cobertos pelas fichas revisadas e mostrar os limites das regras |
 | 10–11 min | Segurança e confiança | Avaliação de compra verificada, denúncia, propriedade dos dados e visão restrita do vendedor |
@@ -26,14 +26,16 @@ Roteiro de demonstração da versão acadêmica revisada em 10/11/2026. A EHtech
 
 Durante a retirada, mantenha as duas sessões abertas no mesmo pedido. Após cada ação da outra pessoa, use **Atualizar pedido**. Informe o código somente depois do recebimento simulado. Para encurtar, demonstre um pedido previamente acordado e explique as etapas anteriores.
 
+Em um segundo pedido preparado, mostre **Cancelar pedido** enquanto todos os grupos aguardam proposta. Use esse exemplo se a banca perguntar o que acontece quando um vendedor não responde.
+
 ## Demonstração dos diferenciais documentados
 
 Se a banca pedir detalhes adicionais, use os seguintes caminhos. As jornadas estão em `tests/e2e/documented-features.spec.cjs` e funcionam com dados fictícios isolados, sem serviço pago.
 
-- **Passaporte:** em `/passaportes`, cadastre equipamento e componentes, adicione manutenção, exporte a ficha e ative consulta pública. Na transferência, informe o username da outra conta; ela aceita o convite e o link público anterior é revogado.
-- **Missões:** em `/missoes`, escolha objetivo e orçamento. Explique as três faixas, as lacunas e a ausência de estimativa de desempenho/consumo quando não há dados.
-- **Combos:** em `/combos`, a mesma conta associa seu produto aprovado ao serviço ativo próprio. A referência soma os preços conhecidos; a compra do produto e o orçamento do serviço continuam separados.
-- **Serviço e inspeção:** envie orçamento em `/contratacoes`, aceite como cliente e conclua como prestador. O cliente pode avaliar e conferir a garantia registrada. Para `/certificados`, vincule o atendimento concluído ao passaporte e selecione um anúncio próprio aprovado. O prestador daquele atendimento responde checklist e laudo; somente então o anúncio apresenta o selo válido. Não represente esse laudo declarado como certificação oficial.
+- **Busca por objetivo** — em `/missoes`, escolha home office e um limite por item. Mostre quais anúncios e serviços do catálogo aparecem em cada grupo. A seleção usa regras de categoria, preço e disponibilidade.
+- **Comparação** — abra dois notebooks com ficha preenchida, mostre processador, RAM, armazenamento e tela lado a lado, depois confira preço e disponibilidade. Tente adicionar um anúncio de outra categoria para demonstrar o bloqueio.
+- **Produto + instalação** — abra uma oferta em `/combos` ou em um anúncio que tenha instalação. Mostre o preço do anúncio e o valor do serviço. A compra segue pelo produto e o botão **Pedir orçamento** abre o formulário do serviço.
+- **Serviço:** envie orçamento em `/contratacoes`, aceite como cliente e conclua como prestador. O cliente pode avaliar e conferir a garantia registrada.
 
 ## Arquitetura para explicar à banca
 

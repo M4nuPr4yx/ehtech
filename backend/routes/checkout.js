@@ -3,7 +3,7 @@ const crypto = require('crypto')
 const { autenticarToken } = require('../middleware/auth')
 const { integer } = require('../validation')
 const { transaction, problem, validateAddress } = require('../addresses')
-const { normalizeItems, loadCart, getSession, inspectCheckout, requireReady, checkoutView, chooseShipping } = require('../checkout')
+const { PICKUP_OPTION, normalizeItems, loadCart, getSession, inspectCheckout, requireReady, checkoutView, chooseShipping } = require('../checkout')
 const { readOrder } = require('../order-deliveries')
 
 module.exports = function createCheckoutRouter(pool) {
@@ -25,7 +25,7 @@ module.exports = function createCheckoutRouter(pool) {
     const session = await getSession(pool, req.params.id, req.user.id)
     if (session.pedido_id) {
       const { view } = await readOrder(pool, session.pedido_id, req.user.id)
-      return { id: session.id, pedido_id: session.pedido_id, frete_pendente: view.frete_pendente, status: view.status }
+      return { id: session.id, pedido_id: session.pedido_id, frete_pendente: view.frete_pendente, status: view.status, retirada_solicitada: view.entregas.some(item => item.retirada_solicitada) }
     }
     return checkoutView(session, await inspectCheckout(pool, session, req.user.id))
   }))
@@ -47,8 +47,10 @@ module.exports = function createCheckoutRouter(pool) {
     const session = await getSession(connection, req.params.id, req.user.id, true)
     if (session.pedido_id) throw problem(409, 'Este checkout já foi finalizado.')
     const state = await inspectCheckout(connection, session, req.user.id, true)
-    if (!state.confirmed) throw problem(409, 'Confirme o endereço antes de selecionar a entrega.')
-    const delivery = chooseShipping(state.groups, req.body.modalidades)
+    const selected = req.body.modalidades
+    const pickup = Array.isArray(selected) && selected.length > 0 && selected.every(option => option?.id === PICKUP_OPTION)
+    if (!pickup && !state.confirmed) throw problem(409, 'Confirme o endereço antes de selecionar a entrega.')
+    const delivery = chooseShipping(pickup ? state.pickupGroups : state.groups, selected)
     await connection.execute('UPDATE checkout_sessoes SET entrega = ? WHERE id = ?', [JSON.stringify(delivery), session.id])
     const updated = { ...session, entrega: JSON.stringify(delivery) }
     return checkoutView(updated, await inspectCheckout(connection, updated, req.user.id))

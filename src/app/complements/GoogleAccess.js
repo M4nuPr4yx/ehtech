@@ -18,7 +18,14 @@ export default function GoogleAccess({ linking = false }) {
       const url = new URL(data.url)
       if (url.origin !== 'https://accounts.google.com' || url.pathname !== '/o/oauth2/v2/auth') throw new Error('Não foi possível iniciar o acesso pelo Google.')
       if (!controller.signal.aborted) window.location.assign(url.href)
-    } catch (failure) { if (!controller.signal.aborted) { setError(failure.message); setBusy(false) } }
+    } catch (failure) {
+      if (controller.signal.aborted) return
+      const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
+      const message = (local && failure.status === 404)
+        ? 'O login com Google está indisponível nesta prévia local. Use a instalação completa da EHtech com a API configurada.'
+        : failure.message
+      setError(message); setBusy(false)
+    }
   }
   return <div className="mt-5 space-y-3 border-t border-line pt-4">
     <button type="button" onClick={start} disabled={busy} className="flex w-full items-center justify-center gap-3 rounded-xl border border-line bg-surface p-3 font-bold text-foreground hover:bg-surface-raised disabled:opacity-50">

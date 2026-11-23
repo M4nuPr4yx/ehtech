@@ -535,10 +535,6 @@ export default function Header() {
                           </svg>
                           Minhas Contratações
                         </button>
-                        <Link href="/passaportes" onClick={() => setDropdownOpen(false)} className="w-full px-4 py-3 text-left text-foreground hover:bg-surface-raised flex items-center transition-colors text-sm">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 4h14v16H5V4zm4 4h6m-6 4h6m-6 4h3" /></svg>
-                          Meus Equipamentos
-                        </Link>
                         <button 
                           onClick={goToAnunciar}
                           className="w-full px-4 py-3 text-left text-foreground hover:bg-surface-raised flex items-center transition-colors text-sm"

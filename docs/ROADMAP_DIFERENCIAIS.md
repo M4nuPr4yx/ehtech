@@ -32,6 +32,8 @@ Cada computador ou dispositivo recebe um perfil permanente, opcionalmente acess�
 
 **Implementado:** área “Meus Equipamentos” em `/passaportes`, com cadastro e edição de componentes, histórico manual, vínculo de contratações concluídas na EHtech, exportação JSON, consulta compartilhada revogável e transferência aceita pela conta destinatária com convite de 24 horas. O vínculo do serviço ao equipamento é declarado pelo proprietário; não é um laudo técnico. O passaporte nasce privado e a transferência revoga o link público anterior. A inspeção técnica de usados possui fluxo separado em `/certificados`; QR Code, notas fiscais e certificação oficial continuam adiados.
 
+**Situação atual em 19/11/2026:** passaportes e inspeções/certificados foram retirados da navegação, páginas ativas e rotas de API. As tabelas legadas são preservadas sem acesso pela aplicação; o histórico acima não descreve funcionalidades atuais.
+
 ### 2. Gêmeo digital do setup
 
 Uma representação viva do ambiente tecnológico do cliente: computador, periféricos, rede, softwares e conexões. A EHtech identifica incompatibilidades, garantias próximas do fim, gargalos e manutenções recomendadas.
@@ -45,6 +47,8 @@ Em vez de procurar uma peça, o cliente informa o resultado desejado: “jogar e
 **MVP:** missões predefinidas com regras transparentes e três faixas de investimento.
 
 **Implementado em 15/10/2026:** `/missoes` oferece estudar/trabalhar, home office e melhorar Wi-Fi. Consulta anúncios aprovados com estoque por categoria e serviços ativos, monta três faixas por preço e informa itens ausentes. Não infere desempenho, compatibilidade ou consumo pelo nome/preço; consumo permanece não estimado sem fichas suficientes. Faixas podem repetir produtos em catálogos pequenos. Frete e proposta final de serviço não estão incluídos. Regras e limites em [DIFERENCIAIS_IMPLEMENTADOS.md](DIFERENCIAIS_IMPLEMENTADOS.md).
+
+**Atualizado em 19/11/2026:** a tela agora busca anúncios e serviços por objetivo, categoria e orçamento máximo por item. Não monta faixas nem declara uma configuração como recomendação técnica.
 
 ### 4. Contratação com prova de resultado
 
@@ -67,6 +71,8 @@ A compatibilidade deixa de ser apenas uma ficha técnica. A plataforma aprende c
 **Implementado em 06/10/2026:** `/compatibilidade` compara modelos exatos de processador, placa-mãe e kits de memória, com fontes do fabricante, socket, suporte do processador, BIOS informada, DDR, formato, slots e capacidade. Catálogo inicial com seis modelos e revisão administrativa em `/admin/componentes`. Passaportes e anúncios podem guardar a associação técnica sem inferência pelo nome. Dados ausentes não aprovam uma combinação. Fonte, GPU, gabinete, cooler, QVL, estabilidade e confirmação por técnico ficam para etapas posteriores. IA adiada por decisão do usuário. Guia em [COMPATIBILIDADE.md](COMPATIBILIDADE.md).
 
 **Estado em 10/11/2026:** a interface atual pesquisa o catálogo ampliado e oferece regras básicas sem banco ou IA, com complemento de IA opcional conforme a configuração existente. O motor de seis fichas acima permanece como API legada e referência histórica. Não há grafo que aprenda automaticamente com montagens, e modelos/dados ausentes continuam não verificados. Consulte [CATALOGO_COMPONENTES.md](CATALOGO_COMPONENTES.md), [COMPATIBILIDADE.md](COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](IA_COMPATIBILIDADE.md).
+
+**Situação atual em 19/11/2026:** a importação de peças pelo passaporte foi retirada. A verificação manual por catálogo e regras continua disponível.
 
 ### 7. Orçamento reverso comparável
 
@@ -123,6 +129,8 @@ Antes de anunciar um usado, um técnico verifica funcionamento, temperaturas, ar
 **MVP:** checklist padronizado, validade do certificado e selo no anúncio.
 
 **Implementado em 15/10/2026:** `/certificados` permite ao dono solicitar inspeção para anúncio aprovado e passaporte próprio, usando atendimento concluído e vinculado. Somente o prestador desse atendimento pode responder o checklist. Reprovação impede selo; aprovação gera laudo com validade de 90 dias e registro no passaporte. Expiração, revogação, alteração da ficha/anúncio/propriedade ou remoção do passaporte retiram o selo da consulta. É uma inspeção declarada pelo prestador, não certificação oficial ou verificação de credenciais profissionais. A aprovação administrativa do anúncio continua independente.
+
+**Situação atual em 19/11/2026:** removido da versão demonstrável junto com passaportes por depender desse fluxo e poder ser confundido com certificação oficial. Os registros antigos não são apagados automaticamente.
 
 ## Priorização recomendada
 

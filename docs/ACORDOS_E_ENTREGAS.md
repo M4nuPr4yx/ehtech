@@ -4,13 +4,17 @@
 
 Após combinar pelo chat, acesse **Minha conta → Pedidos e vendas** (`/pedidos`). O comprador usa **Minhas compras**; o vendedor, **Minhas vendas**. Abra o pedido para registrar o acordo. O checkout e o histórico do perfil também possuem links diretos.
 
+No checkout, **Solicitar retirada** dispensa endereço de destino para todos os produtos físicos do pedido. O vendedor precisa propor a retirada e o comprador aceita depois de negociar local e prazo. Para mudar um pedido de retirada já registrado para envio, cancele enquanto o pedido aguarda proposta e registre um novo com endereço.
+
 1. **Vendedor envia proposta:** entrega ou retirada, valor do frete, prazo e observações. Retirada exige frete zero; a localização é combinada pelo chat, não publicada automaticamente. O vendedor pode revisar uma proposta ainda não aceita.
 2. **Comprador revisa e aceita:** precisa marcar que conferiu modalidade, preço e prazo. Aceita somente a versão exibida; se houver revisão simultânea, recebe conflito e deve conferir de novo. Também pode recusar para pedir outra proposta.
 3. **Acordo confirmado:** o total passa a incluir o frete aceito. Proposta não aceita não vira cobrança. Alterar condições depois do aceite não é permitido por este fluxo.
 4. **Vendedor informa envio ou retirada:** somente após o aceite. Entrega aceita transportadora e código opcionais, declarados pelo vendedor, sem consulta externa. Retirada muda para **Pronto para retirada**.
 5. **Comprador confirma recebimento:** somente depois de enviado/pronto para retirada e com confirmação explícita na tela. Para retirada, pode gerar um código de seis dígitos após receber; o vendedor valida no próprio pedido. Também é possível abrir **Prefiro confirmar sem código** e confirmar diretamente. Envios por transportadora usam a confirmação direta. Quando todos os grupos de entrega física terminam, o acompanhamento fica **Concluído**. Não confirme antes de receber.
 
-O site não cobra, não confirma pagamento, não reserva estoque, não contrata transportadora e não comprova envio/rastreio/recebimento. O pagamento continua combinado externamente. Problemas podem ser relatados no pedido, inclusive após sua conclusão, e analisados pela moderação. O fluxo não implementa cancelamentos de produtos, disputa bilateral, devoluções ou reembolso automático. Itens digitais e pedidos antigos sem grupo de entrega permanecem consultáveis, sem transição automática de entrega física.
+O site não cobra, não confirma pagamento, não reserva estoque, não contrata transportadora e não comprova envio/rastreio/recebimento. O pagamento continua combinado externamente. Problemas podem ser relatados no pedido, inclusive após sua conclusão, e analisados pela moderação. Disputa bilateral, devoluções e reembolso automático ficam fora deste fluxo. Itens digitais e pedidos antigos sem grupo de entrega permanecem consultáveis, sem transição automática de entrega física.
+
+O comprador pode cancelar um pedido registrado com grupos de entrega somente enquanto todos aguardam proposta. Uma proposta ativa ou aceita bloqueia o cancelamento. Se o comprador recusar a proposta e todos os grupos voltarem a aguardar, o cancelamento volta a ficar disponível. O estado **Pedido cancelado** fica no histórico, os vendedores são avisados e o pedido deixa de aceitar propostas. Qualquer pagamento externo é tratado diretamente pelas partes.
 
 ## Orientação e recuperação de falhas
 
@@ -31,7 +35,7 @@ O vendedor vê apenas seus itens, grupos, valores e eventos. Não recebe preços
 - Migração idempotente `backend/database/order-deliveries.js` cria `pedido_entregas` e `pedido_entrega_eventos`, aplicada pelo inicializador existente. Não recrie o banco. Reinicie a API ou publique um novo deploy após atualizar o código.
 - Snapshot inicial do pedido e dos endereços não é reescrito. Acompanhamento, proposta e acordo ficam separados; eventos preservam condições e etapa de cada versão. Histórico retorna até 100 eventos recentes dos grupos autorizados.
 - Pedidos anteriores que já tenham grupos válidos são exibidos com versão zero e ganham registros de acompanhamento na primeira ação, sem mudar valores ou aceitar proposta automaticamente.
-- Toda ação ocorre em transação, bloqueia o pedido e exige versão. Pedido e grupo pertencem aos participantes consultados no servidor. O papel é inferido pelo JWT e pelo pedido, não pelo corpo. Administrador sem participação também não pode aceitar/enviar/confirmar em nome de alguém.
+- Toda ação ocorre em transação e bloqueia o pedido. Ações de um grupo exigem a versão atual. O cancelamento verifica todos os grupos com o pedido bloqueado, registra um evento por grupo e avisa cada vendedor uma vez. Repetir o cancelamento retorna o pedido já cancelado. O papel é inferido pelo JWT e pelo pedido.
 - Propostas só são aceitas pelo comprador; envio só pelo vendedor; recebimento só pelo comprador. Saltos de etapa, alterações após aceite e repetições são recusados com 409. Uma corrida de aceite produz uma única alteração/evento/notificação.
 - Campos extras, preços negativos/com mais de duas casas, frete de retirada diferente de zero e alteração de pagamento são recusados. Notificação, auditoria, condição atual e totais são gravados atomicamente; nunca se marca o pedido como pago.
 - Em pedidos acompanhados, os totais da API são calculados sobre os itens imutáveis e condições vigentes: propostas ainda não aceitas permanecem pendentes; acordos aceitos substituem o frete de referência. Colunas numéricas/status do pedido são atualizadas em cada ação como valores conhecidos, mas não devem ser interpretadas isoladamente como confirmação de pagamento.
@@ -41,6 +45,7 @@ O vendedor vê apenas seus itens, grupos, valores e eventos. Não recebe preços
 - `GET /pedidos`: compras da conta, até 50.
 - `GET /pedidos/vendas`: vendas da conta, até 50, somente os próprios grupos e valores.
 - `GET /pedidos/:id`: detalhe autorizado e eventos recentes.
+- `PATCH /pedidos/:id/cancelar`: comprador, `{ confirmado: true }`. A resposta de detalhe indica a elegibilidade em `pode_cancelar`.
 - `PATCH /pedidos/:id/entregas/:grupo`: `{ acao, versao, ...campos }`. Grupo é o identificador estável devolvido pela API, por exemplo `12:1`; codifique-o na URL.
   - `propor`: vendedor; `modalidade`, `valor_frete`, `prazo`, `observacoes` opcional.
   - `aceitar` / `recusar`: comprador; somente ação e versão.

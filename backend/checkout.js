@@ -13,6 +13,7 @@ function normalizeItems(items) {
 
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value
+const PICKUP_OPTION = 'retirada-com-vendedor'
 
 async function loadCart(connection, userId, requestedItems, lock = false) {
   const normalized = normalizeItems(requestedItems)
@@ -43,8 +44,13 @@ function shippingOptions(cart, address, rulesText = process.env.SHIPPING_RULES_J
   }
   return [...groups.values()].map(group => {
     const origin = group.origin
+    if (!address) {
+      return { grupo_id: group.grupo_id, vendedor_id: group.vendedor_id, vendedor: group.vendedor, produtos: group.produtos,
+        origem: origin ? { uf: origin.uf, cidade: origin.cidade } : null, motivo: null,
+        opcoes: [{ id: PICKUP_OPTION, tipo: 'retirada', nome: 'Retirada solicitada', valor: 0, prazo: 'A combinar com o vendedor', fonte: 'O vendedor precisa confirmar a retirada.' }] }
+    }
     const options = origin ? rules.filter(rule => rule && typeof rule === 'object' && Number(rule.vendedor_id) === group.vendedor_id
-      && typeof rule.id === 'string' && /^[\w-]{1,60}$/.test(rule.id)
+      && typeof rule.id === 'string' && rule.id !== PICKUP_OPTION && /^[\w-]{1,60}$/.test(rule.id)
       && typeof rule.nome === 'string' && rule.nome.length > 0 && rule.nome.length <= 120
       && Number.isFinite(rule.valor) && rule.valor >= 0 && rule.valor <= 100000
       && (!rule.ufs || (Array.isArray(rule.ufs) && rule.ufs.includes(address.uf)))
@@ -105,21 +111,27 @@ async function inspectCheckout(connection, session, userId, lock = false) {
   }
   const confirmed = Boolean(!cart.exige_entrega || (address && validateAddress(address).valid && address.confirmado_em && session.confirmado_em && Number(session.endereco_versao) === Number(address.versao)))
   const groups = cart.exige_entrega && confirmed ? shippingOptions(cart, address) : []
+  const pickupGroups = cart.exige_entrega ? shippingOptions(cart, null) : []
   let delivery = []
   let ready = !cart.exige_entrega
-  if (cart.exige_entrega && confirmed && session.entrega) {
+  if (cart.exige_entrega && session.entrega) {
     try {
-      delivery = chooseShipping(groups, parse(session.entrega))
-      ready = hash(delivery) === hash(parse(session.entrega))
+      const saved = parse(session.entrega)
+      const pickup = saved.length > 0 && saved.every(option => option.id === PICKUP_OPTION)
+      if (pickup || confirmed) {
+        delivery = chooseShipping(pickup ? pickupGroups : groups, saved)
+        ready = hash(delivery) === hash(saved)
+      }
     } catch { ready = false }
   }
   const summary = freightSummary(ready ? delivery : [])
-  return { cart, address, confirmed, groups, delivery, ready, freight: summary.known, pendingFreight: ready && summary.pending }
+  return { cart, address, confirmed, groups, pickupGroups, delivery, ready, freight: summary.known, pendingFreight: ready && summary.pending }
 }
 
 function requireReady(state) {
+  if (state.ready) return
   if (!state.confirmed) throw problem(409, 'Para continuar sua compra, é necessário cadastrar e confirmar seu endereço de entrega.')
-  if (!state.ready) throw problem(409, 'Selecione uma entrega disponível para cada vendedor antes de continuar.')
+  throw problem(409, 'Selecione uma entrega disponível para cada vendedor antes de continuar.')
 }
 
 function checkoutView(session, state) {
@@ -130,8 +142,8 @@ function checkoutView(session, state) {
     frete_pendente: Boolean(state.pendingFreight), frete_conhecido: state.freight,
     total: state.pendingFreight ? null : partial, total_parcial: partial,
     endereco: state.address ? { ...addressSnapshot(state.address), id: state.address.id, versao: state.address.versao } : null,
-    endereco_confirmado: state.confirmed, modalidades: state.groups, entrega: state.ready ? state.delivery : [],
+    endereco_confirmado: state.confirmed, modalidades: state.groups, modalidades_retirada: state.pickupGroups, entrega: state.ready ? state.delivery : [],
     pronto: state.ready, pagamento_online: false, expires_at: session.expires_at }
 }
 
-module.exports = { normalizeItems, loadCart, shippingOptions, chooseShipping, getSession, inspectCheckout, requireReady, checkoutView, parse, freightSummary, orderView }
+module.exports = { PICKUP_OPTION, normalizeItems, loadCart, shippingOptions, chooseShipping, getSession, inspectCheckout, requireReady, checkoutView, parse, freightSummary, orderView }

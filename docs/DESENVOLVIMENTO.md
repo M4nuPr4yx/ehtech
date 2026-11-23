@@ -12,7 +12,7 @@ Leia apenas a parte relacionada à alteração. A instalação está no [README]
 | Serviços/contratações | `backend/routes/services.js`, `serviceContracts.js`; páginas correspondentes |
 | Carrinho/pedidos | `src/app/carrinho/page.js`, `backend/routes/orders.js` |
 | Componentes/compatibilidade | `backend/components/`, `backend/routes/components.js`, `src/app/compatibilidade/` |
-| Passaportes | `backend/routes/passports.js`, `backend/database/passports.js`, `src/app/passaportes/` |
+| Passaportes/inspeções | Fluxos e criação de tabelas novas retirados em 19/11/2026; registros que já existem permanecem no banco sem rotas de acesso. |
 | Imagens | `src/app/complements/imagePolicy.mjs`, `imageHelper.js`, `ImageWithFallback.js`, `backend/uploads.js` |
 | Banco | `backend/db.js`, `backend/database/init.js` e módulos em `backend/database/` |
 | Contrato HTTP | `backend/docs/openapi.json` + `backend/docs/additional-routes.js` |

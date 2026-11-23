@@ -1,12 +1,14 @@
 export function deliveryGuidance(delivery, role) {
   const seller = role === 'vendedor'
-  const pickup = delivery.acordo?.modalidade === 'retirada'
-  const stages = ['Pedido registrado', 'Combinar entrega', pickup ? 'Retirada disponível' : 'Produto enviado', 'Recebido']
+  const pickup = delivery.retirada_solicitada || delivery.acordo?.modalidade === 'retirada'
+  const stages = ['Pedido registrado', pickup ? 'Combinar retirada' : 'Combinar entrega', pickup ? 'Retirada disponível' : 'Produto enviado', 'Recebido']
   let step = 1, title, detail
   switch (delivery.estado) {
     case 'aguardando_proposta':
-      title = seller ? 'Combine a entrega e envie uma proposta' : 'Aguarde a proposta do vendedor'
-      detail = seller ? 'Informe abaixo como o comprador receberá o produto, o frete e o prazo. Ele precisa aceitar antes do envio.' : 'Converse pelo chat para combinar frete, prazo e pagamento. A proposta aparecerá aqui para você revisar.'
+      title = pickup ? seller ? 'Envie uma proposta de retirada' : 'Combine a retirada com o vendedor' : seller ? 'Combine a entrega e envie uma proposta' : 'Combine a entrega com o vendedor'
+      detail = pickup
+        ? seller ? 'Combine o local pelo chat e informe o prazo abaixo. Aguarde o aceite antes de disponibilizar a retirada.' : 'Confirme pelo chat se a retirada é possível e combine local e prazo. Quando o vendedor enviar a proposta, volte a este pedido para revisar.'
+        : seller ? 'Informe abaixo como o comprador receberá o produto, o frete e o prazo. Ele precisa aceitar antes do envio.' : 'Pergunte pelo chat sobre disponibilidade, entrega ou retirada, frete e prazo. Quando o vendedor enviar a proposta, volte a este pedido para revisar.'
       break
     case 'proposta_enviada':
       title = seller ? 'Aguarde o comprador aceitar' : 'Revise a proposta antes de aceitar'
@@ -14,7 +16,7 @@ export function deliveryGuidance(delivery, role) {
       break
     case 'acordo_confirmado':
       title = seller ? pickup ? 'Prepare o produto para retirada' : 'Prepare o produto e informe o envio' : pickup ? 'Combine a retirada com o vendedor' : 'Aguarde o vendedor informar o envio'
-      detail = seller ? 'Confira o pagamento diretamente com o comprador, fora do site. Depois registre a próxima etapa abaixo.' : 'As condições foram aceitas. Confirme o recebimento somente quando o produto estiver com você.'
+      detail = seller ? 'Confira o pagamento diretamente com o comprador, fora do site. Depois registre a próxima etapa abaixo.' : 'Combine o pagamento diretamente com o vendedor. Confirme o recebimento somente quando o produto estiver com você.'
       break
     case 'enviado':
       step = 2

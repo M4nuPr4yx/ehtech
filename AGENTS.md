@@ -4,6 +4,7 @@ Marketplace acadêmico em pt-BR. Next/React em `src/`, Express CommonJS em `back
 
 ## Contexto mínimo
 
+- Para manutenção da EHtech, consulte a skill [ehtech-projeto](.agents/skills/ehtech-projeto/SKILL.md) quando a tarefa envolver fluxos públicos, navegação ou documentação. Ela registra as decisões de experiência e indica onde verificar cada área.
 - Consulte `git status --short` antes de editar, uma vez por tarefa. Preserve mudanças existentes e examine o diff da região antes de alterá-la.
 - Use `rg -n "termo" caminho` ou `rg --files caminho`. Ignore `.next`, `node_modules`, `backend/node_modules`, `backend/uploads`, `scratch`, `coverage`, `out` e `build`, salvo necessidade da tarefa.
 - Em `backend/index.js` e `backend/docs/openapi.json`, pesquise a rota e leia só o trecho relevante.
@@ -29,3 +30,13 @@ Teste isolado para mudança pequena; `npm run check` para mudança transversal. 
 A partir de 29/10/2026, registre todos os testes executados diretamente no [documento de testes do projeto](https://sesisenaispedu-my.sharepoint.com/:w:/g/personal/emanuel_silva4_portalsesisp_org_br/IQBkk7VCCxB6S6uGZ2P-DF3FAXd_EBs-4wCFvS91PJ68WG0?rtime=XeTr17o130g). Preserve a estrutura, a formatação e o histórico existentes; siga a organização por versão já utilizada. Inclua data, versão/commit, cenário, resultado esperado, resultado observado e situação real (aprovado, falhou ou não executado), sem segredos ou dados pessoais. Se o acesso ao documento estiver indisponível, informe a pendência e não afirme que ele foi atualizado.
 
 Em preparo para GitHub, clone ou publicação, use a skill `.agents/skills/ehtech-release/SKILL.md`. Finalize com resultado, verificações executadas e limitações; não afirme publicação ou teste sem executá-lo.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

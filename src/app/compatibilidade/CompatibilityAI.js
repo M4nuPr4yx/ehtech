@@ -30,12 +30,13 @@ export default function CompatibilityAI({ result, onAnalysis }) {
     request.current = controller
     setBusy(true); setError('')
     try {
-      if (!status?.disponivel) {
+      let currentStatus = status
+      if (!currentStatus?.disponivel) {
         const response = await apiResponse('/componentes/ia/status', { signal: controller.signal, cache: 'no-store' })
         if (!response.ok) throw Error('Não foi possível consultar a IA agora.')
-        const next = await response.json()
-        setStatus(next)
-        return
+        currentStatus = await response.json()
+        setStatus(currentStatus)
+        if (!currentStatus.disponivel) throw Error(currentStatus.mensagem || 'A IA está indisponível no momento. O resultado técnico continua disponível.')
       }
       const response = await apiResponse('/componentes/ia/explicar', {
         timeoutMs: 190000,
@@ -62,6 +63,6 @@ export default function CompatibilityAI({ result, onAnalysis }) {
       <p>{answer.resumo}</p>
       {answer.pontos.map(point => <div key={point.codigo} className={styles.aiPoint}><strong>{point.titulo}</strong><p>{point.explicacao}</p><p className={styles.aiAction}><span>Próximo passo:</span> {point.acao}</p></div>)}
       <small>Explicação gerada por {providerNames[answer.provedor] || 'IA'}. As fontes e a conclusão técnica estão abaixo.</small>
-    </div> : <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={explain} disabled={busy || !result.componentes.length}>{busy ? 'Explicando…' : !status?.disponivel ? 'Conferir disponibilidade da IA' : 'Explicar resultado com IA'}</button>}
+    </div> : <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={explain} disabled={busy || !result.componentes.length}>{busy ? 'Explicando…' : status?.disponivel ? 'Explicar resultado com IA' : status ? 'Tentar IA novamente' : 'Gerar explicação com IA'}</button>}
   </section>
 }

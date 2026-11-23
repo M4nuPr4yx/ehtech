@@ -1,7 +1,7 @@
 const express = require('express')
 const crypto = require('crypto')
 const { autenticarToken } = require('../middleware/auth')
-const { integer } = require('../validation')
+const { integer, money, cleanText } = require('../validation')
 const { findCombo } = require('../differentials')
 const { FIELDS, snapshotListing } = require('../service-listings')
 
@@ -28,14 +28,9 @@ const contractFields = `c.id_contratacao, c.servico_id, c.cliente_id, c.prestado
   avaliacao.nota AS avaliacao_nota, avaliacao.comentario AS avaliacao_comentario,
   avaliacao.created_at AS avaliacao_em`
 
-function textValue(value, maximum) {
-  return typeof value === 'string' ? value.trim().slice(0, maximum) : ''
-}
-
 function moneyValue(value, { required = false } = {}) {
   if (value === '' || value === null || value === undefined) return required ? NaN : null
-  const number = Number(value)
-  return Number.isFinite(number) && number >= 0 && number <= 10000000 ? Math.round(number * 100) / 100 : NaN
+  return money(value, { min: required ? 0.01 : 0, max: 10000000 })
 }
 
 function normalizeContract(row, userId) {
@@ -70,17 +65,17 @@ function createServiceContractsRouter(pool) {
 
   router.post('/', async (req, res) => {
     const serviceId = integer(req.body.servico_id)
-    const description = textValue(req.body.descricao_problema, 2000)
+    const description = cleanText(req.body.descricao_problema, 2000, { multiline: true })
     const modality = MODALITIES.has(req.body.modalidade) ? req.body.modalidade : ''
     const urgency = URGENCIES.has(req.body.urgencia) ? req.body.urgencia : ''
     const maximumBudget = moneyValue(req.body.orcamento_max)
-    const availability = textValue(req.body.disponibilidade, 300)
+    const availability = cleanText(req.body.disponibilidade, 300)
 
     if (!Number.isInteger(serviceId) || serviceId <= 0) return res.status(400).json({ mensagem: 'Serviço inválido.' })
-    if (description.length < 20) return res.status(400).json({ mensagem: 'Descreva a necessidade com pelo menos 20 caracteres.' })
+    if (!description || description.length < 20) return res.status(400).json({ mensagem: 'Descreva a necessidade com pelo menos 20 caracteres.' })
     if (!modality || !urgency) return res.status(400).json({ mensagem: 'Modalidade ou urgência inválida.' })
     if (Number.isNaN(maximumBudget)) return res.status(400).json({ mensagem: 'Orçamento máximo inválido.' })
-    if (availability.length < 5) return res.status(400).json({ mensagem: 'Informe sua disponibilidade para o atendimento.' })
+    if (!availability || availability.length < 5) return res.status(400).json({ mensagem: 'Informe sua disponibilidade para o atendimento.' })
 
     try {
       let combo = null
@@ -95,6 +90,9 @@ function createServiceContractsRouter(pool) {
       )
       if (!services.length) return res.status(404).json({ mensagem: 'Serviço não encontrado.' })
       const service = services[0]
+      if (combo && service.modalidade !== 'hibrido' && modality !== service.modalidade) {
+        return res.status(400).json({ mensagem: 'Escolha uma modalidade oferecida para esta instalação.' })
+      }
       if (Number(service.prestador_id) === Number(req.user.id)) {
         return res.status(400).json({ mensagem: 'Você não pode solicitar o próprio serviço.' })
       }
@@ -144,14 +142,15 @@ function createServiceContractsRouter(pool) {
   router.patch('/:id/orcamento', async (req, res) => {
     const id = integer(req.params.id)
     const value = moneyValue(req.body.valor_proposto, { required: true })
-    const scope = textValue(req.body.escopo_proposto, 3000)
-    const deadline = textValue(req.body.prazo_proposto, 120)
+    const scope = cleanText(req.body.escopo_proposto, 3000, { multiline: true })
+    const deadline = cleanText(req.body.prazo_proposto, 120)
     const warranty = integer(req.body.garantia_dias)
-    const notes = textValue(req.body.observacoes_prestador, 2000)
+    const notes = cleanText(req.body.observacoes_prestador ?? '', 2000, { multiline: true })
 
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ mensagem: 'Contratação inválida.' })
     if (!Number.isFinite(value) || value <= 0) return res.status(400).json({ mensagem: 'Informe um valor proposto válido.' })
-    if (scope.length < 20 || deadline.length < 2) return res.status(400).json({ mensagem: 'Informe o escopo e o prazo da proposta.' })
+    if (!scope || scope.length < 20 || !deadline || deadline.length < 2) return res.status(400).json({ mensagem: 'Informe o escopo e o prazo da proposta.' })
+    if (notes === null) return res.status(400).json({ mensagem: 'Informe observações válidas para a proposta.' })
     if (!Number.isInteger(warranty) || warranty < 0 || warranty > 3650) return res.status(400).json({ mensagem: 'Garantia inválida.' })
 
     try {
@@ -184,7 +183,7 @@ function createServiceContractsRouter(pool) {
 
   router.patch('/:id/status', async (req, res) => {
     const id = integer(req.params.id)
-    const nextStatus = textValue(req.body.status, 30)
+    const nextStatus = cleanText(req.body.status, 30)
     if (!Number.isInteger(id) || id <= 0 || !Object.hasOwn(STATUS_LABELS, nextStatus)) {
       return res.status(400).json({ mensagem: 'Contratação ou status inválido.' })
     }
@@ -255,10 +254,10 @@ function createServiceContractsRouter(pool) {
   router.post('/:id/avaliacao', async (req, res) => {
     const id = integer(req.params.id)
     const rating = integer(req.body.nota)
-    const comment = textValue(req.body.comentario, 1000)
+    const comment = cleanText(req.body.comentario ?? '', 1000, { multiline: true })
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ mensagem: 'Contratação inválida.' })
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ mensagem: 'A nota deve estar entre 1 e 5.' })
-    if (comment && comment.length < 10) return res.status(400).json({ mensagem: 'O comentário deve ter pelo menos 10 caracteres.' })
+    if (comment === null || (comment && comment.length < 10)) return res.status(400).json({ mensagem: 'Use um comentário válido com pelo menos 10 caracteres ou deixe o campo vazio.' })
 
     try {
       const [rows] = await pool.execute(

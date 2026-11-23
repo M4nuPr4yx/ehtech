@@ -48,7 +48,9 @@ Exemplo de suporte na ficha da placa-mãe:
 
 Fontes são uma lista de objetos `{ "titulo": "Ficha oficial", "url": "https://..." }`. URLs são apenas exibidas como referências; o servidor não baixa essas páginas. Velocidades/perfis são dados de catálogo, não regras de aprovação nesta versão.
 
-## Passaportes e anúncios
+## Integração histórica com passaportes
+
+O recurso de passaporte e a importação de equipamentos foram retirados da interface e das rotas ativas em 19/11/2026. As informações abaixo descrevem o comportamento legado e ficam como referência histórica; não estão disponíveis na versão atual.
 
 Em Meus Equipamentos, associe o modelo do catálogo ou mantenha um registro manual. O backend normaliza o nome da associação e grava ID, revisão e quantidade; o texto manual continua funcionando. O verificador importa somente associações reconhecidas, avisa sobre registros manuais e não altera o passaporte. Conjuntos ambíguos ou peças repetidas exigem seleção manual. A análise usa a revisão atual do catálogo, indicada no resultado, e não congela uma aprovação na ficha do equipamento.
 
@@ -65,7 +67,7 @@ Anunciar e editar produto permitem associar um modelo exato, de forma opcional. 
 
 ## Validação
 
-Regras cobertas em `tests/component-compatibility.test.cjs`. A integração com banco descartável testa migração de schema antigo, publicação/desativação, conflito de revisão, permissões administrativas, referências de anúncio e normalização de componentes do passaporte. O Swagger documenta todos os endpoints.
+Regras cobertas em `tests/component-compatibility.test.cjs`. A integração com banco descartável testa migração de schema antigo, publicação/desativação, conflito de revisão, permissões administrativas e referências de anúncio. Associações históricas de passaporte continuam preservadas no banco, mas as rotas e schemas correspondentes foram removidos do OpenAPI.
 
 ```powershell
 node --test --test-isolation=none tests/*.test.cjs

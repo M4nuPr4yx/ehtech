@@ -11,7 +11,7 @@ const nextConfig = {
   poweredByHeader: false,
   // Ollama local pode levar mais que os 30s padrão do proxy de rewrites.
   // O backend mantém seu próprio prazo de geração, limitado a 180s.
-  experimental: { proxyTimeout: 190000 },
+  experimental: { proxyTimeout: 190000, agentUpgrade: 'security' },
   images: {
     qualities: [50, 75],
     remotePatterns: [

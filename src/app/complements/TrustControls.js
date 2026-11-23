@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { apiRequest } from '../../lib/api-request'
-import { COMPARISON_KEY, comparisonIds } from '../../lib/comparison.mjs'
+import { COMPARISON_KEY, comparisonGroups, comparisonIds } from '../../lib/comparison.mjs'
+import { productCategoryKey, productCategoryLabel } from '../../lib/product-category.mjs'
 
 export const trustInput = 'w-full rounded-xl border border-line bg-surface p-3 text-foreground'
 export const trustButton = 'rounded-xl border border-line px-4 py-2 text-sm font-bold hover:bg-surface-raised disabled:opacity-50'
@@ -14,6 +15,7 @@ export function accountRequest(endpoint, method = 'GET', body, admin = false) {
 export function ProductActions({ productId, initialSaved, onFavoriteChange }) {
   const id = Number(productId)
   const [saved, setSaved] = useState(initialSaved || false), [compared, setCompared] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('')
+  const [checkingCategory, setCheckingCategory] = useState(false)
   useEffect(() => {
     const controller = new AbortController()
     function sync() { try { setCompared(comparisonIds(localStorage.getItem(COMPARISON_KEY)).includes(id)) } catch {} }
@@ -27,15 +29,34 @@ export function ProductActions({ productId, initialSaved, onFavoriteChange }) {
     try { const data = await accountRequest(`/favoritos/${id}`, saved ? 'DELETE' : 'PUT'); setSaved(!saved); onFavoriteChange?.(!saved); setMessage(data.mensagem) }
     catch (error) { setMessage(error.message) } finally { setBusy(false) }
   }
-  function compare() {
+  async function compare() {
+    setCheckingCategory(true); setMessage('')
     try {
-      const current = comparisonIds(localStorage.getItem(COMPARISON_KEY)), exists = current.includes(id)
+      const snapshot = localStorage.getItem(COMPARISON_KEY)
+      const current = comparisonIds(snapshot), exists = current.includes(id)
       if (!exists && current.length >= 4) { setMessage('Compare até quatro anúncios. Remova um na página de comparação.'); return }
+      if (!exists) {
+        const [candidate, ...selected] = await Promise.all([id, ...current].map(async selectedId => {
+          try { return await apiRequest(`/produtos/${selectedId}`) }
+          catch (error) { if (error.status === 404) return null; throw error }
+        }))
+        const candidateCategory = productCategoryKey(candidate?.categoria)
+        if (!candidateCategory) { setMessage('Não foi possível comparar este anúncio. Confira a disponibilidade e a categoria.'); return }
+        const groups = comparisonGroups(selected)
+        if ([...groups.keys()].some(key => key !== candidateCategory)) {
+          setMessage(groups.size === 1
+            ? `Sua comparação é de ${productCategoryLabel([...groups.values()][0][0].categoria)}. Remova os anúncios da lista para trocar de categoria.`
+            : 'Sua lista tem anúncios de várias categorias. Abra a comparação para retirar os que não quer manter.')
+          return
+        }
+      }
+      if (snapshot !== localStorage.getItem(COMPARISON_KEY)) { setMessage('A lista mudou. Tente novamente.'); return }
       localStorage.setItem(COMPARISON_KEY, JSON.stringify(exists ? current.filter(value => value !== id) : [...current, id]))
       window.dispatchEvent(new Event('comparison-change')); setMessage(exists ? 'Removido da comparação.' : 'Adicionado à comparação.')
-    } catch { setMessage('Não foi possível salvar a comparação neste navegador.') }
+    } catch { setMessage('Não foi possível atualizar a comparação. Tente novamente.') }
+    finally { setCheckingCategory(false) }
   }
-  return <div className="space-y-3"><div className="flex flex-wrap gap-2"><button type="button" className={trustButton} disabled={busy} aria-pressed={saved} onClick={favorite}>{saved ? 'Remover dos favoritos' : 'Salvar favorito'}</button><button type="button" className={trustButton} aria-pressed={compared} onClick={compare}>{compared ? 'Remover da comparação' : 'Comparar anúncio'}</button><Link className={trustButton} href="/comparar">Ver comparação</Link></div>{message && <p role="status" className="text-sm">{message}</p>}</div>
+  return <div className="space-y-3"><div className="flex flex-wrap items-center gap-2"><button type="button" className={trustButton} disabled={busy} aria-pressed={saved} onClick={favorite}>{saved ? 'Remover dos favoritos' : 'Salvar favorito'}</button><button type="button" className={trustButton} disabled={checkingCategory} aria-pressed={compared} onClick={compare}>{checkingCategory ? 'Conferindo categoria…' : compared ? 'Remover da comparação' : 'Comparar anúncio'}</button><Link className="px-2 py-2 text-sm font-semibold text-accent underline-offset-4 hover:underline" href="/comparar">Ver comparação</Link></div>{message && <p role="status" className="text-sm">{message}</p>}</div>
 }
 export function ReportControl({ type, targetId, label = 'Denunciar conteúdo' }) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('')

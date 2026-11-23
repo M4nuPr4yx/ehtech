@@ -40,6 +40,8 @@ As chamadas `/auth/google/*` usam `src/lib/api.js` e o proxy `/api` do próprio 
 
 O `GOOGLE_REDIRECT_URI` deve pertencer à mesma origem do site que iniciou o acesso, para o navegador devolver o cookie da tentativa. Produção exige HTTPS; HTTP é aceito apenas em loopback fora de produção. Não use a configuração de um domínio em outro domínio de preview sem ajustá-la.
 
+Abra `http://localhost:3001` quando o retorno cadastrado usar `localhost:3001`. Para o navegador, `http://127.0.0.1:3001` é outra origem. A API informa a divergência antes de abrir a tela do Google. A prévia acadêmica na porta 3100 usa dados fictícios e não conecta o provedor. Para testar o login, inicie a instalação completa seguindo o README e use as variáveis OAuth da API.
+
 A API precisa acessar `https://oauth2.googleapis.com/token` e os certificados públicos em `https://www.googleapis.com/oauth2/v3/certs`. Só são solicitados os escopos `openid email`; não há acesso ao Gmail, Drive ou contatos nem armazenamento de access/refresh tokens Google.
 
 ## Comportamento das contas

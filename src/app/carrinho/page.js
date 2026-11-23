@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ListingDetailLink, useListingScroll } from '../complements/ListingNavigation';
 import { useRouter } from 'next/navigation';
 
 import ImageWithFallback from '../complements/ImageWithFallback';
@@ -10,6 +11,7 @@ export default function Carrinho() {
   const router = useRouter();
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
+  useListingScroll(!loading);
   const [message, setMessage] = useState('');
   
   // Check login status and load cart on mount
@@ -156,9 +158,9 @@ export default function Carrinho() {
                   {/* Product Info */}
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <Link href={`/produtos/${item.id_produto}`} className="text-foreground hover:text-accent font-bold text-lg">
+                      <ListingDetailLink from="/carrinho" href={`/produtos/${item.id_produto}`} className="text-foreground hover:text-accent font-bold text-lg">
                         {item.nome}
-                      </Link>
+                      </ListingDetailLink>
                       <p className="text-muted text-sm line-clamp-1">{item.descricao}</p>
                     </div>
                     <div className="text-accent font-bold text-xl">
@@ -211,7 +213,7 @@ export default function Carrinho() {
             {/* Total Section */}
             <div className="bg-surface border border-line rounded-2xl p-6">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-muted text-lg">Total ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
+                <span className="text-muted text-lg">Subtotal dos produtos</span>
                 <span className="text-3xl font-bold text-accent">{formatPrice(total)}</span>
               </div>
 
@@ -222,9 +224,9 @@ export default function Carrinho() {
                   onClick={placeOrder}
                   className="w-full py-4 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl shadow-xl disabled:opacity-60 disabled:cursor-wait transition-colors"
                 >
-                  Finalizar compra
+                  Continuar para o pedido
                 </button>
-                <p className="text-center text-xs text-muted">Sem cobrança online: o pedido fica salvo e os vendedores são notificados.</p>
+                <p className="text-center text-sm text-muted">Revise os itens antes de registrar. Os vendedores recebem o pedido após a confirmação. O pagamento é combinado fora da EHtech.</p>
                 <div className="flex gap-3">
                   <Link href="/produtos" className="flex-1 py-3 text-center border border-line text-foreground rounded-xl hover:bg-surface-raised transition-all">
                     Continuar Comprando

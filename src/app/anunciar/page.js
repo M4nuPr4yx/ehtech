@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import TechnicalComponentPicker from '../complements/TechnicalComponentPicker';
 import OriginSelector from '../complements/OriginSelector';
+import { ProductSpecificationFields } from '../complements/ProductSpecifications';
+import specs from '../../../shared/product-specs.cjs';
 
 export default function Anunciar() {
   const router = useRouter();
@@ -21,12 +23,14 @@ export default function Anunciar() {
   const [estoque, setEstoque] = useState('1');
   const [categoria, setCategoria] = useState('');
   const [componenteId, setComponenteId] = useState(null);
+  const [specifications, setSpecifications] = useState({});
   const [origin, setOrigin] = useState(null);
   const [requiresShipping, setRequiresShipping] = useState(true);
   const [imagens, setImagens] = useState([]); // Array de URLs das fotos
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
   const draftKey = useRef(null);
+  const submitting = useRef(false);
   const [draftReady, setDraftReady] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -44,10 +48,11 @@ export default function Anunciar() {
           draftKey.current = `ehtech-anuncio-rascunho-${id}`;
           const saved = JSON.parse(sessionStorage.getItem(draftKey.current) || 'null');
           if (saved?.versao === 1 && typeof saved.nome === 'string' && typeof saved.descricao === 'string') {
-            setNome(saved.nome.slice(0, 255)); setDescricao(saved.descricao.slice(0, 10000));
-            setPreco(typeof saved.preco === 'string' ? saved.preco.slice(0, 20) : '');
-            setEstoque(typeof saved.estoque === 'string' ? saved.estoque.slice(0, 4) : '1');
+            setNome(saved.nome.slice(0, 255)); setDescricao(saved.descricao.slice(0, 5000));
+            setPreco(typeof saved.preco === 'string' ? saved.preco : '');
+            setEstoque(typeof saved.estoque === 'string' ? saved.estoque : '1');
             setCategoria(typeof saved.categoria === 'string' ? saved.categoria.slice(0, 60) : '');
+            setSpecifications(specs.readSpecifications(saved.categoria, saved.especificacoes));
             setDraftRestored(true);
           }
         }
@@ -61,35 +66,16 @@ export default function Anunciar() {
     const timer = setTimeout(() => {
       try {
         if (!nome && !descricao && !preco && !categoria) sessionStorage.removeItem(draftKey.current);
-        else sessionStorage.setItem(draftKey.current, JSON.stringify({ versao: 1, nome, descricao, preco, estoque, categoria }));
+        else sessionStorage.setItem(draftKey.current, JSON.stringify({ versao: 1, nome, descricao, preco, estoque, categoria, especificacoes: specs.normalizeSpecifications(categoria, specifications) }));
       } catch {}
     }, 300);
     return () => clearTimeout(timer);
-  }, [draftReady, nome, descricao, preco, estoque, categoria]);
+  }, [draftReady, nome, descricao, preco, estoque, categoria, specifications]);
 
   function clearDraft() {
     try { if (draftKey.current) sessionStorage.removeItem(draftKey.current); } catch {}
-    setNome(''); setDescricao(''); setPreco(''); setEstoque('1'); setCategoria(''); setComponenteId(null); setDraftRestored(false);
+    setNome(''); setDescricao(''); setPreco(''); setEstoque('1'); setCategoria(''); setComponenteId(null); setSpecifications({}); setDraftRestored(false);
   }
-
-  // Handle price input with mask (BRL format)
-  const handlePrecoChange = (e) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value === '') {
-      setPreco('');
-      return;
-    }
-    value = (parseInt(value, 10) / 100).toFixed(2);
-    setPreco(value);
-  };
-
-  const formatPrecoDisplay = (value) => {
-    if (!value) return '';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   // Upload de múltiplas imagens para o servidor
   const handleFilesChange = async (e) => {
@@ -158,6 +144,7 @@ export default function Anunciar() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting.current) return;
     setMessage('');
     setMessageType('');
 
@@ -171,7 +158,7 @@ export default function Anunciar() {
       setMessageType('error');
       return;
     }
-    if (!preco || parseFloat(preco) <= 0) {
+    if (!preco.trim()) {
       setMessage('Preço é obrigatório');
       setMessageType('error');
       return;
@@ -181,12 +168,18 @@ export default function Anunciar() {
       setMessageType('error');
       return;
     }
+    if (!/^[0-9]+$/.test(estoque)) {
+      setMessage('Informe a quantidade em estoque com um número inteiro.');
+      setMessageType('error');
+      return;
+    }
 
     if (requiresShipping && !origin) {
       setMessage('Selecione e confirme o endereço de origem do envio.');
       setMessageType('error');
       return;
     }
+    submitting.current = true;
     setIsSubmitting(true);
 
     try {
@@ -200,10 +193,11 @@ export default function Anunciar() {
         body: JSON.stringify({
           nome: nome.trim(),
           descricao: descricao.trim(),
-          preco: parseFloat(preco),
-          estoque: parseInt(estoque, 10) || 0,
+          preco,
+          estoque,
           categoria,
           componente_id: componenteId,
+          especificacoes: specs.normalizeSpecifications(categoria, specifications),
           exige_entrega: requiresShipping,
           origem_endereco_id: origin?.id,
           origem_versao: origin?.versao,
@@ -244,6 +238,7 @@ export default function Anunciar() {
       setMessage(err.message || 'Não foi possível enviar o anúncio. Tente novamente.');
       setMessageType('error');
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -312,19 +307,22 @@ export default function Anunciar() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="product-price" className="block text-foreground font-semibold text-sm mb-2">
-                  Preço de Venda <span className="text-accent">*</span>
+                  Preço de venda (R$) <span className="text-accent">*</span>
                 </label>
                 <div className="relative">
                   <input
                     id="product-price"
                     type="text"
-                    value={formatPrecoDisplay(preco)}
-                    onChange={handlePrecoChange}
-                    placeholder="R$ 0,00"
+                    inputMode="decimal"
+                    value={preco}
+                    onChange={(e) => setPreco(e.target.value)}
+                    placeholder="Ex.: 129,90"
+                    aria-describedby="product-price-help"
                     className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground font-bold placeholder-muted focus:border-accent focus:outline-none transition-colors text-sm"
                     required
                   />
                 </div>
+                <p id="product-price-help" className="mt-1 text-xs text-muted">Digite em reais, sem separador de milhar.</p>
               </div>
 
               <div>
@@ -366,6 +364,7 @@ export default function Anunciar() {
             </div>
 
             <TechnicalComponentPicker value={componenteId} onChange={setComponenteId} />
+            <ProductSpecificationFields category={categoria} value={specifications} onChange={setSpecifications} />
 
             {/* Descrição */}
             <div>
@@ -376,6 +375,7 @@ export default function Anunciar() {
                 id="product-description"
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
+                maxLength={5000}
                 rows={5}
                 placeholder="Descreva o estado do item, especificações técnicas, tempo de uso, garantias..."
                 className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground placeholder-muted focus:border-accent focus:outline-none transition-colors text-sm leading-relaxed"

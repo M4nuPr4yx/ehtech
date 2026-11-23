@@ -4,7 +4,7 @@ const { hashPassword } = require('../passwords')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const validator = require('validator')
-const { isValidPassword } = require('../user-validation')
+const { isValidPassword, passwordValidationMessage } = require('../user-validation')
 module.exports = function createRecoveryRouter(pool, { passwordResetLimiter }) {
 const router = createRouter()
 const emailEnabled = !!(process.env.SMTP_HOST && process.env.SMTP_USER)
@@ -110,7 +110,7 @@ router.post('/redefinir-senha', passwordResetLimiter, async (req, res) => {
   }
 
   if (!isValidPassword(novaSenha)) {
-    return res.status(400).json({ mensagem: 'A nova senha deve ter pelo menos 8 caracteres e não pode ser muito longa.' })
+    return res.status(400).json({ mensagem: passwordValidationMessage })
   }
 
   try {

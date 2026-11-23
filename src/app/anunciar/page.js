@@ -1,4 +1,6 @@
 'use client';
+
+import { productCategoryGroups, productCategoryKey, productCategoryLabel, productCategoryOptions } from '../../lib/product-category.mjs';
 import { apiResponse } from '../../lib/api-request.js';
 
 import { useState, useEffect, useRef } from 'react';
@@ -255,19 +257,6 @@ export default function Anunciar() {
     );
   }
 
-  const categorias = [
-    { value: 'smartphones', label: 'Smartphones & Celulares' },
-    { value: 'notebooks', label: 'Notebooks' },
-    { value: 'computadores', label: 'Computadores & Desktops' },
-    { value: 'tablets', label: 'Tablets' },
-    { value: 'acessorios', label: 'Acessórios & Periféricos' },
-    { value: 'gadgets', label: 'Gadgets & Smartwatches' },
-    { value: 'games', label: 'Games & Consoles' },
-    { value: 'redes', label: 'Redes e Roteadores' },
-    { value: 'audio', label: 'Áudio & Fones' },
-    { value: 'outros', label: 'Outros' }
-  ];
-
   return (
     <div className="site-background min-h-screen text-foreground pt-12 pb-20 px-4">
       <div className="max-w-3xl mx-auto">
@@ -350,21 +339,20 @@ export default function Anunciar() {
               <select
                 id="product-category"
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
+                onChange={(e) => { setCategoria(e.target.value); setSpecifications(current => specs.normalizeSpecifications(e.target.value, current)); }}
                 className="w-full p-4 bg-surface-raised border border-line rounded-2xl text-foreground focus:border-accent focus:outline-none transition-colors text-sm"
                 required
               >
                 <option value="" className="bg-surface-raised">Selecione uma categoria</option>
-                {categorias.map((cat) => (
-                  <option key={cat.value} value={cat.value} className="bg-surface-raised">
-                    {cat.label}
-                  </option>
-                ))}
+                {categoria && !productCategoryOptions.some(([value]) => value === categoria) && <option value={categoria}>{productCategoryLabel(categoria)}</option>}
+                {productCategoryGroups.map(([group, options]) => <optgroup key={group} label={group}>
+                  {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </optgroup>)}
               </select>
             </div>
 
-            <TechnicalComponentPicker value={componenteId} onChange={setComponenteId} />
             <ProductSpecificationFields category={categoria} value={specifications} onChange={setSpecifications} />
+            <TechnicalComponentPicker category={productCategoryKey(categoria)} value={componenteId} onChange={setComponenteId} />
 
             {/* Descrição */}
             <div>

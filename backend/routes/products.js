@@ -1,5 +1,5 @@
 const createRouter = require('./router')
-const { autenticarToken, verifyAdmin } = require('../middleware/auth')
+const { autenticarToken, verifyAdmin, permitirAnunciar } = require('../middleware/auth')
 const { money, integer, cleanText } = require('../validation')
 const { selectOrigin, publicProduct } = require('../product-origins')
 const { catalogQuery } = require('../product-catalog')
@@ -104,7 +104,7 @@ router.get("/produtos/:id", (req, res, next) => req.headers.authorization ? aute
 })
 
 // Cadastro de produto
-router.post("/produtos", autenticarToken, async (req, res) => {
+router.post("/produtos", autenticarToken, permitirAnunciar, async (req, res) => {
   const { nome, descricao, preco, estoque, categoria, imagem } = req.body
 
   const cleanNome = cleanText(nome, 255)
@@ -233,7 +233,7 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
     }
 
     let componentId = rows[0].componente_id
-    if (req.body.componente_id !== undefined) {
+    if (req.body.componente_id !== undefined && String(req.body.componente_id) !== String(componentId)) {
       if (req.body.componente_id === null || req.body.componente_id === '') componentId = null
       else {
         const component = await findComponent(pool, req.body.componente_id)

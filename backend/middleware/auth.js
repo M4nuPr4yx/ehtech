@@ -76,8 +76,14 @@ async function verifyAdmin(req, res, next) {
   });
 }
 
+function permitirAnunciar(req, res, next) {
+  if (req.user.role === 'comprador') return res.status(403).json({ mensagem: 'Esta conta de teste pode comprar produtos e contratar serviços.' });
+  next();
+}
+
 module.exports = {
   getApiSecret,
   autenticarToken,
-  verifyAdmin
+  verifyAdmin,
+  permitirAnunciar
 };

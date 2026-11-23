@@ -1,4 +1,5 @@
 const { STATES, problem } = require('./addresses')
+const { aliases: categoryAliases, categoryKey } = require('../shared/product-categories.cjs')
 
 function dateFilter(value) {
   if (value === undefined || value === '') return null
@@ -23,7 +24,8 @@ function catalogQuery(query) {
   const filters = ["status_aprovacao = 'aprovado'"], params = []
   if (search) { filters.push("(LOWER(nome) LIKE ? ESCAPE '!' OR LOWER(descricao) LIKE ? ESCAPE '!')"); params.push(`%${like(search)}%`, `%${like(search)}%`) }
   if (category) {
-    const aliases = category === 'audio' ? ['audio', 'áudio', 'fones de ouvido'] : [category]
+    const key = categoryKey(category)
+    const aliases = [...new Set([category, key, ...(categoryAliases[key] || [])])]
     filters.push(`LOWER(categoria) IN (${aliases.map(() => '?').join(',')})`); params.push(...aliases)
   }
   if (uf) { filters.push('origem_uf = ?'); params.push(uf) }

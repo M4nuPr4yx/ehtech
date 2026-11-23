@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import specs from '../../../shared/product-specs.cjs'
+import ListingModelSearch from './ListingModelSearch'
 
 export function ProductSpecificationFields({ category, value, onChange }) {
   const id = useId()
@@ -8,13 +9,18 @@ export function ProductSpecificationFields({ category, value, onChange }) {
   return (
     <fieldset className="min-w-0 rounded-2xl border border-line p-4 sm:p-5">
       <legend className="px-2 font-bold text-foreground">Ficha técnica opcional</legend>
-      <p className="mb-4 text-sm text-muted">Preencha o que souber. Esses dados aparecem no anúncio e ajudam na comparação.</p>
+      <p className="mb-4 text-sm text-muted">Informe o estado, o modelo e o que acompanha o item. Os campos preenchidos aparecem no anúncio.</p>
+      <ListingModelSearch key={specs.categoryKey(category)} category={specs.categoryKey(category)} fieldKeys={fields.map(([key]) => key)} onChoose={suggestions => onChange({ ...value, ...suggestions })} />
       <div className="grid gap-4 sm:grid-cols-2">
-        {fields.map(([key, label, example]) => (
+        {fields.map(([key, label, example, options]) => (
           <div className="min-w-0" key={key}>
             <label className="mb-1 block text-sm font-semibold text-foreground" htmlFor={`${id}-${key}`}>{label}</label>
-            <input id={`${id}-${key}`} value={value[key] || ''} onChange={event => onChange({ ...value, [key]: event.target.value })}
-              className="w-full rounded-xl border border-line bg-surface-raised px-3 py-2 text-foreground" placeholder={example} maxLength={specs.specificationLimit} />
+            {options ? <select id={`${id}-${key}`} value={value[key] || ''} onChange={event => onChange({ ...value, [key]: event.target.value })}
+              className="w-full rounded-xl border border-line bg-surface-raised px-3 py-2 text-foreground">
+              <option value="">Não informado</option>
+              {options.map(option => <option key={option}>{option}</option>)}
+            </select> : <input id={`${id}-${key}`} value={value[key] || ''} onChange={event => onChange({ ...value, [key]: event.target.value })}
+              className="w-full rounded-xl border border-line bg-surface-raised px-3 py-2 text-foreground" placeholder={key === 'modelo' && ['setups', 'computadores'].includes(category) ? 'Ex.: montagem personalizada' : example} maxLength={specs.specificationLimit} />}
           </div>
         ))}
       </div>

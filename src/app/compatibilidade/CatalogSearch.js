@@ -9,9 +9,9 @@ export function componentDetails(item) {
   return [spec.socket, spec.speed && `DDR${spec.speed[0]} · ${spec.speed[1]} MHz`, spec.modules && `${spec.modules[0]} × ${spec.modules[1]} GB`, spec.capacity && `${spec.capacity} GB`, spec.wattage && `${spec.wattage} W`, spec.form_factor, spec.type, spec.color, spec.core_count && `${spec.core_count} núcleos`, spec.core_clock && `${spec.core_clock} GHz`, spec.memory && `${spec.memory} GB VRAM`].filter(Boolean).join(' · ')
 }
 
-export default function CatalogSearch({ categories, onChoose, disabled }) {
+export default function CatalogSearch({ categories, onChoose, disabled, chooseLabel = 'adicionar' }) {
   const id = useId(), input = useRef(null)
-  const [tipo, setType] = useState('processador')
+  const [tipo, setType] = useState(categories[0]?.tipo || 'processador')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
@@ -44,12 +44,12 @@ export default function CatalogSearch({ categories, onChoose, disabled }) {
   }
   useEffect(() => { if (active >= 0) document.getElementById(`${id}-${active}`)?.scrollIntoView({ block: 'nearest' }) }, [active, id])
   return <div className={styles.form}>
-    <label>Categoria<select value={tipo} disabled={disabled} onChange={event => { reset(); setType(event.target.value); setQuery(''); setPage(1) }}>{categories.map(item => <option value={item.tipo} key={item.tipo}>{item.nome} ({item.total.toLocaleString('pt-BR')})</option>)}</select></label>
+    {categories.length > 1 && <label>Tipo de peça<select value={tipo} disabled={disabled} onChange={event => { reset(); setType(event.target.value); setQuery(''); setPage(1) }}>{categories.map(item => <option value={item.tipo} key={item.tipo}>{item.nome} ({item.total.toLocaleString('pt-BR')})</option>)}</select></label>}
     <label htmlFor={id}>Buscar modelo</label>
     <input id={id} ref={input} role="combobox" aria-autocomplete="list" aria-expanded={items.length > 0} aria-controls={`${id}-list`} aria-activedescendant={active >= 0 && items[active] ? `${id}-${active}` : undefined} autoComplete="off" maxLength={100} placeholder="Ex.: Intel Core i5, Ryzen, ASUS B650…" disabled={disabled} value={query} onKeyDown={keys} onChange={event => { reset(); setQuery(event.target.value); setPage(1) }} />
     {loading && <p role="status" className={styles.muted}>Buscando componentes…</p>}
     {error && <div role="alert" className={styles.error}>{error}<button type="button" className={styles.button} onClick={() => { reset(); setRetry(value => value + 1) }}>Tentar novamente</button></div>}
-    {!loading && !error && <p role="status" className={styles.muted}>{data?.total.toLocaleString('pt-BR')} resultado(s). Selecione para adicionar. Use as setas e Enter pelo teclado.</p>}
+    {!loading && !error && <p role="status" className={styles.muted}>{data?.total.toLocaleString('pt-BR')} resultado(s). Selecione para {chooseLabel}. Use as setas e Enter pelo teclado.</p>}
     <div id={`${id}-list`} role="listbox" aria-label="Componentes encontrados" className={styles.catalogResults}>
       {items.map((item, index) => <button id={`${id}-${index}`} type="button" role="option" aria-selected={active === index} disabled={disabled} className={`${styles.pickerOption} ${active === index ? styles.catalogActive : ''}`} key={item.id} onClick={() => choose(item)}><strong>{item.modelo}</strong><span>{componentDetails(item) || 'Especificações parciais; confira o modelo exato.'}</span></button>)}
     </div>

@@ -1,12 +1,10 @@
-import specs from '../../shared/product-specs.cjs'
+import categories from '../../shared/product-categories.cjs'
 
-const labels = new Map([
-  ['smartphones', 'Smartphones'], ['notebooks', 'Notebooks'], ['computadores', 'Computadores'],
-  ['tablets', 'Tablets'], ['acessorios', 'Acessórios'], ['gadgets', 'Gadgets'],
-  ['games', 'Games e consoles'], ['redes', 'Redes e Wi-Fi'], ['audio', 'Áudio'], ['outros', 'Outros'],
-])
+export const productCategoryGroups = categories.groups
+export const productCategoryOptions = productCategoryGroups.flatMap(([, options]) => options)
+const labels = new Map(productCategoryOptions)
 
-export const productCategoryKey = specs.categoryKey
+export const productCategoryKey = categories.categoryKey
 
 export function productCategoryLabel(value) {
   const key = productCategoryKey(value)

@@ -18,6 +18,7 @@ export default function GoogleReturn() {
         sessionStorage.removeItem('adminToken'); localStorage.setItem('token', data.token); localStorage.setItem('userUsername', data.nome || data.username || '')
         if (data.foto) localStorage.setItem('userFoto', data.foto)
         else localStorage.removeItem('userFoto')
+        if (metadata.acao !== 'vincular') sessionStorage.setItem('ehtech:login-feedback', 'Login bem-sucedido!')
         window.dispatchEvent(new Event('ehtech:auth-change'))
       }
       const destination = typeof data.destino === 'string' && data.destino.startsWith('/') && !/^\/[/\\]/.test(data.destino) ? data.destino : '/perfil'

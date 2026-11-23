@@ -1,4 +1,6 @@
 'use client';
+
+import { productCategoryGroups, productCategoryKey, productCategoryLabel, productCategoryOptions } from '../../../lib/product-category.mjs';
 import { apiResponse } from '../../../lib/api-request.js';
 
 import { useState, useEffect, useRef } from 'react';
@@ -278,21 +280,6 @@ export default function EditarProduto() {
     );
   }
 
-  const categorias = [
-    { value: 'smartphones', label: 'Smartphones' },
-    { value: 'notebooks', label: 'Notebooks' },
-    { value: 'computadores', label: 'Computadores' },
-    { value: 'tablets', label: 'Tablets' },
-    { value: 'acessorios', label: 'Acessórios' },
-    { value: 'gadgets', label: 'Gadgets' },
-    { value: 'games', label: 'Games' },
-    { value: 'audio', label: 'Áudio' },
-    { value: 'cameras', label: 'Câmeras' },
-    { value: 'smartwatches', label: 'Smartwatches' },
-    { value: 'tv', label: 'TV e Vídeo' },
-    { value: 'outros', label: 'Outros' },
-  ];
-
   return (
     <div className="site-background min-h-screen text-foreground pt-20 pb-20">
       <div className="max-w-2xl mx-auto px-6">
@@ -323,8 +310,7 @@ export default function EditarProduto() {
               />
             </div>
 
-            <TechnicalComponentPicker value={componenteId} onChange={setComponenteId} />
-            <ProductSpecificationFields category={categoria} value={specifications} onChange={setSpecifications} />
+
             {/* Descrição */}
             <div>
               <label className="block text-foreground font-medium mb-2">Descrição</label>
@@ -369,20 +355,23 @@ export default function EditarProduto() {
 
             {/* Categoria */}
             <div>
-              <label className="block text-foreground font-medium mb-2">Categoria</label>
+              <label htmlFor="edit-product-category" className="block text-foreground font-medium mb-2">Categoria</label>
               <select
+                id="edit-product-category"
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
+                onChange={(e) => { setCategoria(e.target.value); setSpecifications(current => specs.normalizeSpecifications(e.target.value, current)); }}
                 className="w-full p-4 bg-surface-raised border border-line rounded-xl text-foreground focus:border-accent focus:outline-none transition-colors"
               >
                 <option value="" className="bg-surface-raised">Selecione uma categoria</option>
-                {categorias.map((cat) => (
-                  <option key={cat.value} value={cat.value} className="bg-surface-raised">
-                    {cat.label}
-                  </option>
-                ))}
+                {categoria && !productCategoryOptions.some(([value]) => value === categoria) && <option value={categoria}>{productCategoryLabel(categoria)}</option>}
+                {productCategoryGroups.map(([group, options]) => <optgroup key={group} label={group}>
+                  {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </optgroup>)}
               </select>
             </div>
+
+            <ProductSpecificationFields category={categoria} value={specifications} onChange={setSpecifications} />
+            <TechnicalComponentPicker category={productCategoryKey(categoria)} value={componenteId} onChange={setComponenteId} />
 
             {/* Imagem */}
             <div>

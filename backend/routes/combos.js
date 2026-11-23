@@ -1,5 +1,5 @@
 const express = require('express')
-const { autenticarToken } = require('../middleware/auth')
+const { autenticarToken, permitirAnunciar } = require('../middleware/auth')
 const { transaction, problem } = require('../addresses')
 const { validId, clean, comboSelect, comboView } = require('../differentials')
 
@@ -28,7 +28,7 @@ function createCombosRouter(pool) {
     const [rows] = await pool.execute('SELECT * FROM combos_instalacao WHERE criador_id = ? ORDER BY id DESC LIMIT 100', [req.user.id])
     res.json(rows)
   }))
-  router.post('/', route(async (req, res) => {
+  router.post('/', permitirAnunciar, route(async (req, res) => {
     const title = clean(req.body.titulo, 5, 120), description = clean(req.body.descricao, 20, 2000)
     if (!title || !description || !validId(req.body.produto_id) || !validId(req.body.servico_id)) throw problem(400, 'Informe título, descrição, produto e serviço válidos.')
     const id = await transaction(pool, async connection => {

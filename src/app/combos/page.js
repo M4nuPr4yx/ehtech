@@ -30,10 +30,10 @@ export default function CombosPage() {
     run(async () => { const result = await request('/combos', 'POST', data); form.reset(); return result })
   }
   return (
-    <Frame title="Produto + instalação" intro="Compre um produto e, se precisar, contrate a instalação com o mesmo anunciante.">
+    <Frame title="Ofertas com instalação opcional" intro="Aqui aparecem somente vendedores que também anunciaram um serviço. Confira a região e a modalidade do atendimento antes de pedir orçamento.">
       <section className={styles.purchaseSteps} aria-label="Como comprar e contratar">
         <div><strong>Comprar o produto</strong><p>Abra o anúncio para ver o produto e combinar a compra.</p></div>
-        <div><strong>Contratar a instalação</strong><p>Peça orçamento e aceite a proposta em Minhas contratações.</p></div>
+        <div><strong>Escolher quem instala</strong><p>Peça orçamento ao anunciante ou <Link href="/servicos?categoria=montagem">procure outro prestador</Link> na aba Serviços.</p></div>
       </section>
 
       <Feedback error={error} notice={notice} />

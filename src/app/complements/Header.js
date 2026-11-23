@@ -58,6 +58,22 @@ export default function Header() {
   const [userPhoto, setUserPhoto] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = window.setTimeout(() => setFeedback(''), 3500);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  useEffect(() => {
+    const message = sessionStorage.getItem('ehtech:login-feedback');
+    if (!message) return;
+    const timer = window.setTimeout(() => {
+      sessionStorage.removeItem('ehtech:login-feedback');
+      setFeedback(message);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   // O cabeçalho persiste entre páginas: consultar ao montar/trocar sessão.
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -302,6 +318,7 @@ export default function Header() {
     setNotificationsOpen(false);
     setNotifications([]);
     setUnreadMessages(0);
+    setFeedback('');
     router.push('/');
   };
 
@@ -333,8 +350,8 @@ export default function Header() {
   return (
     <>
       {feedback && (
-        <div className="fixed right-5 top-24 z-[60] rounded-xl border border-success bg-success-soft px-4 py-3 text-sm font-medium text-success shadow-xl backdrop-blur-md" role="status">
-          {feedback}
+        <div className="fixed right-5 top-24 z-[60] rounded-xl border border-success bg-success-soft px-4 py-3 text-sm font-medium text-success shadow-xl backdrop-blur-md">
+          <span role="status">{feedback}</span>
           <button type="button" onClick={() => setFeedback('')} className="ml-3 text-success hover:text-foreground" aria-label="Fechar mensagem">×</button>
         </div>
       )}
@@ -376,7 +393,7 @@ export default function Header() {
 
 
               {/* Botão de Anunciar */}
-              <Link
+              {userRole !== 'comprador' && <Link
                 href="/anunciar"
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-accent bg-accent-soft px-3.5 py-1.5 text-xs font-bold text-accent hover:bg-accent-fill hover:text-accent-contrast transition-all duration-200"
               >
@@ -384,7 +401,7 @@ export default function Header() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Anunciar
-              </Link>
+              </Link>}
 
               {/* Botão de Carrinho */}
               <Link
@@ -535,7 +552,7 @@ export default function Header() {
                           </svg>
                           Minhas Contratações
                         </button>
-                        <button 
+                        {userRole !== 'comprador' && <button
                           onClick={goToAnunciar}
                           className="w-full px-4 py-3 text-left text-foreground hover:bg-surface-raised flex items-center transition-colors text-sm"
                         >
@@ -543,7 +560,7 @@ export default function Header() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           Anunciar Produto
-                        </button>
+                        </button>}
                         <button 
                           onClick={goToCarrinho}
                           className="w-full px-4 py-3 text-left text-foreground hover:bg-surface-raised flex items-center transition-colors text-sm"
@@ -580,7 +597,7 @@ export default function Header() {
               </div>
             </div>
           </div>
-          <AppNavigation />
+          <AppNavigation userRole={userRole} />
         </div>
       </header>
 

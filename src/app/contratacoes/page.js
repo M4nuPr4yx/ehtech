@@ -21,6 +21,8 @@ const STEPS = [
   ['solicitado', 'created_at'], ['orcamento_enviado', 'orcamento_enviado_em'],
   ['aceito', 'aceito_em'], ['em_execucao', 'iniciado_em'], ['concluido', 'concluido_em']
 ]
+const MODALITIES = { remoto: 'Remoto', presencial: 'Presencial', hibrido: 'Híbrido' }
+const URGENCIES = { baixa: 'Baixa', normal: 'Normal', urgente: 'Urgente' }
 const EMPTY_QUOTE = { valor_proposto: '', escopo_proposto: '', prazo_proposto: '', garantia_dias: '30', observacoes_prestador: '' }
 const defaults = { filtro: 'todos', novo: '' }
 
@@ -208,26 +210,35 @@ function Contracts() {
               return (
                 <article className={styles.card} key={contract.id_contratacao}>
                   <div className={styles.cardHeader}>
-                    <div><span className={styles.role}>{isProvider ? 'Você é o prestador' : 'Você é o cliente'}</span><h2>{contract.servico_titulo}</h2><p>Com {isProvider ? contract.cliente_nome : contract.prestador_nome} · Pedido #{contract.id_contratacao}</p></div>
+                    <div><span className={styles.role}>{isProvider ? 'Você é o prestador' : 'Você é o cliente'}</span><h2>{contract.servico_titulo}</h2><p>Com {isProvider ? contract.cliente_nome : contract.prestador_nome} · Contratação #{contract.id_contratacao}</p></div>
                     <span className={`${styles.status} ${styles[contract.status]}`}>{STATUS[contract.status]?.label}</span>
                   </div>
 
                   {contract.status === 'cancelado' ? (
                     <div className={styles.cancelled}><strong>Contratação cancelada</strong><span>{dateTime(contract.cancelado_em)}</span></div>
                   ) : (
-                    <ol className={styles.timeline} aria-label="Andamento da contratação">
-                      {STEPS.map(([status, dateField], index) => (
-                        <li key={status} data-state={index < currentStep ? 'done' : index === currentStep ? 'current' : 'future'}>
-                          <i>{index < currentStep ? '✓' : index + 1}</i><div><strong>{STATUS[status].label}</strong><span>{contract[dateField] ? dateTime(contract[dateField]) : STATUS[status].help}</span></div>
-                        </li>
-                      ))}
-                    </ol>
+                    <section className={styles.progress} aria-label="Andamento da contratação">
+                      <p className={styles.progressMessage}>{STATUS[contract.status]?.help}</p>
+                      <ol className={styles.timeline}>
+                        {STEPS.map(([status, dateField], index) => (
+                          <li key={status} aria-current={index === currentStep ? 'step' : undefined} data-state={index < currentStep ? 'done' : index === currentStep ? 'current' : 'future'}>
+                            <i aria-hidden="true">{index < currentStep ? '✓' : index + 1}</i><div><strong>{STATUS[status].label}</strong>{contract[dateField] && <span>{dateTime(contract[dateField])}</span>}</div>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
                   )}
 
-                  <ReportControl type="contratacao" targetId={contract.id_contratacao} label="Relatar problema na contratação" /><Link className="text-accent underline" href="/politicas#servicos">Pagamento e condições do serviço</Link><div className={styles.requestGrid}>
-                    {contract.combo_snapshot && <div className={styles.description}><span>Combo solicitado: {contract.combo_snapshot.titulo}</span><p><ListingDetailLink from={from} href={`/produtos/${contract.combo_snapshot.produto_id}`}>{contract.combo_snapshot.produto_nome}</ListingDetailLink> · produto na solicitação: {currency(contract.combo_snapshot.produto_preco)}. Referência do conjunto: {currency(contract.combo_snapshot.total_estimado)}. O orçamento e a garantia desta contratação cobrem apenas o serviço; a compra do produto é separada.</p></div>}
-                    <div className={styles.description}><span>Condições do anúncio na solicitação</span><p>{contract.servico_snapshot?.entregaveis || 'Conforme orçamento acordado'}</p><p>{contract.servico_snapshot?.criterios_aceite}</p></div><div className={styles.description}><span>Necessidade informada</span><p>{contract.descricao_problema}</p></div>
-                    <dl><div><dt>Modalidade</dt><dd>{contract.modalidade}</dd></div><div><dt>Urgência</dt><dd>{contract.urgencia}</dd></div><div><dt>Limite do cliente</dt><dd>{currency(contract.orcamento_max)}</dd></div><div><dt>Disponibilidade</dt><dd>{contract.disponibilidade}</dd></div></dl>
+                  <div className={styles.requestGrid}>
+                    <div className={styles.description}><h3>O que o cliente solicitou</h3><p>{contract.descricao_problema}</p></div>
+                    <div className={styles.description}><h3>O que o anúncio oferece</h3><p>{contract.servico_snapshot?.entregaveis || 'Conforme orçamento acordado'}</p>{contract.servico_snapshot?.criterios_aceite && <p>{contract.servico_snapshot.criterios_aceite}</p>}</div>
+                    {contract.combo_snapshot && <div className={`${styles.description} ${styles.wide}`}><h3>{contract.combo_snapshot.titulo}</h3><p><ListingDetailLink from={from} href={`/produtos/${contract.combo_snapshot.produto_id}`}>{contract.combo_snapshot.produto_nome}</ListingDetailLink> · {currency(contract.combo_snapshot.produto_preco)} na solicitação. Valor de referência do conjunto · {currency(contract.combo_snapshot.total_estimado)}. O orçamento e a garantia cobrem apenas o serviço.</p></div>}
+                    <dl>
+                      <div><dt>Modalidade</dt><dd>{MODALITIES[contract.modalidade] || contract.modalidade}</dd></div>
+                      <div><dt>Urgência</dt><dd>{URGENCIES[contract.urgencia] || contract.urgencia}</dd></div>
+                      <div><dt>Limite do cliente</dt><dd>{currency(contract.orcamento_max)}</dd></div>
+                      <div><dt>Disponibilidade</dt><dd>{contract.disponibilidade}</dd></div>
+                    </dl>
                   </div>
 
                   {contract.valor_proposto !== null && (
@@ -294,6 +305,10 @@ function Contracts() {
                       {((!isProvider && ['solicitado', 'orcamento_enviado', 'aceito'].includes(contract.status)) || (isProvider && ['solicitado', 'orcamento_enviado', 'aceito'].includes(contract.status))) && <button type="button" className={styles.dangerAction} disabled={saving} onClick={() => updateStatus(contract.id_contratacao, 'cancelado')}>Cancelar</button>}
                     </div>
                   </footer>
+                  <details className={styles.support}>
+                    <summary>Ajuda com a contratação</summary>
+                    <div><Link href="/politicas#servicos">Pagamento e condições do serviço</Link><ReportControl type="contratacao" targetId={contract.id_contratacao} label="Relatar problema na contratação" /></div>
+                  </details>
                 </article>
               )
             })}

@@ -8,16 +8,11 @@ import ImageWithFallback from '../complements/ImageWithFallback';
 import { getMainImage } from '../complements/imageHelper';
 import styles from './catalogo.module.css';
 import LoadingState from '../complements/LoadingState';
+import { productCategoryGroups, productCategoryKey, productCategoryLabel, productCategoryOptions } from '../../lib/product-category.mjs';
 
 const PAGE_SIZE = 12;
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const categories = [
-  ['', 'Todos'], ['smartphones', 'Smartphones'], ['notebooks', 'Notebooks'],
-  ['computadores', 'Computadores'], ['games', 'Games'], ['audio', 'Áudio'],
-  ['Smartwatches', 'Smartwatches'], ['Câmeras digitais', 'Câmeras'],
-  ['tablets', 'Tablets'], ['acessorios', 'Acessórios'], ['gadgets', 'Gadgets'],
-  ['redes', 'Redes e internet'], ['outros', 'Outros'],
-];
+const quickCategories = ['', 'setups', 'notebooks', 'monitores', 'teclados', 'mouses', 'componentes', 'smartphones'];
 const STATES = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 const emptyFilters = { search: '', categoria: '', precoMin: '', precoMax: '', uf: '', cidade: '', dataInicio: '', dataFim: '', ordenacao: 'recentes' };
 const defaults = { ...emptyFilters, page: 1 };
@@ -108,7 +103,7 @@ function Catalog() {
   }
   const hasFilters = Object.entries(draft).some(([key, value]) => value !== emptyFilters[key]);
   const busy = loading || pendingFilters;
-  const categoryName = categories.find(([value]) => value === draft.categoria)?.[1] || draft.categoria;
+  const categoryName = productCategoryLabel(draft.categoria);
   const rangeStart = result?.total ? (query.page - 1) * PAGE_SIZE + 1 : 0;
 
   return (
@@ -124,7 +119,7 @@ function Catalog() {
           <span className={styles.searchHint}>Busque pelo nome, modelo ou descrição</span>
         </div>
         <nav className={styles.chips} aria-label="Categorias rápidas">
-          {categories.slice(0, 8).map(([value, label]) => <button key={value} type="button" aria-pressed={draft.categoria === value} onClick={() => change('categoria', value)}>{label}</button>)}
+          {quickCategories.map(value => <button key={value} type="button" aria-pressed={productCategoryKey(draft.categoria) === value} onClick={() => change('categoria', value)}>{value ? productCategoryLabel(value) : 'Todos'}</button>)}
         </nav>
         <div className={styles.layout}>
           <aside className={styles.sidebar}>
@@ -132,7 +127,11 @@ function Catalog() {
               <summary><span><Icon type="filter" /> Filtros</span><span>⌄</span></summary>
               <div className={styles.filterBody}>
                 <label htmlFor="catalog-category">Categoria</label>
-                <select id="catalog-category" value={draft.categoria} onChange={(e) => change('categoria', e.target.value)}>{categories.map(([value, label]) => <option key={value} value={value}>{value ? label : 'Todas as categorias'}</option>)}</select>
+                <select id="catalog-category" value={draft.categoria} onChange={(e) => change('categoria', e.target.value)}><option value="">Todas as categorias</option>
+                  {draft.categoria && !productCategoryOptions.some(([value]) => value === draft.categoria) && <option value={draft.categoria}>{categoryName}</option>}
+                  {productCategoryGroups.map(([group, options]) => <optgroup key={group} label={group}>
+                    {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </optgroup>)}</select>
                 <fieldset><legend>Faixa de preço</legend><div className={styles.prices}>
                   <div><label htmlFor="catalog-min">De R$</label><input id="catalog-min" type="number" min="0" step="0.01" placeholder="0" value={draft.precoMin} onChange={(e) => change('precoMin', e.target.value)} aria-invalid={invalidPrice} aria-describedby={invalidPrice ? 'price-error' : undefined} /></div>
                   <div><label htmlFor="catalog-max">Até R$</label><input id="catalog-max" type="number" min="0" step="0.01" placeholder="Sem limite" value={draft.precoMax} onChange={(e) => change('precoMax', e.target.value)} aria-invalid={invalidPrice} aria-describedby={invalidPrice ? 'price-error' : undefined} /></div>
@@ -162,7 +161,7 @@ function Catalog() {
                         <ImageWithFallback src={getMainImage(product.imagem)} alt={product.nome} className={styles.productImage} sizes="(max-width: 479px) 90vw, (max-width: 759px) 45vw, (max-width: 1099px) 35vw, 20vw" />
                         {Number(product.estoque) <= 0 && <span className={styles.soldOut}>Esgotado</span>}
                       </div>
-                      <div className={styles.cardBody}><span className={styles.category}>{product.categoria}</span><h3>{product.nome}</h3><p className={styles.description}>{product.descricao}</p><p className={styles.location}>{product.origem_uf ? `${product.origem_cidade}/${product.origem_uf}` : 'Origem não informada'} · {product.data_criacao ? new Date(product.data_criacao).toLocaleDateString('pt-BR') : 'Data não informada'}</p><div className={styles.cardBottom}><div><span className={styles.priceLabel}>Valor do anúncio</span><strong>{money.format(Number(product.preco) || 0)}</strong></div><span className={styles.cardArrow}><Icon type="arrow" /></span></div></div>
+                      <div className={styles.cardBody}><span className={styles.category}>{productCategoryLabel(product.categoria)}</span><h3>{product.nome}</h3><p className={styles.description}>{product.descricao}</p><p className={styles.location}>{product.origem_uf ? `${product.origem_cidade}/${product.origem_uf}` : 'Origem não informada'} · {product.data_criacao ? new Date(product.data_criacao).toLocaleDateString('pt-BR') : 'Data não informada'}</p><div className={styles.cardBottom}><div><span className={styles.priceLabel}>Valor do anúncio</span><strong>{money.format(Number(product.preco) || 0)}</strong></div><span className={styles.cardArrow}><Icon type="arrow" /></span></div></div>
                     </ListingDetailLink>
                   ))}
                 </div>

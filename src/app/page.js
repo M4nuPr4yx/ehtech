@@ -1,5 +1,6 @@
 'use client';
 import { apiResponse } from '../lib/api-request.js';
+import { productCategoryLabel } from '../lib/product-category.mjs';
 
 import { useState, useEffect } from 'react';
 import Link from './complements/PendingLink';
@@ -93,7 +94,7 @@ export default function Home() {
     {
       name: 'PCs Gamer',
       id: 'computadores',
-      desc: 'Setups completos e Desktops',
+      desc: 'Torres e desktops montados',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
@@ -123,7 +124,7 @@ export default function Home() {
     {
       name: 'Acessórios',
       id: 'acessorios',
-      desc: 'Teclados, Mouses e Cabos',
+      desc: 'Cabos, adaptadores e hubs',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -153,7 +154,7 @@ export default function Home() {
   ];
 
   const featured = produtos.find(item => Number(item.estoque) > 0 && getMainImage(item.imagem)) || produtos.find(item => Number(item.estoque) > 0) || produtos[0];
-  const categoryName = value => categories.find(category => category.id === value)?.name || value || 'Equipamento';
+  const categoryName = productCategoryLabel;
   const emptyPhoto = <span className={styles.placeholder} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth=".9"><rect x="4" y="4" width="16" height="12" rx="1" /><path d="M2 20h20M8 17l-1 3m9-3 1 3" /></svg></span>;
 
   return (
@@ -168,7 +169,7 @@ export default function Home() {
             <input type="search" aria-label="Buscar produtos" placeholder="Notebook, celular, peça…" maxLength={100} value={heroSearch} onChange={e => setHeroSearch(e.target.value)} />
             <button type="submit">Buscar</button>
           </form>
-          <div className={styles.suggestions}><span>Explore:</span>{[['Notebooks', 'notebooks'], ['Celulares', 'smartphones'], ['PCs gamer', 'computadores']].map(([name, id]) => <Link key={id} href={'/produtos?categoria=' + id}>{name}</Link>)}</div>
+          <div className={styles.suggestions}><span>Explore</span>{['setups', 'teclados', 'mouses', 'monitores'].map(id => <Link key={id} href={'/produtos?categoria=' + id}>{categoryName(id)}</Link>)}</div>
           <div className={styles.introActions}><Link href="/anunciar">Quero anunciar <span aria-hidden="true">↗</span></Link><Link href="/servicos">Contratar um serviço <span aria-hidden="true">→</span></Link></div>
         </div>
         <div className={styles.showcase} data-motion="fade" data-motion-delay="120">

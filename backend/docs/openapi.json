@@ -185,7 +185,7 @@
                 "descricao": "Teclado compacto 75% com switches blue e retroiluminação RGB.",
                 "preco": 349.90,
                 "estoque": 10,
-                "categoria": "perifericos",
+                "categoria": "teclados",
                 "imagem": null,
                 "origem_endereco_id": 1,
                 "origem_versao": 1
@@ -212,6 +212,7 @@
               }
             }
           },
+          "403": { "description": "A conta de teste de comprador não pode publicar anúncios.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } },
           "404": { "description": "Origem não encontrada entre os endereços salvos da conta.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } },
           "409": { "description": "Origem alterada ou ainda não confirmada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } },
           "400": {
@@ -504,7 +505,7 @@
             "type": "string",
             "maxLength": 60,
             "description": "Categoria do produto. Obrigatória.",
-            "example": "perifericos"
+            "example": "teclados"
           },
           "imagem": {
             "oneOf": [
@@ -554,8 +555,8 @@
       "EspecificacoesProduto": {
         "type": "object",
         "additionalProperties": { "type": "string", "maxLength": 80 },
-        "description": "Ficha opcional declarada pelo vendedor. As chaves aceitas variam conforme a categoria. A ficha vazia é representada por {}.",
-        "example": { "marca": "Lenovo", "modelo": "ThinkPad T480", "memoria_ram": "16 GB", "armazenamento": "SSD de 512 GB" }
+        "description": "Ficha opcional declarada pelo vendedor. As chaves aceitas variam conforme a categoria. O campo condicao aceita Novo, Seminovo, Usado, Recondicionado ou Com defeito ou para peças. Sugestões do catálogo comunitário são gravadas como texto editável. A ficha vazia é representada por {}.",
+        "example": { "condicao": "Usado", "marca": "Lenovo", "modelo": "ThinkPad T480", "memoria_ram": "16 GB", "armazenamento": "SSD de 512 GB" }
       },
       "ProdutoCompleto": {
         "allOf": [

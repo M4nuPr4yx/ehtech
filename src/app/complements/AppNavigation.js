@@ -6,11 +6,11 @@ import { useEffect, useRef } from 'react';
 import styles from './AppNavigation.module.css';
 
 const primary = [['/', 'Início'], ['/produtos', 'Produtos'], ['/servicos', 'Serviços'], ['/sobre', 'Como funciona']];
-const tools = [['/comparar', 'Comparar produtos', 'Veja as diferenças antes de escolher.'], ['/missoes', 'Buscar por objetivo', 'Explore opções dentro do seu orçamento.'], ['/combos', 'Produto + instalação', 'Encontre instalação e configuração.'], ['/compatibilidade', 'Compatibilidade', 'Confira peças com regras e fontes.']];
+const tools = [['/comparar', 'Comparar produtos', 'Veja as diferenças antes de escolher.'], ['/missoes', 'Buscar por objetivo', 'Explore opções dentro do seu orçamento.'], ['/compatibilidade', 'Compatibilidade', 'Confira peças com regras e fontes.']];
 const account = [['/perfil', 'Meu perfil'], ['/pedidos', 'Pedidos e vendas'], ['/mensagens', 'Mensagens'], ['/contratacoes', 'Serviços contratados'], ['/meus-servicos', 'Meus serviços'], ['/favoritos', 'Favoritos'], ['/bloqueados', 'Bloqueados'], ['/carrinho', 'Carrinho'], ['/anunciar', 'Anunciar']];
 const admin = [['/admin', 'Visão geral'], ['/admin/servicos', 'Moderar serviços'], ['/admin/denuncias', 'Denúncias'], ['/admin/componentes', 'Catálogo de componentes']];
 
-export default function AppNavigation() {
+export default function AppNavigation({ userRole }) {
   const pathname = usePathname();
   const toolsRef = useRef(null), accountRef = useRef(null);
   useEffect(() => {
@@ -25,6 +25,7 @@ export default function AppNavigation() {
     return () => document.removeEventListener('pointerdown', dismiss);
   }, []);
   const isAdmin = pathname.startsWith('/admin');
+  const accountLinks = userRole === 'comprador' ? account.filter(([href]) => !['/anunciar', '/meus-servicos'].includes(href)) : account;
   const privateArea = account.some(([href]) => pathname === href) || pathname.startsWith('/editar-produto') || pathname.startsWith('/pedidos/');
   const active = items => items.some(([href]) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`)));
   const links = items => items.map(([href, name, hint]) => {
@@ -42,8 +43,8 @@ export default function AppNavigation() {
         <nav aria-label="Ferramentas para escolher" className={styles.options}>{links(tools)}</nav>
       </details>}
       {!isAdmin && privateArea && <details ref={accountRef} className={styles.menu} onKeyDown={event => { if (event.key === 'Escape') { accountRef.current.open = false; accountRef.current.querySelector('summary')?.focus(); } }}>
-        <summary className={active(account) ? styles.active : undefined}>Minha conta<span aria-hidden="true">⌄</span></summary>
-        <nav aria-label="Minha conta" className={styles.options}>{links(account)}</nav>
+        <summary className={active(accountLinks) ? styles.active : undefined}>Minha conta<span aria-hidden="true">⌄</span></summary>
+        <nav aria-label="Minha conta" className={styles.options}>{links(accountLinks)}</nav>
       </details>}
     </div>
   </>;

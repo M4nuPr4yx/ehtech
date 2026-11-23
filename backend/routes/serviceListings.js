@@ -1,6 +1,6 @@
 const express = require('express')
 const crypto = require('crypto')
-const { autenticarToken, verifyAdmin } = require('../middleware/auth')
+const { autenticarToken, verifyAdmin, permitirAnunciar } = require('../middleware/auth')
 const { transaction, problem } = require('../addresses')
 const { integer } = require('../validation')
 const { FIELDS, listingInput, managedView, requireVersion } = require('../service-listings')
@@ -27,7 +27,7 @@ module.exports = function createServiceListingsRouter(pool) {
     const [rows] = await pool.execute('SELECT * FROM servicos WHERE prestador_id = ? ORDER BY id_servico DESC LIMIT 100', [req.user.id])
     return rows.map(managedView)
   }))
-  router.post('/meus', autenticarToken, limit, action(req => transaction(pool, async connection => {
+  router.post('/meus', autenticarToken, permitirAnunciar, limit, action(req => transaction(pool, async connection => {
     const data = listingInput(req.body)
     const slug = `${data.titulo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120) || 'servico'}-${crypto.randomBytes(8).toString('hex')}`
     const [inserted] = await connection.execute(`INSERT INTO servicos

@@ -33,6 +33,30 @@ test.beforeEach(async ({ request }) => {
   const reset = await request.post(`${process.env.E2E_API_URL}/__e2e/reset-limits`, { headers: { 'x-e2e-key': process.env.E2E_RESET_KEY } })
   expect(reset.ok()).toBeTruthy()
 })
+
+test('aviso de login expira e o catálogo preenche o modelo de uma peça', async ({ page }, info) => {
+  await register(page, `catalogo_${info.project.name}`)
+  const feedback = page.getByText('Login bem-sucedido!', { exact: true })
+  await expect(feedback).toBeVisible()
+  await expect(feedback).toBeHidden({ timeout: 6000 })
+
+  await page.goto('/anunciar')
+  await page.getByLabel('Categoria').selectOption('processadores')
+  await page.getByRole('button', { name: 'Buscar modelo no catálogo técnico' }).click()
+  await page.getByRole('combobox', { name: 'Buscar modelo', exact: true }).fill('Ryzen 5 5600G')
+  await page.getByRole('option', { name: /Ryzen 5 5600G/ }).first().click()
+  await expect(page.getByLabel('Modelo', { exact: true })).toHaveValue(/Ryzen 5 5600G/)
+  await expect(page.getByLabel('Núcleos', { exact: true })).toHaveValue('6')
+
+  await page.getByLabel('Categoria').selectOption('setups')
+  await expect(page.getByLabel('Monitor incluso')).toBeVisible()
+  await expect(page.getByLabel('Periféricos inclusos')).toBeVisible()
+  await page.getByLabel('Categoria').selectOption('teclados')
+  await expect(page.getByLabel('Layout', { exact: true })).toBeVisible()
+  await page.getByLabel('Categoria').selectOption('mouses')
+  await expect(page.getByLabel('Resolução do sensor')).toBeVisible()
+})
+
 test('jornada real: anunciar, aprovar, comprar, receber, avaliar e moderar', async ({ page, browser }, info) => {
   const options = { baseURL: process.env.E2E_BASE_URL, viewport: page.viewportSize(), isMobile: Boolean(info.project.use.isMobile), hasTouch: Boolean(info.project.use.hasTouch) }
   const sellerContext = await browser.newContext(options), adminContext = await browser.newContext(options)

@@ -108,7 +108,9 @@ export function ComboCard({ combo, from, showProductLink = true, heading: Headin
     </article>
   )
 }
-export function ProductExtras({ productId }) {
+const installationCategories = new Set(['setups', 'computadores', 'componentes', 'processadores', 'placas-mae', 'memorias', 'placas-de-video', 'armazenamento', 'fontes', 'gabinetes', 'refrigeracao', 'redes'])
+
+export function ProductExtras({ productId, category }) {
   const [data, setData] = useState(null), [error, setError] = useState(null)
   useEffect(() => {
     const controller = new AbortController()
@@ -116,15 +118,20 @@ export function ProductExtras({ productId }) {
     return () => controller.abort()
   }, [productId])
   const current = data?.productId === productId ? data : null
-  if (error?.productId === productId) return <p className={styles.help}>As ofertas de instalação estão indisponíveis. <Link href="/combos">Ver outras ofertas</Link></p>
-  if (!current?.combos.length) return null
+  const showServiceLink = installationCategories.has(category)
+  if (!showServiceLink && !current?.combos.length) return null
   return (
     <section aria-labelledby="product-installation-heading">
       <div className={styles.resultHeading}>
         <h2 id="product-installation-heading">Quer ajuda para instalar?</h2>
-        <p>Peça orçamento ao anunciante. A compra do produto é feita à parte.</p>
+        <p>Escolha um prestador pela região ou pela modalidade de atendimento. A compra do produto é feita à parte.</p>
+        {showServiceLink && <Link href={`/servicos?categoria=${category === 'redes' ? 'redes' : 'montagem'}`} className={styles.secondaryButton}>Encontrar prestadores</Link>}
       </div>
-      <div className={styles.grid}>{current.combos.map(combo => <ComboCard key={combo.id} combo={combo} showProductLink={false} heading="h3" />)}</div>
+      {error?.productId === productId && <p className={styles.help}>A oferta do anunciante está indisponível.</p>}
+      {current?.combos.length > 0 && <details className={styles.card}>
+        <summary>Ofertas do próprio anunciante</summary>
+        <div className={styles.grid}>{current.combos.map(combo => <ComboCard key={combo.id} combo={combo} showProductLink={false} heading="h3" />)}</div>
+      </details>}
     </section>
   )
 }

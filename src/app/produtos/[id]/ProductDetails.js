@@ -9,7 +9,7 @@ import { ProductActions, ReportControl } from '../../complements/TrustControls';
 import { ProductSpecificationList } from '../../complements/ProductSpecifications';
 import { ListingBackLink } from '../../complements/ListingNavigation';
 import { apiRequest, apiResponse } from '../../../lib/api-request';
-import { productCategoryLabel } from '../../../lib/product-category.mjs';
+import { productCategoryKey, productCategoryLabel } from '../../../lib/product-category.mjs';
 
 const demoNotice = 'DEMONSTRAÇÃO EHtech: anúncio fictício para testar o marketplace. Não é uma oferta comercial; não efetue pagamento, contato telefônico ou envio para estes dados.';
 const surface = 'rounded-2xl border border-line bg-surface';
@@ -472,7 +472,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
           <ProductSpecificationList product={produto} />
         </section>
 
-        {!editMode && <ProductExtras productId={produto.id_produto} />}
+        {!editMode && <ProductExtras productId={produto.id_produto} category={productCategoryKey(produto.categoria)} />}
 
         <section className={surface + ' p-5 sm:p-6'} aria-labelledby="description-heading">
           <div className="flex flex-wrap items-center justify-between gap-2">

@@ -1,7 +1,7 @@
 const crypto = require('node:crypto')
 const { setTimeout: delay } = require('node:timers/promises')
 
-const GEMINI_ALTERNATIVES = { 'gemini-3.1-flash-lite': 'gemini-3.5-flash-lite', 'gemini-3.5-flash-lite': 'gemini-3.1-flash-lite' }
+const GEMINI_ALTERNATIVES = { 'gemini-3.1-flash-lite': 'gemini-3.6-flash', 'gemini-3.6-flash': 'gemini-3.1-flash-lite' }
 const TEMPORARY_GEMINI_STATUS = new Set([429, 503, 504])
 
 class AssistantError extends Error {
@@ -142,7 +142,7 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify({ dados_tecnicos: context }) }] }],
       generationConfig: {
-        temperature: 0, candidateCount: 1, maxOutputTokens: 2200,
+        temperature: 0, maxOutputTokens: 2200,
         responseMimeType: 'application/json', responseJsonSchema: schema,
         ...(config.model.startsWith('gemini-3') ? { thinkingConfig: { thinkingLevel: 'LOW', includeThoughts: false } } : {})
       }

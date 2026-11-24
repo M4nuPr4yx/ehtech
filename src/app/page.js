@@ -3,13 +3,22 @@ import { apiResponse } from '../lib/api-request.js';
 import { productCategoryLabel } from '../lib/product-category.mjs';
 
 import { useState, useEffect } from 'react';
+import localFont from 'next/font/local';
 import Link from './complements/PendingLink';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from './complements/ImageWithFallback';
 import { getMainImage } from './complements/imageHelper';
 import styles from './home.module.css';
 import LoadingState from './complements/LoadingState';
+import HomeShowcase from './HomeShowcase';
 import { ListingDetailLink, useListingScroll } from './complements/ListingNavigation';
+
+const displayFont = localFont({
+  src: '../../public/fonts/SpaceGrotesk-Variable.ttf',
+  variable: '--font-home-display',
+  weight: '300 700',
+  display: 'swap',
+});
 
 export default function Home() {
   const router = useRouter();
@@ -26,7 +35,7 @@ export default function Home() {
       setLoading(true);
       setProductsError('');
       try {
-        const res = await apiResponse('/produtos/catalogo?limit=8&page=1', { signal: controller.signal, cache: 'default' });
+        const res = await apiResponse('/produtos/catalogo?limit=24&page=1', { signal: controller.signal, cache: 'default' });
         if (controller.signal.aborted) return;
         
         if (res.ok) {
@@ -38,7 +47,7 @@ export default function Home() {
             if (aEsgotado !== bEsgotado) return aEsgotado ? 1 : -1;
             return Number(b.id_produto) - Number(a.id_produto);
           });
-          setProdutos(ordenados.slice(0, 8));
+          setProdutos(ordenados);
         } else {
           setProductsError('Não foi possível carregar os anúncios. Tente novamente em alguns instantes.');
         }
@@ -153,12 +162,13 @@ export default function Home() {
     },
   ];
 
-  const featured = produtos.find(item => Number(item.estoque) > 0 && getMainImage(item.imagem)) || produtos.find(item => Number(item.estoque) > 0) || produtos[0];
+  const available = produtos.filter(item => Number(item.estoque) > 0);
+  const showcaseItems = available.length ? [...available].sort((a, b) => Number(Boolean(getMainImage(b.imagem))) - Number(Boolean(getMainImage(a.imagem)))) : produtos;
   const categoryName = productCategoryLabel;
   const emptyPhoto = <span className={styles.placeholder} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth=".9"><rect x="4" y="4" width="16" height="12" rx="1" /><path d="M2 20h20M8 17l-1 3m9-3 1 3" /></svg></span>;
 
   return (
-    <div className={styles.home}><div className={styles.shell}>
+    <div className={displayFont.variable + " " + styles.home}><div className={styles.shell}>
       <section className={styles.hero}>
         <div className={styles.intro} data-motion="rise">
           <h1>Tudo para sua tecnologia, <span>em um só lugar.</span></h1>
@@ -172,14 +182,13 @@ export default function Home() {
           <div className={styles.introActions}><Link href="/produtos">Explorar produtos</Link><Link href="/servicos">Encontrar serviços</Link></div>
         </div>
         <div className={styles.showcase} data-motion="fade" data-motion-delay="120">
-          {loading ? <div className={styles.skeleton}><LoadingState label="Buscando anúncios da comunidade…" detail="Enquanto isso, explore as categorias abaixo." /></div> : featured ? (
-            <ListingDetailLink from="/" href={'/produtos/' + featured.id_produto} className={styles.heroProduct}>
-              <div className={styles.heroLabel}><span>{Number(featured.estoque) <= 0 ? 'Anúncio esgotado' : 'Anúncio da comunidade'}</span><span>Ver na vitrine ↗</span></div>
-              <div className={styles.heroPhoto}>{getMainImage(featured.imagem) ? <ImageWithFallback src={getMainImage(featured.imagem)} alt={featured.nome} sizes="(max-width: 759px) 90vw, 42vw" loading="eager" /> : emptyPhoto}</div>
-              <div className={styles.heroCaption}><div><small>{categoryName(featured.categoria)}</small><h2>{featured.nome}</h2></div><strong>{formatPrice(featured.preco)}</strong></div>
-            </ListingDetailLink>
+          {loading ? <div className={styles.skeleton}><LoadingState label="Buscando anúncios da comunidade…" /></div> : showcaseItems.length ? (
+            <HomeShowcase items={showcaseItems} fallbackImage={emptyPhoto} />
           ) : (
-            <Link href="/produtos" className={styles.heroProduct}><div className={styles.heroLabel}><span>Seu próximo equipamento</span><span>Explorar ↗</span></div><div className={styles.heroPhoto}>{emptyPhoto}</div><div className={styles.heroCaption}><h2>Encontre o que combina com você.</h2></div></Link>
+            <div className={styles.carousel}>
+              <div className={styles.heroPhoto}>{emptyPhoto}</div>
+              <div className={styles.heroCaption}><h2>{productsError ? 'Destaques indisponíveis' : 'Explore a vitrine'}</h2><Link href="/produtos" className={styles.detailArrow} aria-label="Abrir catálogo">↗</Link></div>
+            </div>
           )}
         </div>
       </section>
@@ -204,7 +213,7 @@ export default function Home() {
         {loading ? <div className={styles.productGrid} aria-hidden="true">{Array.from({length: 4}, (_, index) => <div key={index} className={styles.skeleton} />)}</div> : productsError ? (
           <div className={styles.state} role="status"><p>{productsError}</p><button type="button" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button></div>
         ) : produtos.length ? (
-          <div className={styles.productGrid}>{produtos.map((produto, index) => (
+          <div className={styles.productGrid}>{produtos.slice(0, 8).map((produto, index) => (
             <ListingDetailLink from="/" key={produto.id_produto} href={'/produtos/' + produto.id_produto} className={styles.productCard} data-motion="rise" data-motion-delay={(index % 4) * 55}>
               <div className={styles.productPhoto}>{getMainImage(produto.imagem) ? <ImageWithFallback src={getMainImage(produto.imagem)} alt={produto.nome} sizes="(max-width: 759px) 44vw, 22vw" loading="lazy" /> : emptyPhoto}{Number(produto.estoque) <= 0 && <span className={styles.soldOut}>Esgotado</span>}</div>
               <div className={styles.productBody}><small>{categoryName(produto.categoria)}</small><h3>{produto.nome}</h3><div className={styles.productBottom}><strong>{formatPrice(produto.preco)}</strong><span aria-hidden="true">↗</span></div></div>

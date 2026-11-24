@@ -1,6 +1,6 @@
 # Compatibilidade com IA opcional
 
-A tela /compatibilidade pesquisa o catálogo ampliado e permite verificar requisitos básicos sem chave de IA ou banco em /componentes/verificar-basico. Complementar com IA envia a seleção ao provedor configurado e acrescenta resumo, pontos de atenção e próximos passos. A análise adicional é independente e pode errar. Regras, fontes e limites continuam visíveis. As rotas /componentes/verificar e /componentes/ia/explicar permanecem disponíveis para integrações anteriores.
+Na tela /compatibilidade, selecione pelo menos dois modelos e escolha Analisar com IA. O provedor configurado gera um resumo com conflitos, lacunas de dados e próximos passos. Confirme o suporte no fabricante. As rotas /componentes/verificar-basico, /componentes/verificar e /componentes/ia/explicar permanecem disponíveis para integrações anteriores.
 
 ## Configuração privada
 
@@ -33,14 +33,14 @@ Em 15/10/2026, consultas públicas ao deploy informado `ehtech-gc18.vercel.app` 
 
 - `GET /componentes/catalogo` busca no servidor com 30 resultados por página, debounce e cancelamento no frontend; o celular não baixa os 42 mil registros. Catálogo empacotado não exige Neon nem consulta externa em cada pesquisa.
 - `POST /componentes/ia/analisar` aceita de 2 a 16 modelos conhecidos, quantidades de 1 a 4 e BIOS opcional (40 caracteres), até 4 KB. CPU, placa-mãe, fonte, gabinete e cooler são únicos; RAM, vídeo e armazenamento permitem vários modelos. Quantidade de RAM é de kits, não módulos avulsos.
-- A explicação adicional consulta a disponibilidade e, se a IA estiver pronta, segue com a solicitação no mesmo clique. Se o provedor estiver indisponível, a interface oferece nova tentativa e preserva a checagem determinística; a IA continua opcional e pode falhar por configuração, cota ou rede.
+- Se a disponibilidade inicial falhar, o botão Analisar com IA consulta o estado novamente antes de enviar as peças. Falhas temporárias preservam a seleção para nova tentativa.
 - O servidor resolve IDs no snapshot, sem confiar em especificações, prompt, URL, modelo ou resultado enviados pelo cliente. A IA recebe apenas fichas públicas, quantidades, BIOS declarada e limitações da fonte. Nunca envia token, conta ou endereço.
 - O catálogo não contém socket dos processadores, DDR/lista de CPUs/BIOS mínima/QVL das placas-mãe e todos os limites físicos/elétricos. A IA deve apontar dados ausentes e separar hipóteses de fatos; não deve aprovar lacunas. Não certifica um computador completo, velocidades ou peças usadas. Confira o fabricante antes de comprar ou montar.
 - Saídas passam por validação de JSON, tamanho, campos, IDs, cobertura das peças e coerência do status. Respostas truncadas, ferramentas, pensamentos, HTML, URLs ou reprodução da chave são rejeitadas. Essa validação estrutural **não prova a verdade técnica** da análise. React renderiza texto, nunca HTML da IA.
 - Gemini/Groq usam hosts oficiais fixos, chave somente em header, sem redirecionamento. Chaves nunca aparecem na URL, corpo, logs ou resposta. Variáveis públicas com nomes de segredo são recusadas no build/inicialização.
 - Antes do pedido, a tela informa o envio ao provedor. No nível gratuito do Gemini, os dados podem ser usados para melhorar os serviços Google; não inclua informações pessoais na BIOS.
 - Limite compartilhado de oito pedidos/IP em dez minutos entre análise e explicação legada, mais limite global. Uma geração local ou duas externas simultâneas por processo. Cache interno de até 50 resultados por dez minutos, considerando seleção, quantidades, modelo e snapshot. Em múltiplas instâncias, os limites em memória não são globais: mantenha também cotas no provedor.
-- A função Express na Vercel tem limite de 60 segundos. Na avaliação da tela, um HTTP 503 do Gemini sem `Retry-After` permite uma nova tentativa após 400–599 ms, dentro do mesmo prazo total de até 25 segundos. Cota, timeout, autorização e respostas inválidas exigem nova ação do usuário. Ollama local permite até 180 segundos. Cancelar a IA preserva a checagem básica já concluída. Trocar peças invalida os resultados da seleção anterior.
+- A função Express na Vercel tem limite de 60 segundos. Na avaliação da tela, um HTTP 503 do Gemini sem `Retry-After` permite uma nova tentativa após 400–599 ms, dentro do mesmo prazo total de até 25 segundos. Cota, timeout, autorização e respostas inválidas exigem nova ação do usuário. Ollama local permite até 180 segundos. Cancelar interrompe a solicitação e preserva as peças selecionadas. Trocar peças invalida o resultado anterior.
 
 ## Alternativas
 

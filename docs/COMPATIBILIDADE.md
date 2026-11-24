@@ -1,6 +1,6 @@
 # Compatibilidade e catálogo revisado
 
-A tela pública /compatibilidade usa o catálogo ampliado com checagem básica por regras sem IA, além de análise adicional opcional com IA. Consulte CATALOGO_COMPONENTES.md e IA_COMPATIBILIDADE.md.
+A tela pública /compatibilidade usa o catálogo ampliado e oferece a opção Analisar com IA. Selecione pelo menos dois modelos e confira conflitos, lacunas de dados e próximos passos. Consulte CATALOGO_COMPONENTES.md e IA_COMPATIBILIDADE.md.
 
 POST /componentes/verificar-basico recebe os mesmos IDs, quantidades e BIOS da seleção ampliada, resolve-os no servidor e não consulta banco nem provedor. Socket e suporte de CPU/BIOS exigem correspondência de nome completo único com fichas locais revisadas. Geração DDR, módulos e capacidade usam campos disponíveis, com origem comunitária indicada; formato e variante ausentes ficam não verificados. Não infere socket ou QVL por marketing. Fonte, vídeo, gabinete, cooler e armazenamento ficam explicitamente fora dessa checagem.
 

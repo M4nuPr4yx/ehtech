@@ -10,7 +10,7 @@ test.beforeEach(async ({ request }) => {
   const reset = await request.post(`${process.env.E2E_API_URL}/__e2e/reset-limits`, { headers: { 'x-e2e-key': process.env.E2E_RESET_KEY } })
   expect(reset.ok()).toBeTruthy()
 })
-test('teclado, foco do modal e regras básicas disponíveis sem IA', async ({ page }, info) => {
+test('teclado, foco do modal e compatibilidade com IA desabilitada', async ({ page }, info) => {
   let releaseCatalog
   const catalogWait = new Promise(resolve => { releaseCatalog = resolve })
   const catalogRoute = async route => { await catalogWait; await route.continue() }
@@ -39,6 +39,7 @@ test('teclado, foco do modal e regras básicas disponíveis sem IA', async ({ pa
   await accessible(page, info, 'autenticacao')
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden(); await expect(opener).toBeFocused()
+  await page.route('**/api/componentes/ia/status', route => route.fulfill({ json: { disponivel: false, provedor: 'disabled', mensagem: 'IA desabilitada no teste.' } }))
   await page.goto('/compatibilidade')
   const search = page.getByRole('combobox', { name: 'Buscar modelo', exact: true })
   await search.fill('AMD Ryzen 5 5600')
@@ -49,9 +50,9 @@ test('teclado, foco do modal e regras básicas disponíveis sem IA', async ({ pa
   await page.getByRole('combobox', { name: 'Tipo de peça', exact: true }).selectOption('placa_mae')
   await search.fill('Asus PRIME B550M-A')
   await page.getByRole('listbox').getByRole('option').filter({ has: page.getByText('Asus PRIME B550M-A', { exact: true }) }).click()
-  await expect(page.getByRole('button', { name: 'Complementar com IA', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: 'Verificar com regras básicas', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'Resultado da checagem básica' })).toContainText('Checagem por regras, sem IA.')
+  await expect(page.getByRole('button', { name: 'Analisar com IA', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: /regras básicas/i })).toHaveCount(0)
+  await expect(page.getByText('IA desabilitada no teste.', { exact: true })).toBeVisible()
   await accessible(page, info, 'compatibilidade')
   await page.screenshot({ path: info.outputPath('compatibilidade-sem-ia.png'), fullPage: true })
 })

@@ -9,7 +9,7 @@ Roteiro de demonstração da versão acadêmica revisada em 10/11/2026. A EHtech
 3. Prepare três sessões separadas: comprador, vendedor/prestador e administrador. Use perfis distintos do navegador. Cadastre contas comuns válidas e promova somente a conta administrativa pelo comando documentado no README. Não mostre senhas, tokens, ambientes privados ou ferramentas de banco no projetor.
 4. Prepare um produto fictício pendente, um aprovado com estoque e origem cadastrada, e um serviço aprovado com descrição, entregáveis e critérios de aceite. Comprador e vendedor devem ser contas diferentes. Não execute seeds em base com dados reais.
 5. Deixe um pedido de demonstração e uma contratação já existentes como alternativa caso o tempo da banca seja curto. Mantenha capturas locais das telas e o relatório de testes disponíveis para falha de rede.
-6. Teste o computador/projetor e o tamanho da janela. Google, SMTP e IA externa dependem de configuração e rede; o login comum e as regras básicas de compatibilidade permitem demonstrar o núcleo sem esses provedores.
+6. Teste o computador/projetor e o tamanho da janela. Google, SMTP e IA externa dependem de configuração e rede; o login comum permite demonstrar o núcleo do marketplace. Confira a disponibilidade da IA antes de apresentar a análise de peças.
 
 ## Roteiro sugerido de 12 minutos
 
@@ -20,7 +20,7 @@ Roteiro de demonstração da versão acadêmica revisada em 10/11/2026. A EHtech
 | 2–4 min | Anúncio e administração | Usuário publica; anúncio pendente depende de aprovação para entrar na vitrine |
 | 4–7 min | Compra e recebimento | Solicitar retirada, revisar sem endereço e registrar o pedido. Em pedido preparado, mostrar proposta, aceite e código de retirada após o recebimento simulado |
 | 7–9 min | Serviços da comunidade | Prestador identificado, solicitação, orçamento, aceite e execução; usar contratação preparada para mostrar conclusão e garantia registrada |
-| 9–10 min | Diferenciais | Compatibilidade básica explicável sem IA; selecionar modelos cobertos pelas fichas revisadas e mostrar os limites das regras |
+| 9–10 min | Diferenciais | Selecionar modelos no catálogo, usar Analisar com IA e mostrar os dados que precisam ser confirmados no fabricante |
 | 10–11 min | Segurança e confiança | Avaliação de compra verificada, denúncia, propriedade dos dados e visão restrita do vendedor |
 | 11–12 min | Arquitetura e evidências | Next/React, API Express, MySQL/PostgreSQL, testes reais e limites da versão |
 
@@ -60,7 +60,7 @@ O frontend apresenta as opções; o servidor valida identidade, propriedade, pre
 | Código temporário de retirada e confirmação direta | Confirmação é declaração de recebimento; não comprova pagamento ou qualidade |
 | Denúncias e decisões administrativas | Não há disputa bilateral com anexos, estorno ou garantia financeira automática |
 | Contratação, orçamento, etapas e garantia registrada | Garantia é registro das condições do prestador, sem seguro ou pagamento integrado |
-| Catálogo e regras básicas de compatibilidade | Dados ausentes permanecem não verificados; não certifica uma montagem completa |
+| Catálogo e análise de compatibilidade com IA | Dados ausentes permanecem não verificados; não certifica uma montagem completa |
 | Complemento opcional com IA | Pode estar indisponível; não substitui fontes e especificações técnicas |
 | Interface responsiva e testes Chromium | Viewport de celular não equivale a homologação em aparelhos físicos ou todos os navegadores |
 | Anúncios digitais | Cofre privado de arquivos e transferência verificada de contas permanecem futuros |

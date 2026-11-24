@@ -53,7 +53,7 @@ test('checagem de peças abre sem esperar uma resposta lenta da IA', async ({ pa
     await page.goto('/compatibilidade')
     await expect(page.getByRole('combobox', { name: 'Buscar modelo', exact: true })).toBeEnabled()
     expect(pending).toBeTruthy()
-    await expect(page.getByRole('button', { name: 'Complementar com IA', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Analisar com IA', exact: true })).toBeDisabled()
   } finally { release() }
 })
 

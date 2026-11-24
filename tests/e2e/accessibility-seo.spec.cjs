@@ -46,7 +46,7 @@ test('teclado, foco do modal e regras básicas disponíveis sem IA', async ({ pa
   await search.press('ArrowDown'); await expect(search).toHaveAttribute('aria-activedescendant', /.+/)
   await search.press('Enter')
   await expect(page.getByRole('button', { name: /^Remover AMD Ryzen 5/ }).first()).toBeVisible()
-  await page.getByRole('combobox', { name: /^Categoria/ }).selectOption('placa_mae')
+  await page.getByRole('combobox', { name: 'Tipo de peça', exact: true }).selectOption('placa_mae')
   await search.fill('Asus PRIME B550M-A')
   await page.getByRole('listbox').getByRole('option').filter({ has: page.getByText('Asus PRIME B550M-A', { exact: true }) }).click()
   await expect(page.getByRole('button', { name: 'Complementar com IA', exact: true })).toBeDisabled()

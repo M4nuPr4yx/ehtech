@@ -1,4 +1,5 @@
 const { STATES, problem } = require('./addresses')
+const { integer } = require('./validation')
 const { aliases: categoryAliases, categoryKey } = require('../shared/product-categories.cjs')
 
 function dateFilter(value) {
@@ -16,13 +17,19 @@ function catalogQuery(query) {
   const category = typeof query.categoria === 'string' ? query.categoria.trim().slice(0, 60).toLowerCase() : ''
   const uf = typeof query.uf === 'string' ? query.uf.trim().toUpperCase() : ''
   const city = typeof query.cidade === 'string' ? query.cidade.trim().slice(0, 100).toLowerCase() : ''
+  const seller = query.vendedor === undefined ? null : integer(query.vendedor)
+  if (seller !== null && (!(seller > 0) || seller > 2147483647)) throw problem(400, 'Informe um vendedor válido.')
   if (uf && !STATES.includes(uf)) throw problem(400, 'Selecione uma UF brasileira válida.')
   const start = dateFilter(query.dataInicio), end = dateFilter(query.dataFim)
   if (start && end && start > end) throw problem(400, 'A data inicial deve ser anterior ou igual à final.')
   const min = Number.parseFloat(query.precoMin), max = Number.parseFloat(query.precoMax)
   if (Number.isFinite(min) && Number.isFinite(max) && min >= 0 && max >= 0 && min > max) throw problem(400, 'O preço mínimo não pode ser maior que o máximo.')
   const filters = ["status_aprovacao = 'aprovado'"], params = []
-  if (search) { filters.push("(LOWER(nome) LIKE ? ESCAPE '!' OR LOWER(descricao) LIKE ? ESCAPE '!')"); params.push(`%${like(search)}%`, `%${like(search)}%`) }
+  if (search) {
+    const term = `%${like(search)}%`
+    filters.push("(LOWER(nome) LIKE ? ESCAPE '!' OR LOWER(descricao) LIKE ? ESCAPE '!' OR LOWER(especificacoes) LIKE ? ESCAPE '!')")
+    params.push(term, term, term)
+  }
   if (category) {
     const key = categoryKey(category)
     const legacyLabels = Object.hasOwn(categoryAliases, key) ? categoryAliases[key] : []
@@ -30,6 +37,7 @@ function catalogQuery(query) {
     filters.push(`LOWER(categoria) IN (${aliases.map(() => '?').join(',')})`); params.push(...aliases)
   }
   if (uf) { filters.push('origem_uf = ?'); params.push(uf) }
+  if (seller !== null) { filters.push('vendedor_id = ?'); params.push(seller) }
   if (city) { filters.push('LOWER(origem_cidade) = ?'); params.push(city) }
   if (start) { filters.push('data_criacao >= ?'); params.push(`${start} 00:00:00`) }
   if (end) {

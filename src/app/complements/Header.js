@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import ThemeSwitcher from './ThemeSwitcher';
 import AppNavigation from './AppNavigation';
+import { internalPath } from '../../lib/internal-path.mjs';
 import ehtechLogo from '../../../public/ehtech-logo.png';
 import { DEFAULT_PROFILE_PHOTO, isValidImageUrl } from './imageHelper';
 
@@ -74,13 +75,6 @@ export default function Header() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  // O cabeçalho persiste entre páginas: consultar ao montar/trocar sessão.
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    queueMicrotask(() => { setIsLoggedIn(!!token); setUserRole(null); });
-    if (token) fetchProfilePhoto(token);
-  }, []);
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
@@ -98,6 +92,7 @@ export default function Header() {
       }
     }
     if (token) {
+      fetchProfilePhoto(token);
       fetchNotifications(token);
       fetchUnreadMessages(token);
     }
@@ -134,6 +129,7 @@ export default function Header() {
       const token = localStorage.getItem('token');
       if (token && event.detail?.authorization === `Bearer ${token}`) {
         localStorage.removeItem('token'); localStorage.removeItem('userUsername'); localStorage.removeItem('userFoto');
+        setDropdownOpen(false); setNotificationsOpen(false); setNotifications([]); setUnreadMessages(0); setUserPhoto('');
         setIsLoggedIn(false); setUserRole(null); setActiveTab('login'); setMessage('Sua sessão terminou. Entre novamente para continuar.'); setModalOpen(true);
       }
       const adminToken = sessionStorage.getItem('adminToken');
@@ -155,7 +151,15 @@ export default function Header() {
         setUserRole(null);
         setIsLoggedIn(Boolean(token));
         setDropdownOpen(false);
-        if (token) fetchProfilePhoto(token);
+        setNotificationsOpen(false);
+        setNotifications([]);
+        setUnreadMessages(0);
+        setUserPhoto('');
+        if (token) {
+          fetchProfilePhoto(token);
+          fetchNotifications(token);
+          fetchUnreadMessages(token);
+        }
       }
     };
     const updatePhoto = () => setUserPhoto(localStorage.getItem('userFoto') || '');
@@ -178,9 +182,11 @@ export default function Header() {
       if (localStorage.getItem('token') !== token) return;
       setUserRole(res.ok ? data.role : null);
       if (res.ok) localStorage.setItem('userUsername', data.nome || data.username || '');
-      if (res.ok && data.foto && isValidImageUrl(data.foto)) {
-        setUserPhoto(data.foto);
-        localStorage.setItem('userFoto', data.foto);
+      if (res.ok) {
+        const photo = isValidImageUrl(data.foto) ? data.foto : '';
+        setUserPhoto(photo);
+        if (photo) localStorage.setItem('userFoto', photo);
+        else localStorage.removeItem('userFoto');
       }
     } catch (err) {
       console.log('[Header] Error fetching photo:', err);
@@ -190,11 +196,11 @@ export default function Header() {
   const fetchUnreadMessages = async (token) => {
     try {
       const res = await apiResponse('/mensagens/nao-lidas/total', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }, dedupe: true
       });
       if (!res.ok) return;
       const data = await res.json();
-      setUnreadMessages(Number(data.totalNaoLidas) || 0);
+      if (localStorage.getItem('token') === token) setUnreadMessages(Number(data.totalNaoLidas) || 0);
     } catch (err) {
       console.log('[Header] Error fetching unread messages:', err);
     }
@@ -215,11 +221,11 @@ export default function Header() {
   const fetchNotifications = async (token) => {
     try {
       const res = await apiResponse('/notificacoes', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` }, dedupe: true
       });
       if (!res.ok) return;
       const data = await res.json();
-      setNotifications(Array.isArray(data) ? data : []);
+      if (localStorage.getItem('token') === token) setNotifications(Array.isArray(data) ? data : []);
     } catch (err) {
       console.log('[Header] Error fetching notifications:', err);
     }
@@ -230,10 +236,11 @@ export default function Header() {
     if (!token) return;
 
     try {
-      await apiResponse(`/notificacoes/${notificationId}/lida`, {
+      const response = await apiResponse(`/notificacoes/${notificationId}/lida`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!response.ok || localStorage.getItem('token') !== token) return;
       setNotifications((currentNotifications) => currentNotifications.map((notification) => (
         notification.id === notificationId ? { ...notification, lida: 1 } : notification
       )));
@@ -247,10 +254,11 @@ export default function Header() {
     if (!token) return;
 
     try {
-      await apiResponse('/notificacoes/lidas', {
+      const response = await apiResponse('/notificacoes/lidas', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!response.ok || localStorage.getItem('token') !== token) return;
       setNotifications((currentNotifications) => currentNotifications.map((notification) => ({ ...notification, lida: 1 })));
     } catch (err) {
       console.log('[Header] Error updating notifications:', err);
@@ -262,12 +270,12 @@ export default function Header() {
     setUserRole(null);
     localStorage.setItem('token', data.token);
     localStorage.setItem('userUsername', data.nome || data.username || '');
+    localStorage.removeItem('userFoto');
     window.dispatchEvent(new Event('ehtech:auth-change'));
-    fetchNotifications(data.token); fetchUnreadMessages(data.token);
     setIsLoggedIn(true); setFeedback('Login bem-sucedido!'); setModalOpen(false);
     setUsername(''); setEmail(''); setSenha(''); setConfirmarSenha(''); setMessage('');
-    const nextPath = new URLSearchParams(window.location.search).get('next');
-    if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) router.replace(nextPath);
+    const nextPath = internalPath(new URLSearchParams(window.location.search).get('next'));
+    if (nextPath) router.replace(nextPath);
   };
 
   const handleSubmit = async (e) => {

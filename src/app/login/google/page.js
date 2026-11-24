@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { apiRequest } from '../../../lib/api-request'
+import { internalPath } from '../../../lib/internal-path.mjs'
 
 export default function GoogleReturn() {
   const [stage, setStage] = useState(null), [password, setPassword] = useState(''), [name, setName] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(true)
@@ -21,7 +22,7 @@ export default function GoogleReturn() {
         if (metadata.acao !== 'vincular') sessionStorage.setItem('ehtech:login-feedback', 'Login bem-sucedido!')
         window.dispatchEvent(new Event('ehtech:auth-change'))
       }
-      const destination = typeof data.destino === 'string' && data.destino.startsWith('/') && !/^\/[/\\]/.test(data.destino) ? data.destino : '/perfil'
+      const destination = internalPath(data.destino) || '/perfil'
       window.location.replace(destination)
     } catch (failure) { if (!requestSignal.aborted) { setError(failure.message); setBusy(false) } }
     finally { if (!requestSignal.aborted) setPassword('') }

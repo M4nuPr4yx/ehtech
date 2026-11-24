@@ -4,6 +4,7 @@ const { autenticarToken } = require('../middleware/auth')
 const { integer, money, cleanText } = require('../validation')
 const { findCombo } = require('../differentials')
 const { FIELDS, snapshotListing } = require('../service-listings')
+const { problem, transaction } = require('../addresses')
 
 const MODALITIES = new Set(['presencial', 'remoto', 'hibrido'])
 const URGENCIES = new Set(['flexivel', 'normal', 'urgente'])
@@ -33,6 +34,14 @@ function moneyValue(value, { required = false } = {}) {
   return money(value, { min: required ? 0.01 : 0, max: 10000000 })
 }
 
+function quoteRevision(row) {
+  if (row.status !== 'orcamento_enviado') return null
+  return crypto.createHash('sha256').update(JSON.stringify([
+    row.id_contratacao, Number(row.valor_proposto), row.escopo_proposto, row.prazo_proposto,
+    Number(row.garantia_dias), row.observacoes_prestador ?? null,
+  ])).digest('hex')
+}
+
 function normalizeContract(row, userId) {
   const snapshot = row.servico_snapshot ? JSON.parse(row.servico_snapshot) : null
   return {
@@ -41,6 +50,7 @@ function normalizeContract(row, userId) {
     categoria: snapshot?.categoria || row.categoria,
     servico_snapshot: snapshot,
     combo_snapshot: row.combo_snapshot ? JSON.parse(row.combo_snapshot) : null,
+    orcamento_revisao: quoteRevision(row),
     orcamento_max: row.orcamento_max === null ? null : Number(row.orcamento_max),
     valor_proposto: row.valor_proposto === null ? null : Number(row.valor_proposto),
     garantia_dias: row.garantia_dias === null ? null : Number(row.garantia_dias),
@@ -78,40 +88,37 @@ function createServiceContractsRouter(pool) {
     if (!availability || availability.length < 5) return res.status(400).json({ mensagem: 'Informe sua disponibilidade para o atendimento.' })
 
     try {
-      let combo = null
-      if (req.body.combo_id !== undefined) {
-        combo = await findCombo(pool, req.body.combo_id)
-        if (Number(combo.servico_id) !== serviceId) return res.status(400).json({ mensagem: 'O serviço não pertence ao combo selecionado.' })
-        if (Number(combo.criador_id) === Number(req.user.id)) return res.status(400).json({ mensagem: 'Você não pode solicitar seu próprio combo.' })
-      }
-      const [services] = await pool.execute(
-        `SELECT id_servico, ${FIELDS.join(', ')}, politicas_versao, prestador_id FROM servicos WHERE id_servico = ? AND status = 'ativo' AND status_aprovacao = 'aprovado' LIMIT 1`,
-        [serviceId]
-      )
-      if (!services.length) return res.status(404).json({ mensagem: 'Serviço não encontrado.' })
-      const service = services[0]
-      if (combo && service.modalidade !== 'hibrido' && modality !== service.modalidade) {
-        return res.status(400).json({ mensagem: 'Escolha uma modalidade oferecida para esta instalação.' })
-      }
-      if (Number(service.prestador_id) === Number(req.user.id)) {
-        return res.status(400).json({ mensagem: 'Você não pode solicitar o próprio serviço.' })
-      }
+      const combo = req.body.combo_id === undefined ? null : await findCombo(pool, req.body.combo_id)
+      if (combo && Number(combo.servico_id) !== serviceId) throw problem(400, 'O serviço não pertence ao combo selecionado.')
+      if (combo && Number(combo.criador_id) === Number(req.user.id)) throw problem(400, 'Você não pode solicitar seu próprio combo.')
+      const { id, service } = await transaction(pool, async connection => {
+        // Serializa solicitações concorrentes para o mesmo anúncio.
+        const [[service]] = await connection.execute(
+          `SELECT id_servico, ${FIELDS.join(', ')}, politicas_versao, prestador_id
+           FROM servicos WHERE id_servico = ? AND status = 'ativo' AND status_aprovacao = 'aprovado' FOR UPDATE`,
+          [serviceId]
+        )
+        if (!service) throw problem(404, 'Serviço não encontrado.')
+        if (service.modalidade !== 'hibrido' && modality !== service.modalidade) throw problem(400, 'Escolha uma modalidade oferecida neste anúncio.')
+        if (Number(service.prestador_id) === Number(req.user.id)) throw problem(400, 'Você não pode solicitar o próprio serviço.')
 
-      const [active] = await pool.execute(
-        `SELECT id_contratacao FROM contratacoes_servico
-         WHERE servico_id = ? AND cliente_id = ? AND status NOT IN ('concluido', 'cancelado') LIMIT 1`,
-        [serviceId, req.user.id]
-      )
-      if (active.length) return res.status(409).json({ mensagem: 'Você já possui uma solicitação ativa para este serviço.' })
+        const [active] = await connection.execute(
+          `SELECT id_contratacao FROM contratacoes_servico
+           WHERE servico_id = ? AND cliente_id = ? AND status NOT IN ('concluido', 'cancelado') LIMIT 1`,
+          [serviceId, req.user.id]
+        )
+        if (active.length) throw problem(409, 'Você já possui uma solicitação ativa para este serviço.')
 
-      const [result] = await pool.execute(
-        `INSERT INTO contratacoes_servico
-          (servico_id, cliente_id, prestador_id, descricao_problema, modalidade, urgencia, orcamento_max, disponibilidade, combo_snapshot, servico_snapshot)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [serviceId, req.user.id, service.prestador_id, description, modality, urgency, maximumBudget, availability, combo ? JSON.stringify({ id: combo.id, titulo: combo.titulo, produto_id: combo.produto_id, produto_nome: combo.produto_nome, produto_preco: combo.produto_preco, servico_preco_base: combo.preco_base, total_estimado: combo.total_estimado }) : null, JSON.stringify(snapshotListing(service))]
-      )
+        const [result] = await connection.execute(
+          `INSERT INTO contratacoes_servico
+            (servico_id, cliente_id, prestador_id, descricao_problema, modalidade, urgencia, orcamento_max, disponibilidade, combo_snapshot, servico_snapshot)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [serviceId, req.user.id, service.prestador_id, description, modality, urgency, maximumBudget, availability, combo ? JSON.stringify({ id: combo.id, titulo: combo.titulo, produto_id: combo.produto_id, produto_nome: combo.produto_nome, produto_preco: combo.produto_preco, servico_preco_base: combo.preco_base, total_estimado: combo.total_estimado }) : null, JSON.stringify(snapshotListing(service))]
+        )
+        return { id: result.insertId, service }
+      })
       await notify(pool, service.prestador_id, 'servico_solicitado', `Nova solicitação de orçamento para “${service.titulo}”.`)
-      return res.status(201).json({ id: result.insertId, status: 'solicitado', mensagem: 'Solicitação enviada ao prestador.' })
+      return res.status(201).json({ id, status: 'solicitado', mensagem: 'Solicitação enviada ao prestador.' })
     } catch (error) {
       if (error.status) return res.status(error.status).json({ mensagem: error.message })
       console.error('[contratacoes/criar] Erro:', error.message)
@@ -184,68 +191,79 @@ function createServiceContractsRouter(pool) {
   router.patch('/:id/status', async (req, res) => {
     const id = integer(req.params.id)
     const nextStatus = cleanText(req.body.status, 30)
+    const revision = req.body.orcamento_revisao
     if (!Number.isInteger(id) || id <= 0 || !Object.hasOwn(STATUS_LABELS, nextStatus)) {
       return res.status(400).json({ mensagem: 'Contratação ou status inválido.' })
     }
+    if (revision !== undefined && (nextStatus !== 'aceito' || typeof revision !== 'string' || !/^[a-f0-9]{64}$/.test(revision))) {
+      return res.status(400).json({ mensagem: 'Revisão do orçamento inválida.' })
+    }
 
     try {
-      const [rows] = await pool.execute(
-        `SELECT c.cliente_id, c.prestador_id, c.status, c.garantia_dias, s.titulo
-         FROM contratacoes_servico c JOIN servicos s ON s.id_servico = c.servico_id
-         WHERE c.id_contratacao = ? LIMIT 1`,
-        [id]
-      )
-      if (!rows.length) return res.status(404).json({ mensagem: 'Contratação não encontrada.' })
-      const contract = rows[0]
-      const isClient = Number(contract.cliente_id) === Number(req.user.id)
-      const isProvider = Number(contract.prestador_id) === Number(req.user.id)
-      if (!isClient && !isProvider) return res.status(403).json({ mensagem: 'Você não participa desta contratação.' })
+      const { contract, recipientId, warrantyCode } = await transaction(pool, async connection => {
+        const [rows] = await connection.execute(
+          `SELECT c.id_contratacao, c.cliente_id, c.prestador_id, c.status, c.garantia_dias,
+             c.valor_proposto, c.escopo_proposto, c.prazo_proposto, c.observacoes_prestador,
+             (SELECT titulo FROM servicos WHERE id_servico = c.servico_id) AS titulo
+           FROM contratacoes_servico c WHERE c.id_contratacao = ? FOR UPDATE`,
+          [id]
+        )
+        if (!rows.length) throw problem(404, 'Contratação não encontrada.')
+        const contract = rows[0]
+        const isClient = Number(contract.cliente_id) === Number(req.user.id)
+        const isProvider = Number(contract.prestador_id) === Number(req.user.id)
+        if (!isClient && !isProvider) throw problem(403, 'Você não participa desta contratação.')
 
-      const clientTransitions = {
-        solicitado: ['cancelado'],
-        orcamento_enviado: ['aceito', 'cancelado'],
-        aceito: ['cancelado']
-      }
-      const providerTransitions = {
-        solicitado: ['cancelado'],
-        orcamento_enviado: ['cancelado'],
-        aceito: ['em_execucao', 'cancelado'],
-        em_execucao: ['concluido']
-      }
-      const allowed = isProvider ? providerTransitions[contract.status] : clientTransitions[contract.status]
-      if (!allowed?.includes(nextStatus)) return res.status(409).json({ mensagem: 'Essa mudança de etapa não é permitida.' })
+        const clientTransitions = {
+          solicitado: ['cancelado'],
+          orcamento_enviado: ['aceito', 'cancelado'],
+          aceito: ['cancelado']
+        }
+        const providerTransitions = {
+          solicitado: ['cancelado'],
+          orcamento_enviado: ['cancelado'],
+          aceito: ['em_execucao', 'cancelado'],
+          em_execucao: ['concluido']
+        }
+        const allowed = isProvider ? providerTransitions[contract.status] : clientTransitions[contract.status]
+        if (!allowed?.includes(nextStatus)) throw problem(409, 'Essa mudança de etapa não é permitida.')
+        if (revision !== undefined && revision !== quoteRevision(contract)) {
+          throw problem(409, 'O prestador revisou o orçamento. Confira a nova proposta antes de aceitar.', { code: 'QUOTE_CHANGED' })
+        }
 
-      const timestampColumns = {
-        aceito: 'aceito_em', em_execucao: 'iniciado_em', concluido: 'concluido_em', cancelado: 'cancelado_em'
-      }
-      const timestampColumn = timestampColumns[nextStatus]
-      const now = new Date()
-      const assignments = ['status = ?', `${timestampColumn} = ?`, 'updated_at = ?']
-      const updateValues = [nextStatus, now, now]
-      let warrantyCode = null
+        const timestampColumns = {
+          aceito: 'aceito_em', em_execucao: 'iniciado_em', concluido: 'concluido_em', cancelado: 'cancelado_em'
+        }
+        const timestampColumn = timestampColumns[nextStatus]
+        const now = new Date()
+        const assignments = ['status = ?', `${timestampColumn} = ?`, 'updated_at = ?']
+        const updateValues = [nextStatus, now, now]
+        let warrantyCode = null
 
-      if (nextStatus === 'concluido' && Number(contract.garantia_dias) > 0) {
-        const warrantyDays = Math.min(Number(contract.garantia_dias), 3650)
-        const warrantyEnd = new Date(now.getTime() + warrantyDays * 24 * 60 * 60 * 1000)
-        warrantyCode = `EHT-${String(id).padStart(6, '0')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`
-        assignments.push('garantia_codigo = ?', 'garantia_inicio_em = ?', 'garantia_fim_em = ?')
-        updateValues.push(warrantyCode, now, warrantyEnd)
-      }
+        if (nextStatus === 'concluido' && Number(contract.garantia_dias) > 0) {
+          const warrantyDays = Math.min(Number(contract.garantia_dias), 3650)
+          const warrantyEnd = new Date(now.getTime() + warrantyDays * 24 * 60 * 60 * 1000)
+          warrantyCode = `EHT-${String(id).padStart(6, '0')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`
+          assignments.push('garantia_codigo = ?', 'garantia_inicio_em = ?', 'garantia_fim_em = ?')
+          updateValues.push(warrantyCode, now, warrantyEnd)
+        }
 
-      const [result] = await pool.execute(
-        `UPDATE contratacoes_servico SET ${assignments.join(', ')}
-         WHERE id_contratacao = ? AND status = ?`,
-        [...updateValues, id, contract.status]
-      )
-      if (!result.affectedRows) return res.status(409).json({ mensagem: 'A etapa mudou em outra sessão. Atualize a página.' })
+        const [result] = await connection.execute(
+          `UPDATE contratacoes_servico SET ${assignments.join(', ')}
+           WHERE id_contratacao = ? AND status = ?`,
+          [...updateValues, id, contract.status]
+        )
+        if (!result.affectedRows) throw problem(409, 'A etapa mudou em outra sessão. Atualize a página.')
 
-      const recipientId = isProvider ? contract.cliente_id : contract.prestador_id
+        return { contract, recipientId: isProvider ? contract.cliente_id : contract.prestador_id, warrantyCode }
+      })
       const message = warrantyCode
         ? `“${contract.titulo}” foi concluído e a garantia ${warrantyCode} está ativa.`
         : `“${contract.titulo}” avançou para: ${STATUS_LABELS[nextStatus]}.`
       await notify(pool, recipientId, `servico_${nextStatus}`, message)
       return res.json({ status: nextStatus, garantia_codigo: warrantyCode, mensagem: warrantyCode ? 'Serviço concluído e garantia registrada.' : `Etapa atualizada para ${STATUS_LABELS[nextStatus]}.` })
     } catch (error) {
+      if (error.status) return res.status(error.status).json({ mensagem: error.message, ...(error.code && { code: error.code }) })
       console.error('[contratacoes/status] Erro:', error.message)
       return res.status(500).json({ mensagem: 'Não foi possível atualizar a etapa.' })
     }

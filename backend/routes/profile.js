@@ -5,6 +5,7 @@ const path = require('path')
 const multer = require('multer')
 const { isValidPassword, isAllowedUserEmail, passwordValidationMessage } = require('../user-validation')
 const { normalizeProfileName, NAME_MESSAGE } = require('../profile-name')
+const { integer } = require('../validation')
 const { defaultProfilePhoto, profilePhoto } = require('../../shared/profile-defaults.cjs')
 const { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_IMAGE_SIZE, matchesImageType, extensionFor, createImageFilename, saveImage } = require('../media')
 module.exports = function createProfileRouter(pool) {
@@ -42,20 +43,30 @@ router.get('/usuarios/busca', autenticarToken, async (req, res) => {
 })
 
 router.get("/usuarios/:id/publico", async (req, res) => {
-  const numericId = parseInt(req.params.id, 10)
-  if (isNaN(numericId)) {
+  const numericId = integer(req.params.id)
+  if (!(numericId > 0 && numericId <= 2147483647)) {
     return res.status(400).json({ mensagem: "ID inválido" })
   }
 
   try {
     const [rows] = await pool.execute(
-      'SELECT id_usuario, username, nome, foto, data_criacao FROM usuarios WHERE id_usuario = ?',
-      [numericId]
+      `SELECT u.id_usuario, u.username, u.nome, u.foto, u.data_criacao, r.media, r.total,
+        (SELECT COUNT(DISTINCT pedido_id) FROM pedido_entregas WHERE vendedor_id = u.id_usuario AND estado = 'recebido') AS vendas_recebidas,
+        (SELECT COUNT(*) FROM contratacoes_servico WHERE prestador_id = u.id_usuario AND status = 'concluido') AS servicos_concluidos
+       FROM usuarios u
+       CROSS JOIN (
+         SELECT ROUND(AVG(a.nota), 1) AS media, COUNT(*) AS total FROM avaliacoes a
+         JOIN produtos p ON p.id_produto = a.produto_id
+         WHERE p.vendedor_id = ? AND a.pedido_id IS NOT NULL
+       ) r
+       WHERE u.id_usuario = ?`,
+      [numericId, numericId]
     )
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Vendedor não encontrado" })
     }
-    return res.json({ ...rows[0], foto: profilePhoto(rows[0]) })
+    const { media, total, vendas_recebidas, servicos_concluidos, ...profile } = rows[0]
+    return res.json({ ...profile, foto: profilePhoto(profile), reputacao_vendas: { media: Number(media) || 0, total: Number(total) }, vendas_recebidas: Number(vendas_recebidas), servicos_concluidos: Number(servicos_concluidos) })
   } catch (error) {
     console.error('[usuarios/publico] Erro:', error.message)
     return res.status(500).json({ mensagem: "Erro ao buscar dados do vendedor" })

@@ -116,7 +116,7 @@ test('Docs: combos, busca por objetivo e contratação de serviço', async ({ pa
   await enter(page, technician.token, '/contratacoes')
   await page.getByRole('button', { name: 'Iniciar serviço', exact: true }).click()
   await page.getByRole('button', { name: 'Marcar como concluído', exact: true }).click()
-  await expect(page.getByText('Garantia EHtech registrada', { exact: true })).toBeVisible()
+  await expect(page.getByText('Garantia oferecida pelo prestador', { exact: true })).toBeVisible()
   await enter(page, owner.token, '/contratacoes')
   await page.getByRole('button', { name: 'Avaliar atendimento', exact: true }).click()
   await page.getByRole('button', { name: '5 estrelas', exact: true }).click()

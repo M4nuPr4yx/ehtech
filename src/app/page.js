@@ -161,16 +161,15 @@ export default function Home() {
     <div className={styles.home}><div className={styles.shell}>
       <section className={styles.hero}>
         <div className={styles.intro} data-motion="rise">
-          <p className={styles.kicker}>Comprar, vender e cuidar da sua tecnologia</p>
-          <h1>Seu próximo<br />upgrade <span>está aqui.</span></h1>
-          <p className={styles.description}>Compre produtos, contrate serviços ou publique seu anúncio. Converse diretamente com quem vende e combine os detalhes antes de fechar.</p>
+          <h1>Tudo para sua tecnologia, <span>em um só lugar.</span></h1>
+          <p className={styles.description}>Encontre equipamentos, compare produtos, planeje seu próximo upgrade e contrate profissionais de tecnologia.</p>
           <form onSubmit={handleHeroSearch} className={styles.search} role="search" aria-label="Buscar produtos na vitrine">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
             <input type="search" aria-label="Buscar produtos" placeholder="Notebook, celular, peça…" maxLength={100} value={heroSearch} onChange={e => setHeroSearch(e.target.value)} />
             <button type="submit">Buscar</button>
           </form>
           <div className={styles.suggestions}><span>Explore</span>{['setups', 'teclados', 'mouses', 'monitores'].map(id => <Link key={id} href={'/produtos?categoria=' + id}>{categoryName(id)}</Link>)}</div>
-          <div className={styles.introActions}><Link href="/anunciar">Quero anunciar <span aria-hidden="true">↗</span></Link><Link href="/servicos">Contratar um serviço <span aria-hidden="true">→</span></Link></div>
+          <div className={styles.introActions}><Link href="/produtos">Explorar produtos</Link><Link href="/servicos">Encontrar serviços</Link></div>
         </div>
         <div className={styles.showcase} data-motion="fade" data-motion-delay="120">
           {loading ? <div className={styles.skeleton}><LoadingState label="Buscando anúncios da comunidade…" detail="Enquanto isso, explore as categorias abaixo." /></div> : featured ? (
@@ -182,16 +181,12 @@ export default function Home() {
           ) : (
             <Link href="/produtos" className={styles.heroProduct}><div className={styles.heroLabel}><span>Seu próximo equipamento</span><span>Explorar ↗</span></div><div className={styles.heroPhoto}>{emptyPhoto}</div><div className={styles.heroCaption}><h2>Encontre o que combina com você.</h2></div></Link>
           )}
-          <Link href="/compatibilidade" className={styles.pcNote}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4M9 9h6v6H9z" /></svg>
-            <div><strong>Vai montar um PC?</strong><small>Confira se suas peças combinam antes de comprar.</small></div><span aria-hidden="true">→</span>
-          </Link>
         </div>
       </section>
 
       <section className={styles.quickStart} aria-labelledby="por-onde-comecar">
-        <h2 id="por-onde-comecar">O que você quer fazer?</h2>
-        <div>{[['/produtos', 'Comprar produtos', 'Escolha um anúncio e inicie um pedido.'], ['/servicos', 'Contratar serviços', 'Encontre ajuda e peça um orçamento.'], ['/anunciar', 'Vender ou oferecer um serviço', 'Escolha o tipo de anúncio e publique.']].map(([href, title, hint]) => <Link key={href} href={href}><strong>{title} <span aria-hidden="true">→</span></strong><small>{hint}</small></Link>)}</div>
+        <h2 id="por-onde-comecar">Ferramentas para escolher</h2>
+        <div>{[['/comparar', 'Comparar produtos', 'Veja lado a lado os preços e as fichas dos anúncios selecionados.'], ['/compatibilidade', 'Verificar compatibilidade', 'Confira os requisitos das peças antes de montar seu PC.'], ['/missoes', 'Buscar por objetivo', 'Encontre opções para o que você precisa dentro do seu orçamento.']].map(([href, title, hint]) => <Link key={href} href={href}><strong>{title}</strong><small>{hint}</small></Link>)}</div>
         <p>O pagamento é combinado entre as partes, fora do site. <Link href="/sobre">Veja como funciona →</Link></p>
       </section>
 

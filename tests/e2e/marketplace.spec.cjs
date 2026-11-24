@@ -301,6 +301,13 @@ test('jornada real: anunciar, aprovar, comprar, receber, avaliar e moderar', asy
       await page.getByLabel('Comentário da avaliação').fill('Produto recebido, avaliação de compra verificada no teste.')
       await page.getByRole('button', { name: 'Enviar Avaliação', exact: true }).click()
       await expect(page.getByText('Compra verificada', { exact: true })).toBeVisible()
+      await page.reload()
+      await expect(page.getByText('5 de 5 · 1 avaliação de compra verificada', { exact: true })).toBeVisible()
+      await page.locator(`main a[href="/perfil/${sellerId}"]`).click()
+      await expect(page.getByText('1 venda recebida', { exact: true })).toBeVisible()
+      await expect(page.getByRole('link').filter({ has: page.getByRole('heading', { name, exact: true }) })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+      await page.screenshot({ path: info.outputPath('perfil-reputacao.png'), fullPage: true })
     })
     await test.step('Denunciar conteúdo e bloquear mensagens sem apagar histórico', async () => {
       await seller.goto(`/mensagens?usuario=${buyerId}`)

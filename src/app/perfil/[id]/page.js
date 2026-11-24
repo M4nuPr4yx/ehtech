@@ -1,11 +1,16 @@
 'use client';
-import { apiResponse } from '../../../lib/api-request.js';
+import { apiRequest } from '../../../lib/api-request.js';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ListingDetailLink, useListingScroll } from '../../complements/ListingNavigation';
-import { useParams, useRouter } from 'next/navigation';
+import { ListingDetailLink, useListingQuery, useListingScroll } from '../../complements/ListingNavigation';
+import { useParams } from 'next/navigation';
 import { getMainImage } from '../../complements/imageHelper';
+import ImageWithFallback from '../../complements/ImageWithFallback';
+import LoadingState from '../../complements/LoadingState';
+
+const defaults = { page: 1 };
+const monthYear = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
 // Helper function to validate if a string is a valid image URL or Base64
 const isValidImageUrl = (url) => {
@@ -25,18 +30,22 @@ const isValidImageUrl = (url) => {
   return imageExtensions.some(ext => trimmed.toLowerCase().includes(ext));
 };
 
-export default function SellerProfile() {
-  const router = useRouter();
-  const params = useParams();
-  const [seller, setSeller] = useState(null);
-  const [produtos, setProdutos] = useState([]);
-  const [avaliacoes, setAvaliacoes] = useState({ media: 0, total: 0 });
-  const [avaliacoesServicos, setAvaliacoesServicos] = useState({ media: 0, total: 0, avaliacoes: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+function SellerProfile({ id }) {
+  const { query: { page }, search, update } = useListingQuery(defaults);
+  const from = `/perfil/${id}${search ? '?' + search : ''}`;
+  const [profileResult, setProfileResult] = useState(null);
+  const [serviceReviews, setServiceReviews] = useState(null);
+  const [catalogResult, setCatalogResult] = useState(null);
+  const [profileRetry, setProfileRetry] = useState(0);
+  const [catalogRetry, setCatalogRetry] = useState(0);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [imgError, setImgError] = useState(false);
-  useListingScroll(!loading && !error, params.id);
+  const seller = profileResult?.seller;
+  const catalog = catalogResult?.page === page && catalogResult?.retry === catalogRetry ? catalogResult : null;
+  const produtos = catalog?.data?.items || [];
+  const avaliacoes = seller?.reputacao_vendas;
+  const avaliacoesServicos = serviceReviews?.data;
+  useListingScroll(Boolean(seller && catalog?.data), search);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -48,57 +57,29 @@ export default function SellerProfile() {
     }
   }, []);
 
-  const fetchSellerData = useCallback(async () => {
-    if (!params.id) return;
-    setLoading(true);
-    setError('');
-    
-    try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-      // Fetch all products
-      const produtosRes = await apiResponse('/produtos', { headers });
-      const produtosData = await produtosRes.json();
-      
-      // Filter products by this seller
-      const sellerProducts = Array.isArray(produtosData) ? produtosData.filter(p => p.vendedor_id === parseInt(params.id)) : [];
-      setProdutos(sellerProducts);
-
-      // Obter dados públicos do vendedor
-      const userRes = await apiResponse(`/usuarios/${params.id}/publico`);
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        setSeller(userData);
-      } else if (sellerProducts.length > 0) {
-        setSeller({
-          username: sellerProducts[0].vendedor,
-          id_usuario: sellerProducts[0].vendedor_id,
-          foto: null
-        });
-      }
-
-      // Buscar avaliações do vendedor
-      const avaliacoesRes = await apiResponse(`/avaliacoes/usuario/${params.id}`);
-      if (avaliacoesRes.ok) {
-        const avaliacoesData = await avaliacoesRes.json();
-        setAvaliacoes(avaliacoesData);
-      }
-
-      const servicosRes = await apiResponse(`/servicos/reputacao/prestador/${params.id}`);
-      if (servicosRes.ok) {
-        setAvaliacoesServicos(await servicosRes.json());
-      }
-    } catch (err) {
-      setError('Erro ao carregar dados do vendedor');
-    } finally {
-      setLoading(false);
-    }
-  }, [params.id]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+    apiRequest(`/usuarios/${encodeURIComponent(id)}/publico`, options)
+      .then(profile => { if (!controller.signal.aborted) setProfileResult({ seller: profile }); })
+      .catch(error => { if (!controller.signal.aborted) setProfileResult({ error }); });
+    apiRequest(`/servicos/reputacao/prestador/${encodeURIComponent(id)}`, options)
+      .then(data => { if (!controller.signal.aborted) setServiceReviews({ data }); })
+      .catch(error => { if (!controller.signal.aborted) setServiceReviews({ error }); });
+    return () => controller.abort();
+  }, [id, profileRetry]);
 
   useEffect(() => {
-    fetchSellerData();
-  }, [fetchSellerData]);
+    const controller = new AbortController();
+    apiRequest(`/produtos/catalogo?${new URLSearchParams({ vendedor: id, page: String(page) })}`, { signal: controller.signal })
+      .then(data => {
+        if (controller.signal.aborted) return;
+        if (page > data.totalPages) update({ page: data.totalPages });
+        else setCatalogResult({ page, retry: catalogRetry, data });
+      })
+      .catch(error => { if (!controller.signal.aborted) setCatalogResult({ page, retry: catalogRetry, error }); });
+    return () => controller.abort();
+  }, [id, page, catalogRetry, update]);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -109,32 +90,28 @@ export default function SellerProfile() {
 
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
-      <span key={i} className={`text-xl ${i < Math.round(rating) ? 'text-accent' : 'text-muted'}`}>
+      <span key={i} aria-hidden="true" className={`text-xl ${i < Math.round(rating) ? 'text-accent' : 'text-muted'}`}>
         ★
       </span>
     ));
   };
 
-  if (loading) {
-    return (
-      <div className="site-background min-h-screen text-foreground flex items-center justify-center">
-        <div className="text-accent text-xl animate-pulse">Carregando perfil...</div>
-      </div>
-    );
-  }
+  if (!profileResult) return <LoadingState label="Carregando perfil…" />;
 
-  if (error || !seller) {
+  if (!seller) {
     return (
       <div className="site-background min-h-screen text-foreground flex items-center justify-center">
         <div className="text-center">
-          <p className="text-danger text-xl mb-4">{error || 'Vendedor não encontrado'}</p>
+          <h1 className="text-xl font-bold mb-4">{profileResult.error?.status === 404 ? 'Vendedor não encontrado' : 'Perfil indisponível'}</h1>
+          {profileResult.error?.status >= 500 || !profileResult.error?.status ? <button type="button" className="mr-4 underline" onClick={() => { setProfileResult(null); setProfileRetry(value => value + 1); }}>Tentar novamente</button> : null}
           <Link href="/produtos" className="text-accent hover:underline">Voltar aos produtos</Link>
         </div>
       </div>
     );
   }
 
-  const isSelf = currentUserId && (Number(currentUserId) === Number(seller.id_usuario || params.id));
+  const isSelf = Number(currentUserId) === Number(seller.id_usuario);
+  const joined = new Date(seller.data_criacao || '');
 
   return (
     <div className="site-background min-h-screen text-foreground pt-20 pb-20">
@@ -164,19 +141,22 @@ export default function SellerProfile() {
             </div>
             
             {/* Seller Details */}
-            <div className="text-center md:text-left flex-1">
-              <h1 className="text-3xl font-bold text-foreground mb-2">{seller.nome || seller.username}</h1>
-              {seller.nome && !/^usuario_[a-f0-9]{16}$/.test(seller.username || '') && <p className="text-muted text-sm mb-2">@{seller.username}</p>}
+            <div className="min-w-0 text-center md:text-left flex-1">
+              <h1 className="break-words text-3xl font-bold text-foreground mb-2">{seller.nome || seller.username}</h1>
+              {seller.nome && !/^usuario_[a-f0-9]{16}$/.test(seller.username || '') && <p className="break-words text-muted text-sm mb-2">@{seller.username}</p>}
+              {Number.isFinite(joined.getTime()) && <p className="text-muted text-sm">Na EHtech desde <time dateTime={joined.toISOString().slice(0, 10)}>{monthYear.format(joined)}</time></p>}
               
               {/* Reputações independentes para vendas e serviços */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-xl border border-line bg-surface-raised px-4 py-3">
                   <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1">Vendas de produtos</span>
-                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoes.media))}</div><strong className="text-accent">{avaliacoes.media}</strong><small className="text-muted">({avaliacoes.total})</small></div>
+                  {avaliacoes?.total ? <div className="flex flex-wrap items-center gap-2"><div className="flex">{renderStars(avaliacoes.media)}</div><strong className="text-accent">{avaliacoes.media.toLocaleString('pt-BR')} de 5</strong><small className="text-muted">({avaliacoes.total})</small></div> : <p className="text-sm text-muted">Sem avaliações de compras verificadas</p>}
+                  <p className="mt-1 text-sm text-muted">{seller.vendas_recebidas} {seller.vendas_recebidas === 1 ? 'venda recebida' : 'vendas recebidas'}</p>
                 </div>
                 <div className="rounded-xl border border-accent bg-accent-soft px-4 py-3">
                   <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1">Serviços técnicos</span>
-                  <div className="flex items-center gap-2"><div className="flex">{renderStars(parseFloat(avaliacoesServicos.media))}</div><strong className="text-accent">{avaliacoesServicos.media}</strong><small className="text-muted">({avaliacoesServicos.total})</small></div>
+                  {avaliacoesServicos?.total ? <div className="flex flex-wrap items-center gap-2"><div className="flex">{renderStars(avaliacoesServicos.media)}</div><strong className="text-accent">{avaliacoesServicos.media.toLocaleString('pt-BR')} de 5</strong><small className="text-muted">({avaliacoesServicos.total})</small></div> : <p className="text-sm text-muted">{serviceReviews?.error ? 'Avaliações indisponíveis' : avaliacoesServicos ? 'Sem avaliações de serviços' : 'Carregando avaliações…'}</p>}
+                  <p className="mt-1 text-sm text-muted">{seller.servicos_concluidos} {seller.servicos_concluidos === 1 ? 'serviço concluído' : 'serviços concluídos'}</p>
                 </div>
               </div>
             </div>
@@ -185,12 +165,12 @@ export default function SellerProfile() {
             <div className="flex flex-col sm:flex-row md:flex-col items-center gap-3">
               <div className="text-center bg-surface-raised border border-line rounded-xl px-5 py-3 w-full">
                 <p className="text-muted text-xs uppercase tracking-wider font-semibold">Anúncios</p>
-                <p className="text-2xl font-bold text-foreground">{produtos.length}</p>
+                <p className="text-2xl font-bold text-foreground">{catalog?.data?.total ?? '—'}</p>
               </div>
 
               {!isSelf && (
                 <Link
-                  href={`/mensagens?usuario=${seller.id_usuario || params.id}`}
+                  href={`/mensagens?usuario=${seller.id_usuario}`}
                   className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-accent-fill hover:brightness-110 text-accent-contrast font-bold rounded-xl shadow-lg hover:shadow-transparent transition-all text-center text-sm"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -203,7 +183,7 @@ export default function SellerProfile() {
           </div>
         </div>
 
-        {avaliacoesServicos.avaliacoes.length > 0 && (
+        {avaliacoesServicos?.avaliacoes?.length > 0 && (
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-foreground mb-4">Avaliações dos serviços técnicos</h2>
             <div className="grid gap-3">
@@ -221,7 +201,9 @@ export default function SellerProfile() {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-foreground mb-4">Produtos de {seller.nome || seller.username}</h2>
           
-          {produtos.length > 0 ? (
+          {!catalog ? <LoadingState label="Carregando anúncios…" /> : catalog.error ? (
+            <div className="rounded-xl border border-line bg-surface p-5" role="status"><p>Os anúncios estão indisponíveis.</p><button type="button" className="mt-2 underline" onClick={() => setCatalogRetry(value => value + 1)}>Tentar novamente</button></div>
+          ) : produtos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {produtos.map((produto, index) => (
                 <div 
@@ -231,11 +213,12 @@ export default function SellerProfile() {
                   {/* Product Image */}
                   <div className="aspect-square bg-surface-raised relative overflow-hidden">
                     {getMainImage(produto.imagem) ? (
-                      <img 
+                      <ImageWithFallback
                         src={getMainImage(produto.imagem)}
                         alt={produto.nome}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        onError={(e) => { e.target.style.display = 'none'; }}
+                        sizes="(max-width: 639px) 90vw, (max-width: 1023px) 45vw, 270px"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -248,7 +231,7 @@ export default function SellerProfile() {
 
                   {/* Product Info */}
                   <div className="p-4">
-                    <ListingDetailLink from={`/perfil/${params.id}`} href={`/produtos/${produto.id_produto}`} className="block">
+                    <ListingDetailLink from={from} href={`/produtos/${produto.id_produto}`} className="block">
                       <h3 className="font-bold text-foreground mb-1 truncate group-hover:text-accent transition-colors">
                         {produto.nome}
                       </h3>
@@ -265,8 +248,18 @@ export default function SellerProfile() {
               <p className="text-muted">Este vendedor ainda não tem produtos anunciados.</p>
             </div>
           )}
+          {catalog?.data?.totalPages > 1 && <nav aria-label="Páginas de anúncios do vendedor" className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm">
+            <button type="button" className="rounded-xl border border-line px-3 py-2 disabled:opacity-50" disabled={page <= 1} onClick={() => update({ page: page - 1 })}>Anterior</button>
+            <p>Página {page} de {catalog.data.totalPages}</p>
+            <button type="button" className="rounded-xl border border-line px-3 py-2 disabled:opacity-50" disabled={page >= catalog.data.totalPages} onClick={() => update({ page: page + 1 })}>Próxima</button>
+          </nav>}
         </div>
       </div>
     </div>
   );
+}
+
+export default function SellerProfilePage() {
+  const { id } = useParams();
+  return <Suspense fallback={<LoadingState label="Carregando perfil…" />}><SellerProfile key={id} id={id} /></Suspense>;
 }

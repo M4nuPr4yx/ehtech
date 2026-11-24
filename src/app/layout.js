@@ -1,7 +1,7 @@
 import "./globals.css";
 import "../styles/motion.css";
 import localFont from 'next/font/local';
-import { siteOrigin } from '../lib/seo.mjs';
+import { publicPageMetadata, siteOrigin } from '../lib/seo.mjs';
 
 const manrope = localFont({
   src: '../../public/fonts/Manrope-Variable.ttf',
@@ -12,8 +12,7 @@ const manrope = localFont({
 
 export const metadata = {
   metadataBase: new URL(siteOrigin()),
-  title: "EHtech",
-  description: "Marketplace para comprar produtos de tecnologia e contratar serviços especializados de TI",
+  ...publicPageMetadata('EHtech — Marketplace de tecnologia', 'Encontre equipamentos, compare produtos, planeje upgrades e contrate profissionais de tecnologia.'),
   icons: {
     icon: "/icon.png?v=3",
   },

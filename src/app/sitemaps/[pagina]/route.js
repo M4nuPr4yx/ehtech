@@ -6,7 +6,7 @@ export async function GET(request, { params }) {
   if (!/^\d{1,6}$/.test(pagina)) return new Response('Mapa não encontrado.', { status: 404 })
   try {
     let urls
-    if (pagina === '0') urls = ['/', '/produtos', '/servicos', '/sobre', '/compatibilidade', '/missoes', '/combos'].map(path => siteOrigin() + path)
+    if (pagina === '0') urls = ['/', '/produtos', '/servicos', '/sobre', '/compatibilidade', '/missoes', '/combos', '/politicas'].map(path => siteOrigin() + path)
     else {
       const data = await apiRequest(`/produtos/mapa?pagina=${pagina}`)
       if (Number(pagina) > data.paginas) return new Response('Mapa não encontrado.', { status: 404 })

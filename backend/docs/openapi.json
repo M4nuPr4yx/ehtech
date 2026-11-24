@@ -296,7 +296,7 @@
         "tags": ["Produtos"],
         "operationId": "consultarCatalogo",
         "summary": "Catálogo paginado — cenário de uso habitual",
-        "description": "Produtos aprovados com estoque primeiro. Busca literal sem distinguir maiúsculas em nome/descrição. Filtra cidade exata/UF de origem e datas inclusivas de publicação; campos privados de origem nunca são retornados. Relevância: nome exato, prefixo, trecho do nome, descrição, desempatando por data/ID. Sem busca, relevância usa recentes. Datas desconhecidas de anúncios antigos ficam por último e não entram no filtro por data. Categoria ignora capitalização; audio aceita áudio/fones de ouvido. Catálogo anônimo reutilizável no CDN Vercel por 15 segundos e revalidação em segundo plano por mais 30 segundos. Navegador revalida; Authorization ou Cookie recebem no-store. Aprovação e regras de compra são conferidas no servidor.",
+        "description": "Produtos aprovados com estoque primeiro. Busca literal sem distinguir maiúsculas em nome, descrição e ficha técnica. Filtra vendedor, cidade/UF de origem e datas inclusivas de publicação. Campos privados de origem não são retornados. Relevância prioriza nome exato, prefixo e trecho do nome, desempatando por data/ID. Sem busca, usa anúncios recentes. Categoria ignora capitalização e aceita rótulos legados conhecidos. Catálogo anônimo reutilizável no CDN Vercel por 15 segundos com revalidação de 30 segundos. Authorization ou Cookie recebem no-store.",
         "parameters": [
           {
             "name": "page",
@@ -323,9 +323,15 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Trecho do nome; espaços externos removidos; truncado em 100 caracteres.",
+            "description": "Trecho do nome, descrição ou ficha. Espaços externos removidos e limite de 100 caracteres.",
             "schema": { "type": "string", "maxLength": 100 },
             "example": "Notebook"
+          },
+          {
+            "name": "vendedor",
+            "in": "query",
+            "description": "Identificador do vendedor. Retorna somente seus anúncios aprovados.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
           },
           {
             "name": "categoria",

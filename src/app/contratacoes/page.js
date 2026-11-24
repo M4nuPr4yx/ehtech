@@ -22,7 +22,7 @@ const STEPS = [
   ['aceito', 'aceito_em'], ['em_execucao', 'iniciado_em'], ['concluido', 'concluido_em']
 ]
 const MODALITIES = { remoto: 'Remoto', presencial: 'Presencial', hibrido: 'Híbrido' }
-const URGENCIES = { baixa: 'Baixa', normal: 'Normal', urgente: 'Urgente' }
+const URGENCIES = { flexivel: 'Flexível', baixa: 'Baixa', normal: 'Normal', urgente: 'Urgente' }
 const EMPTY_QUOTE = { valor_proposto: '', escopo_proposto: '', prazo_proposto: '', garantia_dias: '30', observacoes_prestador: '' }
 const defaults = { filtro: 'todos', novo: '' }
 
@@ -127,16 +127,17 @@ function Contracts() {
     }
   }
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, status, revision) => {
     setSaving(true)
     setError('')
     try {
       const response = await apiResponse(`/contratacoes/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, orcamento_revisao: revision })
       })
       const data = await response.json()
+      if (response.status === 409 && data.code === 'QUOTE_CHANGED') await loadContracts()
       if (!response.ok) throw new Error(data.mensagem || 'Não foi possível atualizar a etapa.')
       setNotice(data.mensagem)
       await loadContracts()
@@ -253,7 +254,7 @@ function Contracts() {
                     <section className={styles.warranty}>
                       <div className={styles.warrantySeal} aria-hidden="true">✓</div>
                       <div className={styles.warrantyMain}>
-                        <span>Garantia EHtech registrada</span>
+                        <span>Garantia oferecida pelo prestador</span>
                         <strong>{contract.garantia_codigo}</strong>
                         <p>Cobre o escopo descrito na proposta durante o período registrado. Guarde este código para qualquer solicitação.</p>
                       </div>
@@ -298,7 +299,7 @@ function Contracts() {
                     <Link href={`/mensagens?vendedor=${isProvider ? contract.cliente_id : contract.prestador_id}`}>Conversar no chat</Link>
                     <div>
                       {canQuote && editingId !== contract.id_contratacao && <button type="button" className={styles.primaryAction} onClick={() => beginQuote(contract)}>{contract.status === 'solicitado' ? 'Montar orçamento' : 'Editar orçamento'}</button>}
-                      {!isProvider && contract.status === 'orcamento_enviado' && <button type="button" className={styles.primaryAction} disabled={saving} onClick={() => updateStatus(contract.id_contratacao, 'aceito')}>Aceitar proposta</button>}
+                      {!isProvider && contract.status === 'orcamento_enviado' && <button type="button" className={styles.primaryAction} disabled={saving} onClick={() => updateStatus(contract.id_contratacao, 'aceito', contract.orcamento_revisao || undefined)}>Aceitar proposta</button>}
                       {isProvider && contract.status === 'aceito' && <button type="button" className={styles.primaryAction} disabled={saving} onClick={() => updateStatus(contract.id_contratacao, 'em_execucao')}>Iniciar serviço</button>}
                       {isProvider && contract.status === 'em_execucao' && <button type="button" className={styles.primaryAction} disabled={saving} onClick={() => updateStatus(contract.id_contratacao, 'concluido')}>Marcar como concluído</button>}
                       {!isProvider && contract.status === 'concluido' && contract.avaliacao_nota == null && reviewingId !== contract.id_contratacao && <button type="button" className={styles.primaryAction} onClick={() => { setReviewingId(contract.id_contratacao); setReview({ nota: 5, comentario: '' }) }}>Avaliar atendimento</button>}

@@ -148,7 +148,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
 
   useEffect(() => {
     if (produto && user) {
-      setIsOwner(Number(produto.vendedor_id) === Number(user.id) || produto.vendedor === user.email);
+      setIsOwner(Number(produto.vendedor_id) === Number(user.id));
     } else {
       setIsOwner(false);
     }
@@ -454,6 +454,7 @@ export default function ProdutoDetalhes({ initialProduct }) {
                       {produto.vendedor_id ? (
                         <Link href={'/perfil/' + produto.vendedor_id} className="break-words font-semibold text-accent hover:underline">{sellerInfo?.nome || produto.vendedor}</Link>
                       ) : <span className="font-semibold">{sellerInfo?.nome || produto.vendedor}</span>}
+                      {sellerInfo?.reputacao_vendas?.total > 0 && <p className="text-xs text-muted">{sellerInfo.reputacao_vendas.media.toLocaleString('pt-BR')} de 5 · {sellerInfo.reputacao_vendas.total} {sellerInfo.reputacao_vendas.total === 1 ? 'avaliação de compra verificada' : 'avaliações de compras verificadas'}</p>}
                     </div>
                   </div>
                   {!isOwner && produto.vendedor_id && (

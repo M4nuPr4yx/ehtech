@@ -44,7 +44,7 @@ export default function PoliciesPage() {
   return <div className="site-background min-h-screen px-4 py-10 text-foreground"><article className="mx-auto max-w-4xl space-y-8">
     <Link href="/" className="font-bold text-accent underline">← Início</Link><h1 className="text-3xl font-bold">Políticas da EHtech</h1>
     <p>Versão de 22/10/2026. Entenda as condições antes de anunciar, comprar ou contratar. Os pagamentos são combinados diretamente entre os usuários.</p>
-    <nav aria-label="Seções das políticas" className="flex flex-wrap gap-3">{sections.map(([id, title]) => <a key={id} href={`#${id}`} className="text-accent underline">{title}</a>)}</nav>
+    <nav aria-label="Seções das políticas" className="grid gap-2 sm:grid-cols-2">{sections.map(([id, title]) => <a key={id} href={`#${id}`} className="rounded-xl border border-line bg-surface px-4 py-3 font-semibold text-accent underline underline-offset-4 hover:border-accent">{title}</a>)}</nav>
     {sections.map(([id, title, paragraphs]) => <section id={id} key={id} className="scroll-mt-24 space-y-4 rounded-2xl border border-line bg-surface p-5"><h2 className="text-2xl font-bold">{title}</h2>{paragraphs.map(text => <p className="leading-relaxed" key={text}>{text}</p>)}</section>)}
     <p className="text-sm text-muted">Referência: <a className="text-accent underline" href="https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm" target="_blank" rel="noreferrer">Código de Defesa do Consumidor</a>. A participação dos usuários não afasta as responsabilidades legais aplicáveis à plataforma.</p>
   </article></div>

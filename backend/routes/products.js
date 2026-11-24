@@ -61,8 +61,8 @@ router.get("/produtos/catalogo", async (req, res) => {
 router.get("/produtos/meus", autenticarToken, async (req, res) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT * FROM produtos WHERE vendedor_id = ? OR vendedor = ? ORDER BY id_produto DESC',
-      [req.user.id, req.user.email]
+      'SELECT * FROM produtos WHERE vendedor_id = ? ORDER BY id_produto DESC',
+      [req.user.id]
     )
     return res.json(rows.map(row => ({ ...row, especificacoes: readSpecifications(row.categoria, row.especificacoes) })))
   } catch (error) {
@@ -84,8 +84,8 @@ router.get('/produtos/mapa', async (req, res) => {
   } catch { res.status(503).json({ mensagem: 'Mapa de anúncios indisponível.' }) }
 })
 router.get("/produtos/:id", (req, res, next) => req.headers.authorization ? autenticarToken(req, res, next) : next(), async (req, res) => {
-  const numericId = parseInt(req.params.id, 10)
-  if (isNaN(numericId)) {
+  const numericId = integer(req.params.id)
+  if (!(numericId > 0)) {
     return res.status(400).json({ mensagem: "ID de produto inválido" })
   }
 
@@ -179,8 +179,8 @@ router.post("/produtos", autenticarToken, permitirAnunciar, async (req, res) => 
 
 // Edição de produto
 router.put("/produtos/:id", autenticarToken, async (req, res) => {
-  const numericId = parseInt(req.params.id, 10)
-  if (isNaN(numericId)) {
+  const numericId = integer(req.params.id)
+  if (!(numericId > 0)) {
     return res.status(400).json({ mensagem: "ID de produto inválido" })
   }
 
@@ -193,7 +193,7 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
     }
 
     const isAdmin = req.user.role === 'admin'
-    const isOwner = Number(rows[0].vendedor_id) === Number(req.user.id) || rows[0].vendedor === req.user.email
+    const isOwner = Number(rows[0].vendedor_id) === Number(req.user.id)
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ mensagem: "Você não tem permissão para editar este produto" })
@@ -289,19 +289,19 @@ router.put("/produtos/:id", autenticarToken, async (req, res) => {
 
 // Exclusão de produto
 router.delete("/produtos/:id", autenticarToken, async (req, res) => {
-  const numericId = parseInt(req.params.id, 10)
-  if (isNaN(numericId)) {
+  const numericId = integer(req.params.id)
+  if (!(numericId > 0)) {
     return res.status(400).json({ mensagem: "ID de produto inválido" })
   }
 
   try {
-    const [rows] = await pool.execute('SELECT nome, vendedor, vendedor_id FROM produtos WHERE id_produto = ?', [numericId])
+    const [rows] = await pool.execute('SELECT nome, vendedor_id FROM produtos WHERE id_produto = ?', [numericId])
     if (rows.length === 0) {
       return res.status(404).json({ mensagem: "Produto não encontrado" })
     }
 
     const isAdmin = req.user.role === 'admin'
-    const isOwner = Number(rows[0].vendedor_id) === Number(req.user.id) || rows[0].vendedor === req.user.email || rows[0].vendedor === req.user.username
+    const isOwner = Number(rows[0].vendedor_id) === Number(req.user.id)
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ mensagem: "Você não tem permissão para remover este produto" })

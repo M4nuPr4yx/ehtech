@@ -20,7 +20,7 @@ test('IA recupera disponibilidade no mesmo clique e preserva a checagem básica 
     const search = page.getByRole('combobox', { name: 'Buscar modelo', exact: true })
     await search.fill('AMD Ryzen 5 5600')
     await page.getByRole('option').filter({ has: page.getByText('AMD Ryzen 5 5600', { exact: true }) }).click()
-    await page.getByRole('combobox', { name: 'Categoria', exact: true }).selectOption('placa_mae')
+    await page.getByRole('combobox', { name: 'Tipo de peça', exact: true }).selectOption('placa_mae')
     await search.fill('Asus PRIME B550M-A')
     await page.getByRole('option').filter({ has: page.getByText('Asus PRIME B550M-A', { exact: true }) }).click()
     await page.getByRole('button', { name: 'Verificar com regras básicas', exact: true }).click()

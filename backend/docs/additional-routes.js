@@ -35,7 +35,9 @@ const body = (properties, required, example) => ({
 const query = (name, schema) => ({ name, in: 'query', required: false, schema })
 const paths = {}
 const schemas = {
-  DocPerfilPublico: obj({ id_usuario: id, username: text, nome: { ...text, nullable: true }, foto: photo, data_criacao: text }),
+  DocPerfilPublico: obj({ id_usuario: id, username: text, nome: { ...text, nullable: true }, foto: photo, data_criacao: text,
+    reputacao_vendas: obj({ media: num('Média de compras verificadas'), total: int('Quantidade de avaliações verificadas') }),
+    vendas_recebidas: int('Pedidos distintos com recebimento registrado para o vendedor'), servicos_concluidos: int('Contratações concluídas pelo prestador') }),
   DocPerfil: obj({ id_usuario: id, username: text, email, role: text, nome: { ...text, nullable: true }, foto: photo, data_criacao: text }),
   DocNotificacao: obj({ id, produto_id: { ...id, nullable: true }, tipo: text, mensagem: text, lida: { oneOf: [bool, { type: 'integer' }] }, created_at: text }),
   DocServico: obj({
@@ -50,6 +52,7 @@ const schemas = {
     descricao_problema: text, modalidade: modality, urgencia: text, combo_snapshot: { type: 'object', nullable: true, description: 'Referência imutável do combo no momento da solicitação; não é compra nem preço final.' },
     orcamento_max: { ...money, nullable: true }, disponibilidade: text, status,
     valor_proposto: { ...money, nullable: true }, escopo_proposto: { ...text, nullable: true },
+    orcamento_revisao: { ...str('Revisão do orçamento pendente de aceite', { pattern: '^[a-f0-9]{64}$' }), nullable: true },
     prazo_proposto: { ...text, nullable: true }, garantia_dias: { ...id, nullable: true },
     observacoes_prestador: { ...text, nullable: true }, garantia_codigo: { ...text, nullable: true },
     garantia_inicio_em: { ...text, nullable: true }, garantia_fim_em: { ...text, nullable: true },
@@ -208,7 +211,7 @@ add('get', '/servicos/reputacao/prestador/{id}', 'Serviços', 'Consultar reputa�
 add('post', '/contratacoes', 'Contratações', 'Solicitar orçamento de serviço', {
   code: 201, errors: [400, 404, 409],
   input: body({ servico_id: { ...id, minimum: 1 }, combo_id: id, descricao_problema: str('Necessidade com texto visível', { minLength: 20, maxLength: 2000 }), modalidade: modality, urgencia: str('Urgência', { enum: ['flexivel', 'normal', 'urgente'] }), orcamento_max: moneyInput('Orçamento máximo opcional', 0, 10000000, true), disponibilidade: str('Disponibilidade', { minLength: 5, maxLength: 300 }) }, ['servico_id', 'descricao_problema', 'modalidade', 'urgencia', 'disponibilidade'], { servico_id: 1, descricao_problema: 'Preciso de montagem e configuração de um computador.', modalidade: 'presencial', urgencia: 'normal', orcamento_max: 300, disponibilidade: 'Sábado pela manhã' }),
-  output: obj({ id, status, mensagem: text }), description: 'Cliente identificado pelo token. Serviço deve estar ativo e pertencer a outro usuário. Apenas uma solicitação não concluída/não cancelada por cliente e serviço. combo_id opcional é revalidado no servidor (produto aprovado/com estoque, serviço ativo e mesmo anunciante), precisa corresponder ao serviço e gera snapshot. Para instalação, a modalidade precisa ser a oferecida pelo serviço, com escolha disponível quando híbrido. Proposta e garantia cobrem apenas o serviço. O produto tem fluxo de compra próprio.'
+  output: obj({ id, status, mensagem: text }), description: 'Serviço aprovado, ativo e de outro usuário. Somente uma solicitação ativa por cliente e serviço, inclusive sob concorrência. A modalidade precisa constar no anúncio, com escolha quando híbrido. combo_id opcional é revalidado e precisa corresponder ao serviço. O escopo e a garantia do orçamento se referem ao serviço. O produto segue seu fluxo de compra.'
 })
 add('get', '/contratacoes', 'Contratações', 'Consultar meu histórico de serviços', { output: arr(ref('DocContratacao')), description: 'Até 100 contratações como cliente ou prestador, incluindo concluídas e canceladas, com orçamento, garantia e avaliação.' })
 add('patch', '/contratacoes/{id}/orcamento', 'Contratações', 'Enviar ou revisar orçamento como prestador', {
@@ -217,9 +220,9 @@ add('patch', '/contratacoes/{id}/orcamento', 'Contratações', 'Enviar ou revisa
   output: obj({ status, mensagem: text }), description: 'Somente prestador da contratação, nas etapas solicitado ou orcamento_enviado. Avança para orcamento_enviado.'
 })
 add('patch', '/contratacoes/{id}/status', 'Contratações', 'Avançar ou cancelar contratação', {
-  errors: [400, 404, 409], input: body({ status: str('Próxima etapa', { enum: ['aceito', 'em_execucao', 'concluido', 'cancelado'] }) }, ['status']),
+  errors: [400, 404, 409], input: body({ status: str('Próxima etapa', { enum: ['aceito', 'em_execucao', 'concluido', 'cancelado'] }), orcamento_revisao: str('Revisão lida em GET /contratacoes. Envie somente ao aceitar.', { pattern: '^[a-f0-9]{64}$' }) }, ['status']),
   output: obj({ status, garantia_codigo: { ...text, nullable: true }, mensagem: text }),
-  description: 'Cliente: solicitado → cancelado; orcamento_enviado → aceito ou cancelado; aceito → cancelado. Prestador: solicitado/orcamento_enviado → cancelado; aceito → em_execucao ou cancelado; em_execucao → concluido. Outras transições retornam 409. Ao concluir com garantia_dias > 0, gera código e datas da garantia.'
+  description: 'Cliente pode cancelar antes da execução e aceitar orçamento enviado. Prestador pode cancelar antes da execução, iniciar após aceite e concluir durante a execução. Transições inválidas retornam 409. O aceite com revisão diferente da atual retorna 409 QUOTE_CHANGED. A revisão é opcional para clientes da API legada. Ao concluir com garantia_dias maior que zero, registra o código e as datas da garantia oferecida pelo prestador.'
 })
 add('post', '/contratacoes/{id}/avaliacao', 'Contratações', 'Avaliar serviço concluído', {
   code: 201, errors: [400, 404, 409], input: body({ nota: int('Nota', { minimum: 1, maximum: 5 }), comentario: str('Opcional; se não vazio, precisa de ao menos 10 caracteres; truncado em 1000', { maxLength: 1000 }) }, ['nota']),

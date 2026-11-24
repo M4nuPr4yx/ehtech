@@ -13,6 +13,7 @@ async function selectOrigin(pool, userId, addressId, version) {
 }
 function publicProduct(row) {
   const { origem_snapshot: _snapshot, origem_endereco_id: _addressId, especificacoes, ...safe } = row
+  if (typeof safe.vendedor === 'string' && safe.vendedor.includes('@')) safe.vendedor = 'Vendedor'
   return { ...safe, especificacoes: readSpecifications(row.categoria, especificacoes) }
 }
 function productOrigin(product) {

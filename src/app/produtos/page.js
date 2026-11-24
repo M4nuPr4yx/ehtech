@@ -111,7 +111,7 @@ function Catalog() {
       <div className={styles.shell}>
         <div className={styles.breadcrumb}><Link href="/">Início</Link><span>/</span><span>Catálogo</span></div>
         <header className={styles.hero} data-motion="fade">
-          <div><p className={styles.eyebrow}>ESCOLHA SEU PRÓXIMO UPGRADE</p><h1>Encontre seu próximo <em>equipamento.</em></h1><p className={styles.subtitle}>Explore os anúncios da comunidade e encontre seu próximo equipamento.</p></div>
+          <div><h1>Encontre seu próximo <em>equipamento.</em></h1><p className={styles.subtitle}>Busque por produto, categoria ou região. Vai montar um PC? <Link className="font-semibold text-accent underline underline-offset-4" href="/compatibilidade">Confira a compatibilidade das peças</Link>.</p></div>
           <Link href="/anunciar" className={styles.sell}>Seu próximo upgrade começa aqui.<strong>Anuncie seu equipamento <Icon type="arrow" /></strong></Link>
         </header>
         <div className={styles.searchRow}>

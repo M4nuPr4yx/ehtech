@@ -8,7 +8,7 @@ test('navegação simples: ferramentas por teclado e serviços sem redirecioname
   const serviceRequests = []
   page.on('request', request => { if (/\/api\/(?:_backend\/)?servicos\?/.test(request.url())) serviceRequests.push(request) })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'O que você quer fazer?' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ferramentas para escolher', exact: true })).toBeVisible()
   const tools = page.locator('summary').filter({ hasText: 'Ferramentas' })
   const toolsMenu = page.getByRole('navigation', { name: 'Ferramentas para escolher' })
   await tools.focus(); await tools.press('Enter')

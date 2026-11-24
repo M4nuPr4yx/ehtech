@@ -104,8 +104,8 @@
 .hireCard .contact { color: var(--foreground); border: 1px solid var(--line); background: var(--surface); font-weight: 650; }
 .hireCard .contact:hover { color: var(--accent); border-color: var(--line); background: var(--surface); }
 .safe { display: block; color: var(--muted); font-size: 12px; line-height: 1.55; text-align: center; margin-top: 13px; }
-.modalBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; overflow-y: auto; background: rgba(2,5,3,.82); backdrop-filter: blur(9px); }
-.quoteModal { width: min(720px,100%); max-height: calc(100vh - 40px); overflow-y: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+.quoteModal { position: fixed; inset: 0; margin: auto; width: min(720px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+.quoteModal::backdrop { background: rgb(2 5 3 / 72%); }
 .modalHeader { display: flex; justify-content: space-between; gap: 24px; padding: 25px 27px 21px; border-bottom: 1px solid var(--line); background: linear-gradient(135deg,var(--surface),var(--surface)); }
 .modalHeader h2 { color: var(--foreground); margin: 5px 0 3px; font-size: 25px; letter-spacing: -.035em; }
 .modalHeader p { color: var(--muted); font-size: 12px; }
@@ -128,7 +128,7 @@
 .loadingMark { width: 28px; height: 28px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .heroGrid { grid-template-columns: 1fr; gap: 30px; } .heroPanel { grid-template-columns: repeat(3,1fr); } .searchPanel { grid-template-columns: 1.5fr 1fr; } .grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .detailGrid { grid-template-columns: 1fr; } .hireCard { position: static; } }
-@media (max-width: 620px) { .shell, .detailShell { width: min(100% - 32px, 1220px); } .hero { padding-top: 22px; } .heroPanel { grid-template-columns: 1fr; } .searchPanel { grid-template-columns: 1fr; margin-top: -15px; } .grid { grid-template-columns: 1fr; } .card { min-height: 355px; } .detailHero { flex-direction: column; padding: 24px; } .detailContent ul { grid-template-columns: 1fr; } .pagination { align-items: flex-start; gap: 12px; flex-direction: column; } .modalBackdrop { padding: 10px; } .quoteModal { max-height: calc(100vh - 20px); } .quoteForm { grid-template-columns: 1fr; padding: 20px; } .quoteForm label, .formError, .formActions { grid-column: 1; } .modalHeader { padding: 21px; } }
+@media (max-width: 620px) { .shell, .detailShell { width: min(100% - 32px, 1220px); } .hero { padding-top: 22px; } .heroPanel { grid-template-columns: 1fr; } .searchPanel { grid-template-columns: 1fr; margin-top: -15px; } .grid { grid-template-columns: 1fr; } .card { min-height: 355px; } .detailHero { flex-direction: column; padding: 24px; } .detailContent ul { grid-template-columns: 1fr; } .pagination { align-items: flex-start; gap: 12px; flex-direction: column; } .quoteForm { grid-template-columns: 1fr; padding: 20px; } .quoteForm label, .formError, .formActions { grid-column: 1; } .modalHeader { padding: 21px; } }
 @media (max-width: 720px) { .page, .detailPage { background-size: var(--background); } }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .loadingMark { animation: none; } }
 

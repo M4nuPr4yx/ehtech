@@ -4,6 +4,15 @@ export function siteOrigin() {
   return 'http://localhost:3001'
 }
 export const xmlEscape = value => String(value).replace(/[<>&"']/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[character])
+export function publicPageMetadata(title, description, path) {
+  const origin = siteOrigin()
+  const url = path ? `${origin}${path}` : undefined
+  return {
+    title, description,
+    ...(url && { alternates: { canonical: url } }),
+    openGraph: { type: 'website', locale: 'pt_BR', siteName: 'EHtech', title, description, url, images: [{ url: `${origin}/ehtech-logo.png`, alt: 'EHtech' }] },
+  }
+}
 export function productMetadata(product, origin = siteOrigin()) {
   const title = `${product.nome} | EHtech`
   const description = String(product.descricao || `Confira o anúncio de ${product.nome} na EHtech.`).replace(/\s+/g, ' ').trim().slice(0, 160)

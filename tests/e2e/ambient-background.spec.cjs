@@ -14,13 +14,13 @@ test('fundo com imagem local anima suavemente e respeita movimento reduzido nos 
   for (const theme of ['Escuro', 'Oceano', 'Aurora', 'Claro']) {
     await page.getByRole('button', { name: 'Escolher tema', exact: true }).click()
     await page.getByRole('group', { name: 'Temas de aparência' }).getByRole('button', { name: new RegExp(theme) }).click()
-    await expect(page.getByRole('heading', { name: 'O que você quer fazer?' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Ferramentas para escolher', exact: true })).toBeVisible()
     const colors = { Escuro: 'rgb(237, 242, 247)', Oceano: 'rgb(237, 246, 252)', Aurora: 'rgb(244, 240, 252)', Claro: 'rgb(32, 43, 54)' }
     await expect(page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Início', exact: true })).toHaveCSS('color', colors[theme])
     await expect(background).toHaveCSS('background-color', 'rgb(2, 12, 6)')
     await expect(scene).toHaveCSS('opacity', '0.92')
-    await expect(page.getByRole('heading', { name: 'O que você quer fazer?' })).toHaveCSS('color', 'rgb(237, 242, 247)')
-    const card = page.getByRole('link', { name: /^Comprar produtos\b/ })
+    await expect(page.getByRole('heading', { name: 'Ferramentas para escolher', exact: true })).toHaveCSS('color', 'rgb(237, 242, 247)')
+    const card = page.getByRole('main').getByRole('link', { name: /^Comparar produtos\b/ })
     await expect(card).toHaveCSS('color', colors[theme])
     await expect(page.getByRole('searchbox', { name: 'Buscar produtos', exact: true })).toHaveCSS('color', colors[theme])
     await page.screenshot({ path: info.outputPath(`fundo-${theme}.png`) })

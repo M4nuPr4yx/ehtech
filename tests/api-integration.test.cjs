@@ -73,7 +73,9 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const matched = routes.find(item => item.method === method && item.regex.test(pathname))
       if (matched) covered.add(`${method} ${matched.route}`)
       records.push({ method, route: matched?.route || pathname, status: response.status, expected })
-      assert.equal(response.status, expected, `${method} ${route}: ${typeof data === 'object' ? data.mensagem || data.erro || data.error || '' : data.slice(0, 100)}`)
+      const failure = `${method} ${route}: ${typeof data === 'object' ? data.mensagem || data.erro || data.error || '' : data.slice(0, 100)}`
+      if (Array.isArray(expected)) assert.ok(expected.includes(response.status), `${failure} (HTTP ${response.status})`)
+      else assert.equal(response.status, expected, failure)
       if (method === 'GET' && response.ok && ['/produtos/catalogo', '/servicos', '/_backend/servicos'].includes(pathname)) {
         const privateRead = token || new Headers(headers).has('Cookie') || new Headers(headers).has('Authorization')
         assert.equal(response.headers.get('cache-control'), privateRead ? 'no-store' : 'public, max-age=0, must-revalidate')
@@ -353,6 +355,19 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       assert.equal((await request('GET', '/produtos/meus', { token: users.seller.token })).length, 1)
       assert.equal((await request('GET', '/admin/produtos', { token: users.admin.token })).length, 1)
       await request('PUT', `/admin/produtos/${productId}/aprovacao`, { token: users.admin.token, body: { status: 'aprovado' } })
+      await pool.execute('UPDATE produtos SET vendedor = ? WHERE id_produto = ?', [users.other.email, productId])
+      try {
+        assert.equal((await request('GET', `/produtos/${productId}`)).vendedor, 'Vendedor')
+        assert.equal((await request('GET', '/produtos/meus', { token: users.other.token })).length, 0)
+        await request('PUT', `/produtos/${productId}`, { token: users.other.token, body: { nome: 'Alteração indevida' }, expected: 403 })
+        await request('DELETE', `/produtos/${productId}`, { token: users.other.token, expected: 403 })
+        await request('GET', `/produtos/${productId}x`, { expected: 400 })
+      } finally {
+        await pool.execute('UPDATE produtos SET vendedor = ? WHERE id_produto = ?', ['test_seller', productId])
+      }
+      assert.equal((await request('GET', `/produtos/catalogo?vendedor=${users.seller.id}&search=SSD%20de%20256%20GB`)).total, 1)
+      assert.equal((await request('GET', `/produtos/catalogo?vendedor=${users.other.id}`)).total, 0)
+      await request('GET', '/produtos/catalogo?vendedor=1x', { expected: 400 })
       assert.equal((await request('GET', '/produtos')).length, 1)
       assert.equal((await request('GET', '/produtos/mapa?pagina=1')).itens[0].id_produto, productId)
       await request('GET', '/produtos/mapa?pagina=0', { expected: 400 })
@@ -900,8 +915,10 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const body = { servico_id: serviceId, descricao_problema: 'Preciso de suporte técnico para um computador de teste.', modalidade: 'remoto', urgencia: 'normal', orcamento_max: '200,50', disponibilidade: 'Durante a tarde' }
       for (const orcamento_max of [true, [], '200.555', 200.555]) await request('POST', '/contratacoes', { token: users.buyer.token, body: { ...body, orcamento_max }, expected: 400 })
       await request('POST', '/contratacoes', { token: users.buyer.token, body: { ...body, descricao_problema: '\u200B'.repeat(20) }, expected: 400 })
-      const contract = await request('POST', '/contratacoes', { token: users.buyer.token, body, expected: 201 })
-      assert.ok(contract.id)
+      const simultaneous = await Promise.all(Array.from({ length: 2 }, () => request('POST', '/contratacoes', { token: users.buyer.token, body, expected: [201, 409] })))
+      const created = simultaneous.filter(item => item.id)
+      assert.equal(created.length, 1)
+      const [contract] = created
       await request('POST', '/contratacoes', { token: users.buyer.token, body, expected: 409 })
       assert.equal((await request('GET', '/contratacoes', { token: users.buyer.token }))[0].papel, 'cliente')
       assert.equal((await request('GET', '/contratacoes', { token: users.seller.token }))[0].papel, 'prestador')
@@ -909,9 +926,18 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const quote = { valor_proposto: 150, escopo_proposto: 'Diagnosticar e corrigir o problema relatado pelo cliente.', prazo_proposto: '1 dia', garantia_dias: 30 }
       await request('PATCH', `/contratacoes/${contract.id}/orcamento`, { token: users.buyer.token, body: quote, expected: 403 })
       await request('PATCH', `/contratacoes/${contract.id}/orcamento`, { token: users.seller.token, body: quote })
+      const currentProposal = async () => (await request('GET', '/contratacoes', { token: users.buyer.token })).find(item => item.id_contratacao === contract.id)
+      const firstRevision = (await currentProposal()).orcamento_revisao
+      assert.match(firstRevision, /^[a-f0-9]{64}$/)
+      await request('PATCH', `/contratacoes/${contract.id}/orcamento`, { token: users.seller.token, body: { ...quote, valor_proposto: 175 } })
+      const stale = await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.buyer.token, body: { status: 'aceito', orcamento_revisao: firstRevision }, expected: 409 })
+      assert.equal(stale.code, 'QUOTE_CHANGED')
+      const revisedProposal = await currentProposal()
+      assert.equal(revisedProposal.status, 'orcamento_enviado')
+      assert.equal(revisedProposal.valor_proposto, 175)
       await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.other.token, body: { status: 'aceito' }, expected: 403 })
       await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.buyer.token, body: { status: 'concluido' }, expected: 409 })
-      await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.buyer.token, body: { status: 'aceito' } })
+      await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.buyer.token, body: { status: 'aceito', orcamento_revisao: revisedProposal.orcamento_revisao } })
       await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.seller.token, body: { status: 'em_execucao' } })
       const completed = await request('PATCH', `/contratacoes/${contract.id}/status`, { token: users.seller.token, body: { status: 'concluido' } })
       assert.match(completed.garantia_codigo, /^EHT-/)
@@ -920,6 +946,11 @@ test(`API completa com ${process.env.TEST_DB_DRIVER === 'postgres' ? 'PostgreSQL
       const reputation = await request('GET', `/servicos/reputacao/prestador/${users.seller.id}`)
       assert.equal(reputation.total, 1)
       assert.equal(reputation.media, 5)
+      const profile = await request('GET', `/usuarios/${users.seller.id}/publico`)
+      assert.equal(profile.servicos_concluidos, 1)
+      assert.ok(profile.vendas_recebidas > 0)
+      assert.ok(profile.reputacao_vendas.total > 0)
+      assert.ok(!('email' in profile) && !('senha' in profile))
     })
 
     await t.test('passaportes e certificados foram retirados das rotas ativas', async () => {

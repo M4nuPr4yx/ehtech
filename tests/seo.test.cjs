@@ -9,3 +9,9 @@ test('metadados de anúncio têm canonical, descrição limitada e imagem públi
   assert.equal(productMetadata({ ...product, imagem: 'http://127.0.0.1/privado' }, 'https://ehtech.example').openGraph.images[0].url, 'https://ehtech.example/ehtech-logo.png')
   assert.equal(xmlEscape('<x>&"'), '&lt;x&gt;&amp;&quot;')
 })
+
+test('continuação da autenticação aceita somente caminhos do próprio site', async () => {
+  const { internalPath } = await import('../src/lib/internal-path.mjs')
+  assert.equal(internalPath('/perfil?aba=seguranca'), '/perfil?aba=seguranca')
+  for (const value of [null, '//externo.invalid', '/\\externo.invalid', '/pasta\n/rota', 'http://externo.invalid']) assert.equal(internalPath(value), null)
+})

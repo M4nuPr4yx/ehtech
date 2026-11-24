@@ -44,7 +44,7 @@ export default function CatalogSearch({ categories, onChoose, disabled, chooseLa
   }
   useEffect(() => { if (active >= 0) document.getElementById(`${id}-${active}`)?.scrollIntoView({ block: 'nearest' }) }, [active, id])
   return <div className={styles.form}>
-    {categories.length > 1 && <label>Tipo de peça<select value={tipo} disabled={disabled} onChange={event => { reset(); setType(event.target.value); setQuery(''); setPage(1) }}>{categories.map(item => <option value={item.tipo} key={item.tipo}>{item.nome} ({item.total.toLocaleString('pt-BR')})</option>)}</select></label>}
+    {categories.length > 1 && <><label htmlFor={`${id}-type`}>Tipo de peça</label><select id={`${id}-type`} value={tipo} disabled={disabled} onChange={event => { reset(); setType(event.target.value); setQuery(''); setPage(1) }}>{categories.map(item => <option value={item.tipo} key={item.tipo}>{item.nome} ({item.total.toLocaleString('pt-BR')})</option>)}</select></>}
     <label htmlFor={id}>Buscar modelo</label>
     <input id={id} ref={input} role="combobox" aria-autocomplete="list" aria-expanded={items.length > 0} aria-controls={`${id}-list`} aria-activedescendant={active >= 0 && items[active] ? `${id}-${active}` : undefined} autoComplete="off" maxLength={100} placeholder="Ex.: Intel Core i5, Ryzen, ASUS B650…" disabled={disabled} value={query} onKeyDown={keys} onChange={event => { reset(); setQuery(event.target.value); setPage(1) }} />
     {loading && <p role="status" className={styles.muted}>Buscando componentes…</p>}

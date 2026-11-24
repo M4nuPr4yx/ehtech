@@ -1,6 +1,9 @@
 const crypto = require('node:crypto')
 const { setTimeout: delay } = require('node:timers/promises')
 
+const GEMINI_ALTERNATIVES = { 'gemini-3.1-flash-lite': 'gemini-3.5-flash-lite', 'gemini-3.5-flash-lite': 'gemini-3.1-flash-lite' }
+const TEMPORARY_GEMINI_STATUS = new Set([429, 503, 504])
+
 class AssistantError extends Error {
   constructor(code, message, status = 503) { super(message); this.code = code; this.status = status }
 }
@@ -134,6 +137,7 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
     const messages = [{ role: 'system', content: system }, { role: 'user', content: JSON.stringify({ dados_tecnicos: context, formato_json: schema }) }]
     const local = config.provider === 'ollama'
     const gemini = config.provider === 'gemini'
+    const alternative = assessment && gemini ? GEMINI_ALTERNATIVES[config.model] : null
     const body = local ? { model: config.model, messages, stream: false, think: false, format: schema, options: { temperature: 0, num_ctx: 4096, num_predict: 900 }, keep_alive: '5m' } : gemini ? {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: JSON.stringify({ dados_tecnicos: context }) }] }],
@@ -149,19 +153,39 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
     }
     try {
       // Hosts fixos e sem redirecionamento: a chave nunca aparece na URL ou no payload.
-      const endpoint = local ? config.origin + '/api/chat' : gemini ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent` : 'https://api.groq.com/openai/v1/chat/completions'
+      let model = config.model
       const payload = JSON.stringify(body)
-      const send = () => fetchImpl(endpoint, {
+      const send = (currentModel, requestSignal = combined) => fetchImpl(local ? config.origin + '/api/chat' : gemini ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent` : 'https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...(gemini ? { 'x-goog-api-key': config.key } : !local ? { Authorization: `Bearer ${config.key}` } : {}) },
-        body: payload, signal: combined, redirect: 'error'
+        body: payload, signal: requestSignal, redirect: 'error'
       })
-      let response = await send()
-      // Só a avaliação atual repete uma indisponibilidade do Gemini, no mesmo prazo.
-      if (assessment && gemini && response.status === 503 && !response.headers.has('Retry-After')) {
-        await response.body?.cancel()
-        await delay(400 + Math.floor(Math.random() * 200), undefined, { signal: combined })
+      const primaryDeadline = alternative && AbortSignal.timeout(Math.ceil(config.timeout / 2))
+      const primarySignal = primaryDeadline ? AbortSignal.any([combined, primaryDeadline]) : combined
+      const receive = async (currentModel, requestSignal) => {
+        const response = await send(currentModel, requestSignal)
+        return { response, data: response.ok ? await readJson(response) : null }
+      }
+      const initial = await receive(model, primarySignal).catch(error => {
+        if (!primaryDeadline?.aborted || combined.aborted) throw error
+        return null
+      })
+      const primary = initial?.response
+      let { response, data } = initial || {}
+      const retry = primary && !primary.headers.has('Retry-After') && (alternative ? TEMPORARY_GEMINI_STATUS.has(primary.status) : assessment && gemini && primary.status === 503)
+      if (!primary || retry) {
+        await primary?.body?.cancel()
+        if (primary && primary.status !== 429) await delay(400 + Math.floor(Math.random() * 200), undefined, { signal: combined })
         combined.throwIfAborted()
-        response = await send()
+        model = alternative || model
+        const alternate = await receive(model)
+        response = alternate.response
+        data = alternate.data
+        // Preserve the primary diagnosis if the account lacks access to the alternative.
+        if (alternative && [400, 401, 403, 404].includes(response.status)) {
+          await response.body?.cancel()
+          if (!primary) throw failure('tempo_excedido', 'A IA demorou mais que o esperado. Tente novamente.', 504)
+          response = primary
+        }
       }
       if (!response.ok) {
         if (gemini && response.status === 400) {
@@ -174,7 +198,7 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
           if (Array.isArray(detail?.error?.details) && detail.error.details.some(item => ['API_KEY_INVALID', 'API_KEY_EXPIRED'].includes(item?.reason))) {
             throw failure('chave_recusada', 'O Gemini não aceitou a chave de API. Confira a chave completa e válida na configuração privada do servidor; o resultado técnico continua disponível.')
           }
-        } else if (response.body) await response.body.cancel()
+        } else if (response.body && (response !== primary || !retry)) await response.body.cancel()
         if (response.status === 429) throw failure('cota_atingida', 'A cota da IA foi atingida. Aguarde e tente novamente. O resultado técnico continua disponível.', 429)
         if (local && response.status === 404) throw failure('modelo_ausente', 'O modelo configurado não foi encontrado no Ollama.')
         if (!local && [401, 403].includes(response.status)) throw failure('chave_recusada', `O ${providerName} recusou a autorização. Confira a chave e as permissões no servidor; o resultado técnico continua disponível.`)
@@ -183,7 +207,6 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
         if (assessment && gemini && response.status === 504) throw failure('tempo_excedido', 'O Gemini demorou mais que o esperado. Tente novamente.', 504)
         throw failure('provedor_indisponivel', 'Não foi possível gerar a explicação agora. O resultado técnico continua disponível.')
       }
-      const data = await readJson(response)
       const candidate = data.candidates?.[0]
       const parts = candidate?.content?.parts
       const validGemini = gemini && !data.promptFeedback?.blockReason && data.candidates?.length === 1 && candidate.finishReason === 'STOP' && Array.isArray(parts) && parts.length > 0 && parts.every(part => !part.thought && typeof part.text === 'string' && Object.keys(part).every(key => ['text', 'thought', 'thoughtSignature'].includes(key)))
@@ -195,7 +218,7 @@ function createCompatibilityAssistant({ env = process.env, fetchImpl = globalThi
         if (error instanceof AssistantError) throw error
         throw failure('resposta_invalida', 'A IA retornou uma avaliação incompleta ou incoerente. Tente novamente.', 502)
       }
-      const value = { ...answer, provedor: config.provider, modelo: config.model, gerado_em: new Date(now()).toISOString(), em_cache: false }
+      const value = { ...answer, provedor: config.provider, modelo: model, gerado_em: new Date(now()).toISOString(), em_cache: false }
       cache.delete(key)
       if (cache.size >= 50) cache.delete(cache.keys().next().value)
       cache.set(key, { time: now(), value })

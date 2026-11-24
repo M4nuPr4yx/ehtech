@@ -13,7 +13,7 @@ GEMINI_API_KEY=sua-chave-privada
 COMPAT_AI_TIMEOUT_MS=25000
 ```
 
-Não cole chaves no chat, no navegador nem em arquivos versionados. Sem `COMPAT_AI_PROVIDER`, uma chave `GEMINI_API_KEY` seleciona Gemini; na ausência dela, `GROQ_API_KEY` seleciona Groq. Uma configuração explícita tem prioridade, inclusive `disabled`. O exemplo de instalação mantém `disabled`: altere-o para habilitar IA. Nunca há troca automática de provedor ou modelo após uma falha.
+Não cole chaves no chat, no navegador nem em arquivos versionados. Sem `COMPAT_AI_PROVIDER`, uma chave `GEMINI_API_KEY` seleciona Gemini; na ausência dela, `GROQ_API_KEY` seleciona Groq. Uma configuração explícita tem prioridade, inclusive `disabled`. O exemplo de instalação mantém `disabled`: altere-o para habilitar IA. Na análise da tela, os modelos Gemini 3.1 e 3.5 Flash-Lite podem servir de alternativa um ao outro com a mesma chave. A explicação legada mantém o modelo configurado.
 
 O indicador informa somente que provedor/modelo/chave estão configurados; não valida autorização ou cota. Erros de chave, modelo ausente, cota, resposta inválida e timeout são diferenciados, sem revelar a resposta privada do provedor. O modelo pode ser alterado por `GEMINI_MODEL` se suportar JSON Schema e estiver disponível na conta. Não habilitamos faturamento ou serviços pagos.
 
@@ -40,7 +40,7 @@ Em 15/10/2026, consultas públicas ao deploy informado `ehtech-gc18.vercel.app` 
 - Gemini/Groq usam hosts oficiais fixos, chave somente em header, sem redirecionamento. Chaves nunca aparecem na URL, corpo, logs ou resposta. Variáveis públicas com nomes de segredo são recusadas no build/inicialização.
 - Antes do pedido, a tela informa o envio ao provedor. No nível gratuito do Gemini, os dados podem ser usados para melhorar os serviços Google; não inclua informações pessoais na BIOS.
 - Limite compartilhado de oito pedidos/IP em dez minutos entre análise e explicação legada, mais limite global. Uma geração local ou duas externas simultâneas por processo. Cache interno de até 50 resultados por dez minutos, considerando seleção, quantidades, modelo e snapshot. Em múltiplas instâncias, os limites em memória não são globais: mantenha também cotas no provedor.
-- A função Express na Vercel tem limite de 60 segundos. Na avaliação da tela, um HTTP 503 do Gemini sem `Retry-After` permite uma nova tentativa após 400–599 ms, dentro do mesmo prazo total de até 25 segundos. Cota, timeout, autorização e respostas inválidas exigem nova ação do usuário. Ollama local permite até 180 segundos. Cancelar interrompe a solicitação e preserva as peças selecionadas. Trocar peças invalida o resultado anterior.
+- A função Express na Vercel tem limite de 60 segundos. A análise com Gemini 3.1 ou 3.5 Flash-Lite tenta o outro modelo uma vez em HTTP 429, 503 ou 504 sem `Retry-After`, ou após esgotar a metade do prazo na tentativa inicial. A chamada inteira mantém o teto de 25 segundos na Vercel. O modelo que responde é registrado no resultado. Erros de autorização e respostas inválidas são exibidos para nova ação do usuário. Ollama local permite até 180 segundos. Cancelar interrompe a solicitação e preserva as peças selecionadas. Trocar peças invalida o resultado anterior.
 
 ## Alternativas
 

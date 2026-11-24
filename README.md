@@ -6,13 +6,11 @@ Next.js 16 / React 19 no frontend, Express no backend e MySQL (local) ou Postgre
 
 Para a banca, consulte o [roteiro de apresentação do TCC](docs/APRESENTACAO_TCC.md) e a [revisão de entrega](docs/CHECKUP.md). Os resultados são datados e distinguem testes locais de verificação da hospedagem.
 
-## Rodar depois do clone
+## Rodar depois de extrair o ZIP ou clonar
 
-Requisitos: **Node.js 24** (veja `.nvmrc`), npm 10+ e Git. Para o banco, use Docker com Compose v2 ou uma instalação própria de MySQL/MariaDB. Todas as dependências JavaScript são instaladas **na raiz**.
+Requisitos: **Node.js 24** (veja `.nvmrc`) e npm 10+. Git é necessário para clonar; com o ZIP, extraia e abra o terminal na pasta que contém `package.json`. Para o banco, use Docker com Compose v2 ou uma instalação própria de MySQL/MariaDB. Todas as dependências JavaScript são instaladas **na raiz**.
 
 ```sh
-git clone https://github.com/M4nuPr4yx/ehtech.git
-cd ehtech
 npm ci
 npm run setup
 npm run db:up
@@ -59,7 +57,7 @@ O [catálogo de demonstração com modelos reais de referência](docs/CATALOGO_D
 - **Login Google:** o botão “Logar com Google” abre a escolha de conta. No primeiro acesso, basta escolher seu nome público; nos próximos, a entrada é automática. Qualquer usuário pode alterar o nome em Perfil → ícone de lápis → ícone de salvar. Novos perfis recebem uma paisagem padrão substituível. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URI` na API. Sem configuração, o botão informa a pendência e o login comum permanece disponível. Passo a passo em [LOGIN_GOOGLE.md](docs/LOGIN_GOOGLE.md).
 - **Frontend:** não precisa de `.env.local` na instalação padrão. Use `.env.example` como referência para mudar `BACKEND_URL` (destino do proxy no servidor). `NEXT_PUBLIC_API_URL` substitui `/api` no navegador; mantenha vazio para o mesmo domínio. Nunca use `NEXT_PUBLIC_*` para segredos.
 - **E-mail:** configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASS` no backend. Sem SMTP, a recuperação de senha não envia o link.
-- **Compatibilidade:** catálogo e checagem básica de requisitos funcionam sem chave de IA e sem banco. A análise adicional com IA exige um provedor configurado. Dados ausentes ou variantes ambíguas permanecem não verificados. Consulte [COMPATIBILIDADE.md](docs/COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md).
+- **Compatibilidade:** o catálogo de componentes funciona sem chave de IA e sem banco. Para gerar o parecer da tela, configure o provedor de IA. Dados ausentes ou variantes ambíguas permanecem não verificados. Consulte [COMPATIBILIDADE.md](docs/COMPATIBILIDADE.md) e [IA_COMPATIBILIDADE.md](docs/IA_COMPATIBILIDADE.md).
 - **Pedidos e recebimento:** `/pedidos` separa compras e vendas, apresenta a próxima ação de cada entrega e permite negociar frete/prazo. Retiradas podem ser confirmadas com código temporário; envios usam confirmação pelo comprador. Pagamento é externo. Veja [ACORDOS_E_ENTREGAS.md](docs/ACORDOS_E_ENTREGAS.md).
 - **PostgreSQL/Neon:** configure `DATABASE_URL` no backend e um `API_SEGREDO` exclusivo. A mesma suíte de integração roda em MySQL/MariaDB e PostgreSQL real; veja [DESENVOLVIMENTO.md](docs/DESENVOLVIMENTO.md) para a configuração de testes temporários.
 - **Compartilhamento:** configure `SITE_URL` no frontend com a URL pública canônica. Anúncios aprovados têm metadados próprios e HTML inicial; `/sitemap.xml` lista mapas paginados. Áreas da conta e links secretos não entram nos mapas e usam `noindex`.

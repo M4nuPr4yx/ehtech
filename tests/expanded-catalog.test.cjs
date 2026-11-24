@@ -73,7 +73,7 @@ test('nova avaliação Gemini não chama regras nem envia dados pessoais, preser
   await assert.rejects(quota.explain(context), error => error.status === 429 && error.code === 'cota_atingida' && !/resultado técnico/.test(error.message))
 })
 
-test('avaliação Gemini repete uma indisponibilidade temporária e compartilha sinal e payload', async () => {
+test('avaliação Gemini usa modelo alternativo após indisponibilidade e preserva o payload', async () => {
   const context = assessmentContext(selection)
   const attempts = []
   const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private' }, fetchImpl: async (url, options) => {
@@ -82,19 +82,23 @@ test('avaliação Gemini repete uma indisponibilidade temporária e compartilha 
       ? new Response('indisponível', { status: 503 })
       : Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(answerFor(context)) }] } }] })
   } })
-  assert.equal((await assistant.explain(context)).status, 'nao_verificado')
+  const result = await assistant.explain(context)
+  assert.equal(result.status, 'nao_verificado')
+  assert.equal(result.modelo, 'gemini-3.5-flash-lite')
   assert.equal((await assistant.explain(context)).em_cache, true)
   assert.equal(attempts.length, 2)
-  assert.deepEqual(attempts[0], attempts[1])
-  assert.equal(attempts[0].signal, attempts[1].signal)
+  assert.match(attempts[0].url, /gemini-3\.1-flash-lite:generateContent$/)
+  assert.match(attempts[1].url, /gemini-3\.5-flash-lite:generateContent$/)
+  assert.equal(attempts[0].body, attempts[1].body)
+  assert.notEqual(attempts[0].signal, attempts[1].signal)
 })
 
 test('avaliação Gemini respeita cota, Retry-After, timeout e cancelamento sem nova geração', async () => {
   const context = assessmentContext(selection)
   for (const [options, code] of [
-    [{ status: 429 }, 'cota_atingida'],
+    [{ status: 429, headers: { 'Retry-After': '30' } }, 'cota_atingida'],
     [{ status: 503, headers: { 'Retry-After': '30' } }, 'provedor_indisponivel'],
-    [{ status: 504 }, 'tempo_excedido']
+    [{ status: 504, headers: { 'Retry-After': '30' } }, 'tempo_excedido']
   ]) {
     let calls = 0
     const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private' }, fetchImpl: async () => {
@@ -114,6 +118,32 @@ test('avaliação Gemini respeita cota, Retry-After, timeout e cancelamento sem 
   } })
   await assert.rejects(assistant.explain(context, { signal: controller.signal }), error => error.code === 'cancelada')
   assert.equal(calls, 1)
+})
+
+test('gabinete e cooler mantêm cobertura com o modelo alternativo em cota ou timeout', async () => {
+  const extra = ['gabinete', 'cooler'].map(tipo => snapshot.items.find(item => item.tipo === tipo))
+  const context = assessmentContext({ componentes: [...selection.componentes, ...extra.map(item => ({ id: item.id, quantidade: 1 }))] })
+  for (const status of [429, 504, null]) {
+    let calls = 0
+    const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private', COMPAT_AI_TIMEOUT_MS: '1000' }, fetchImpl: async (url, { signal }) => {
+      if (++calls === 1) {
+        if (!status) await require('node:timers/promises').setTimeout(2000, undefined, { signal })
+        return new Response('', { status })
+      }
+      assert.match(url, /gemini-3\.5-flash-lite:generateContent$/)
+      return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(answerFor(context)) }] } }] })
+    } })
+    const answer = await assistant.explain(context)
+    assert.deepEqual(answer.pontos[0].componentes, context.componentes.map(item => item.id))
+    assert.equal(calls, 2)
+  }
+})
+
+test('alternativa indisponível para a conta preserva o erro acionável do modelo principal', async () => {
+  let calls = 0
+  const assistant = createCompatibilityAssistant({ assessment: true, env: { GEMINI_API_KEY: 'test-key-private' }, fetchImpl: async () => new Response('', { status: ++calls === 1 ? 429 : 404 }) })
+  await assert.rejects(assistant.explain(assessmentContext(selection)), error => error.code === 'cota_atingida' && error.status === 429)
+  assert.equal(calls, 2)
 })
 
 test('rotas ampliadas funcionam sem banco; seleção falsificada não chega à IA', async () => {
